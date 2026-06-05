@@ -137,10 +137,34 @@ Simply type the following into your terminal:
 pkgs
 
 ```
-## 🔧 Tweaks & Configuration
-You can customize the appearance and behavior by modifying the variables at the bottom of the pkgs function in ~/.pkgs_core.zsh:
- * **Colors**: Change the variables starting with C_ to modify the UI color scheme.
- * **Window Splits**: Adjust PORTRAIT_SPLIT and LANDSCAPE_SPLIT to change the percentage of the screen the preview window occupies.
- * **Border Styles**: Change BORDER_STYLE to sharp, double, or block if you prefer a different look than the default rounded.
-> **Pro Tip**: If you find yourself needing a "fresh" package list, you can add apt update at the very beginning of the pkgs function—just keep in mind it might slow down the startup time of the menu!
+## 🔧 Advanced Tweaks & Configuration
+You can go beyond the basics by fine-tuning the internal logic of pkgs.zsh. Modify these sections within the pkgs function in ~/.pkgs_core.zsh to make the tool truly yours:
+ * **Customizing the Preview Window**:
+   * Want the preview to be larger? Modify PORTRAIT_SPLIT="down:48%:wrap" to a higher percentage like down:60%:wrap.
+   * Prefer the preview on the left instead of the right? In LANDSCAPE_SPLIT="right:40%:wrap", change right to left.
+   * You can also add --cycle or --scrollbar to the FZF_ARGS array if you want more navigation control.
+ * **Deep Color Palette Tweaking**:
+   * The --color flag in the _pkgs_build_fzf_args function is the key to a custom aesthetic. You can map any of the ANSI 256 colors to specific elements like fg+ (current line foreground), bg+ (current line background), or hl+ (highlighted match in the current line).
+   * Example: Change pointer:161 (a vibrant red/pink) to pointer:045 for a crisp cyan accent.
+ * **Enhancing the "Action" Logic**:
+   * Look at the enter:become block in _pkgs_build_fzf_args. You can change the behavior of the Enter key.
+   * Want to perform a reinstall instead of a basic install? Swap ${PKG_MGR} install {1} for ${PKG_MGR} reinstall {1}.
+   * Need to see more info before acting? Add an echo line inside the become block to log your actions to a file (e.g., echo "$(date): Installed {1}" >> ~/.pkgs_log).
+ * **Tuning the Preview Command**:
+   * Want to see *more* than just the top 5 dependencies? Find the deps=$(...) line in _pkgs_preview_command and change head -n 5 to head -n 10 or remove the | head -n 5 pipe entirely to see the full list.
+   * Tired of the cowsay message? Replace the cowsay line in _pkgs_preview_command with a simple echo "No dependencies found." to speed up the preview rendering.
+ * **Optimizing Performance**:
+   * If you have a massive amount of packages and the awk processing feels slow, you can cache the package list to a temporary file. Simply point _pkgs_generate_list to read from a file that updates only once a day instead of running apt-cache search every single time you launch the script.
+ * **Data Parsing Precision**:
+   * The awk block uses match($0, / - /) to split the package name from the description. If your specific apt output format varies or contains unusual characters, you can adjust this regex. For example, changing it to match($0, / {2,}/) might be better if your package descriptions are separated by multiple spaces rather than a hyphen.
+ * **Terminal Environment Overrides**:
+   * If your terminal emulator struggles with specific ANSI colors, you can override the C_ variables to use standard 16-color codes instead of the complex escape sequences. This ensures maximum compatibility across different Termux themes or fonts.
+ * **Log Everything**:
+   * Add a helper variable local LOG_FILE="$HOME/.pkgs_history" and append to it within your enter:become logic. This gives you a permanent record of every package you've ever installed or removed via the script—super useful for cleaning up your system later.
+> **Pro Tip 2 (The "Stealth" Mode)**: If you're tired of seeing the package description every time, you can hide the preview window by default by changing --preview-window="$PREVIEW_LAYOUT" to --preview-window="$PREVIEW_LAYOUT:hidden". You can then press ? to toggle it on only when you need it.
 > 
+> **Pro Tip 3 (Dynamic Scaling)**: Instead of hard-coding PORTRAIT_SPLIT, you can write a secondary if/else block that calculates the percentage based on total screen height, ensuring that the preview window is always exactly 5 lines less than your terminal height.
+> 
+> **Pro Tip 4 (Filter Optimization)**: You can expand the _pkgs_generate_list command by adding a grep -v filter to exclude specific library packages (like lib* or python-dev-*) from the list, keeping your search results cleaner and focusing only on end-user software.
+> 
+
