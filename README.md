@@ -13,7 +13,7 @@ Follow these steps to integrate pkgs.zsh into your Termux environment.
 ### 1. Install Dependencies
 You need fzf for the interface, gawk for data processing, and cowsay for the status feedback.
 ```bash
-pkg update && pkg upgrade && pkg install fzf ncurses-utils coreutils cowsay
+pkg update && pkg upgrade && pkg install gawk fzf ncurses-utils coreutils cowsay
 
 ```
 ### 2. Create the Script File
