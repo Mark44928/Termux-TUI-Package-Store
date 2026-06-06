@@ -23,7 +23,7 @@ pkg install -y zsh fzf cowsay coreutils gawk grep sed ncurses curl >/dev/null 2>
 # Download core file
 echo "⬇️ Downloading core script..."
 
-URL="https://raw.githubusercontent.com/$REPO/$BRANCH/pkgs_core.zsh"
+URL="https://raw.githubusercontent.com/$REPO/$BRANCH/.pkgs_core.zsh"
 
 curl -fsSL "$URL" -o "$INSTALL_PATH"
 
