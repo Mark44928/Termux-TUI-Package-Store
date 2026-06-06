@@ -192,3 +192,5 @@ Please include:
 - Termux version
 - Shell (zsh/bash/ksh)
 - Error message
+- Device model
+- Screenshot (if applicable)
