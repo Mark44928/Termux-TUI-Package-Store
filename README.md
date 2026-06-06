@@ -10,6 +10,11 @@ The script operates as a bridge between your system's package database and an in
  2. **Data Processing**: Runs a two-pass awk script. It first reads dpkg-query to identify installed items, then merges this with apt-cache search to provide a comprehensive list of every available package.
  3. **Live Previews**: As you highlight a package, the script dynamically pulls its metadata (Version, Section, Size) and dependency tree using apt-cache.
  4. **Action Binding**: Upon hitting Enter, it performs a status check on the package. If installed, it prepares to remove; if missing, it initiates an install.
+
+## 📸 Screenshot
+
+![pkgs screenshot](assets/pkgs.png)
+
 ## 🚀 Full Step-by-Step Installation
 Follow these steps to integrate pkgs.zsh into your Termux environment.
 ### 1. Install Dependencies
