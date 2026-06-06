@@ -48,7 +48,7 @@ else
 fi
 
 # Avoid duplicate sourcing
-if ! grep -q "pkgs_core.zsh" "$SHELL_FILE" 2>/dev/null; then
+if ! grep -q ".pkgs_core.zsh" "$SHELL_FILE" 2>/dev/null; then
     echo "source $INSTALL_PATH" >> "$SHELL_FILE"
     echo "✅ Added to $SHELL_FILE"
 else
