@@ -24,6 +24,12 @@ The script operates as a bridge between your system's package database and an in
 
 ![pkgs screenshot](assets/pkgs.png)
 
+## 🚀 One-Line Install
+
+```sh
+bash <(curl -fsSL https://raw.githubusercontent.com/Mark44928/Termux-TUI-Package-Store/main/install.sh)
+```
+
 ## 🚀 Full Step-by-Step Installation
 Follow these steps to integrate pkgs.zsh into your Termux environment.
 ### 1. Install Dependencies
