@@ -3,7 +3,16 @@
 **The TUI package manager wrapper for Termux.**
 
 Termux-TUI-Package-Store is a high-performance, fzf-powered interface that replaces tedious manual pkg commands with a smooth, interactive TUI. It intelligently detects your terminal layout, visually highlights installed vs. available packages, and manages your software installation with a single keystroke.
-# Warning: This only for ZSH, Bash and KSH! sh, fish, and etc may not work, sorry! 🥲⚠️
+## Compatibility
+
+| Shell | Supported |
+|--------|--------|
+| Zsh | ✅ |
+| Bash | ✅ |
+| Ksh | ✅ |
+| Fish | ❌ |
+| sh | ❌ |
+
 ## 🛠 How It Works
 The script operates as a bridge between your system's package database and an interactive fuzzy-finder.
  1. **Layout Detection**: Uses tput to measure your window size and automatically decides whether to split the screen horizontally or vertically.
@@ -176,3 +185,10 @@ You can go beyond the basics by fine-tuning the internal logic of pkgs.zsh. Modi
 > **Pro Tip 4 (Filter Optimization)**: You can expand the _pkgs_generate_list command by adding a grep -v filter to exclude specific library packages (like lib* or python-dev-*) from the list, keeping your search results cleaner and focusing only on end-user software.
 > 
 
+## When Reporting Bugs... 🐛
+
+Please include:
+- Android version
+- Termux version
+- Shell (zsh/bash/ksh)
+- Error message
