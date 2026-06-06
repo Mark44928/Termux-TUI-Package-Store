@@ -1,7 +1,8 @@
 # Termux-TUI-Package-Store 📦
 
 **The TUI package manager wrapper for Termux.**
-pkgs.zsh is a high-performance, fzf-powered interface that replaces tedious manual pkg commands with a smooth, interactive TUI. It intelligently detects your terminal layout, visually highlights installed vs. available packages, and manages your software installation with a single keystroke.
+
+Termux-TUI-Package-Store is a high-performance, fzf-powered interface that replaces tedious manual pkg commands with a smooth, interactive TUI. It intelligently detects your terminal layout, visually highlights installed vs. available packages, and manages your software installation with a single keystroke.
 # Warning: This only for ZSH, Bash and KSH! sh, fish, and etc may not work, sorry! 🥲⚠️
 ## 🛠 How It Works
 The script operates as a bridge between your system's package database and an interactive fuzzy-finder.
