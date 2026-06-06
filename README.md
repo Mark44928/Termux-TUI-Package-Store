@@ -1,7 +1,8 @@
-Termux-TUI-Package-Store 📦
+# Termux-TUI-Package-Store 📦
+
 **The TUI package manager wrapper for Termux.**
 pkgs.zsh is a high-performance, fzf-powered interface that replaces tedious manual pkg commands with a smooth, interactive TUI. It intelligently detects your terminal layout, visually highlights installed vs. available packages, and manages your software installation with a single keystroke.
-# Warning: This only for ZSH and Bash! sh, fish, and etc may not work, sorry! 🥲⚠️
+# Warning: This only for ZSH, Bash and KSH! sh, fish, and etc may not work, sorry! 🥲⚠️
 ## 🛠 How It Works
 The script operates as a bridge between your system's package database and an interactive fuzzy-finder.
  1. **Layout Detection**: Uses tput to measure your window size and automatically decides whether to split the screen horizontally or vertically.
@@ -13,9 +14,10 @@ Follow these steps to integrate pkgs.zsh into your Termux environment.
 ### 1. Install Dependencies
 You need fzf for the interface, gawk for data processing, and cowsay for the status feedback.
 ```bash
-pkg update && pkg upgrade && pkg install gawk fzf ncurses-utils coreutils cowsay
+pkg update && pkg upgrade && pkg install zsh fzf cowsay coreutils gawk grep sed ncurses
 
 ```
+Ignore when packages already installed.
 ### 2. Create the Script File
 Create a dedicated file in your home directory to house the function:
 ```bash
