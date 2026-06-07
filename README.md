@@ -35,7 +35,7 @@ Follow these steps to integrate this TUI store into your Termux environment.
 ### 1. Install Dependencies
 You need fzf for the interface, gawk for data processing, and cowsay for the status feedback.
 ```bash
-pkg update && pkg upgrade && pkg install  fzf cowsay coreutils gawk grep sed ncurses
+pkg update && pkg upgrade && pkg install bat fzf cowsay coreutils gawk grep sed ncurses
 
 ```
 Ignore when packages already installed.
