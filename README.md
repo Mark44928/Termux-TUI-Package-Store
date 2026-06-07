@@ -147,11 +147,11 @@ _pkgs_preview_command() {
 }
 ```
 Ctrl + O, Enter, and Ctrl + X. 😌
-### 3. Integrate with Zsh
+### 3. Integrate with Zsh/Bash/Ksh
 Add the file to your shell configuration so it's available every time you open Termux:
 ```bash
-echo "source ~/.pkgs_core.zsh" >> ~/.zshrc # or ~/.bashrc for bash users
-source ~/.zshrc # Or ~/.bashrc if youre bash
+echo "source ~/.pkgs_core.zsh" >> ~/.zshrc # or ~/.bashrc for bash users, or ~/.kshrc for Ksh
+source ~/.zshrc # Or ~/.bashrc if youre bash, ~/.kshrc for ksh users
 
 ```
 ### 4. Usage
