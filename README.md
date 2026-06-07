@@ -31,14 +31,18 @@ bash <(curl -fsSL https://raw.githubusercontent.com/Mark44928/Termux-TUI-Package
 ```
 
 ## 🚀 Full Step-by-Step Installation
-Follow these steps to integrate pkgs.zsh into your Termux environment.
+Follow these steps to integrate this TUI store into your Termux environment.
 ### 1. Install Dependencies
 You need fzf for the interface, gawk for data processing, and cowsay for the status feedback.
 ```bash
-pkg update && pkg upgrade && pkg install zsh fzf cowsay coreutils gawk grep sed ncurses
+pkg update && pkg upgrade && pkg install  fzf cowsay coreutils gawk grep sed ncurses
 
 ```
 Ignore when packages already installed.
+This is only zsh only.
+```bash
+pkgs install zsh
+```
 ### 2. Create the Script File
 Create a dedicated file in your home directory to house the function:
 ```bash
