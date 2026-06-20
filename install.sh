@@ -43,6 +43,8 @@ if [ -n "$ZSH_VERSION" ] || echo "$SHELL" | grep -q "zsh"; then
     SHELL_FILE="$HOME/.zshrc"
 elif [ -n "$BASH_VERSION" ] || echo "$SHELL" | grep -q "bash"; then
     SHELL_FILE="$HOME/.bashrc"
+elif [ -n "$KSH_VERSION" ] || echo "$SHELL" | grep -q "ksh" || [ "$(basename "$0")" = "ksh" ]; then
+    SHELL_FILE="$HOME/.kshrc"
 else
     SHELL_FILE="$HOME/.profile"
 fi
