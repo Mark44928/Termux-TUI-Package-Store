@@ -17,8 +17,7 @@ fi
 
 # Update packages safely
 echo "🔧 Installing dependencies..."
-pkg update -y >/dev/null 2>&1
-pkg install -y zsh fzf cowsay coreutils gawk grep sed ncurses curl >/dev/null 2>&1
+pkg update -y >/dev/null 2>&1 && pkg install -y zsh fzf cowsay coreutils gawk grep sed ncurses curl >/dev/null 2>&1
 
 # Download core file
 echo "⬇️ Downloading core script..."
