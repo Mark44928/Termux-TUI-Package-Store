@@ -26,7 +26,7 @@
 
 Termux-TUI-Package-Store is a high-performance, fzf-powered interface that replaces tedious manual pkg commands with a smooth, interactive TUI. It intelligently detects your terminal layout, visually highlights installed vs. available packages, and manages your software installation with a single keystroke.
 
-[![Star History Chart](https://api.star-history.com/svg?repos=Mark44928/Termux-TUI-Package-Store&type=Date)](https://star-history.com/#Mark44928/Termux-TUI-Package-Store&Date)
+[![Star History Rank](https://api.star-history.com/badge?repo=Mark44928/Termux-TUI-Package-Store&theme=dark)](https://www.star-history.com/#Mark44928/Termux-TUI-Package-Store&Date)
 ## 🛠 How It Works
 The script operates as a bridge between your system's package database and an interactive fuzzy-finder.
  1. **Layout Detection**: Uses tput to measure your window size and automatically decides whether to split the screen horizontally or vertically.
