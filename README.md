@@ -18,7 +18,7 @@ The script operates as a bridge between your system's package database and an in
  1. **Layout Detection**: Uses tput to measure your window size and automatically decides whether to split the screen horizontally or vertically.
  2. **Data Processing**: Runs a two-pass awk script. It first reads dpkg-query to identify installed items, then merges this with apt-cache search to provide a comprehensive list of every available package.
  3. **Live Previews**: As you highlight a package, the script dynamically pulls its metadata (Version, Section, Size) and dependency tree using apt-cache.
- 4. **Action Binding**: Upon hitting Enter, it performs a status check on the package. If installed, it prepares to remove; if missing, it initiates an install.
+  4. **Action Binding**: Upon hitting Enter, it performs a status check on the package. If installed, it removes; if missing, it installs. After the operation, the store automatically re-opens so you can keep managing packages. Press Ctrl-C or Esc to exit.
 
 ## 📸 Screenshot
 
@@ -81,20 +81,21 @@ pkgs() {
         ' <(dpkg-query -W -f='${Package}\n') <(apt-cache search ".*")
     }
 
-_pkgs_preview_command() {
-    echo "apt-cache show {1} | grep -E '^(Version|Section|Installed-Size):'
-          echo -n 'Size: '
-          apt-cache show {1} | grep '^Size:' | cut -d' ' -f2 | numfmt --to=iec --suffix=B
-          echo -e '\n--- DEPENDENCIES ---'
-          deps=\$(apt-cache depends {1} | grep 'Depends:' | cut -d':' -f2 | sort -u | head -n 5 | xargs)
-          if [ -z \"\$deps\" ]; then
-              cowsay 'This Package had no dependencies yet.'
-          else
-              echo \"\$deps\"
-          fi
-          echo -e '\n--- DESCRIPTION ---'
-          apt-cache show {1} | sed -n 's/^Description: //p'"
-}
+    _pkgs_preview_command() {
+        echo "apt-cache show {1} | grep -E '^(Version|Section|Installed-Size):'
+              echo -n 'Size: '
+              apt-cache show {1} | grep '^Size:' | cut -d' ' -f2 | numfmt --to=iec --suffix=B
+              echo -e '\n--- DEPENDENCIES ---'
+              deps=\$(apt-cache depends {1} | grep 'Depends:' | cut -d':' -f2 | sort -u | head -n 5 | xargs)
+              if [ -z \"\$deps\" ]; then
+                  cowsay 'This Package had no dependencies yet.'
+              else
+                  echo \"\$deps\"
+              fi
+              echo -e '\n--- DESCRIPTION ---'
+              apt-cache show {1} | sed -n 's/^Description: //p'"
+    }
+
     _pkgs_build_fzf_args() {
         local query="$1"
         FZF_ARGS=(
@@ -116,15 +117,6 @@ _pkgs_preview_command() {
             --no-hscroll
             --bind 'left:ignore,right:ignore,alt-left:ignore,alt-right:ignore'
             --preview "$(_pkgs_preview_command)"
-            --bind "enter:become(
-                if dpkg -s {1} >/dev/null 2>&1; then
-                    echo -e '${C_MSG_REMOVE}--- package is installed. Preparing to REMOVE... ---${C_RESET}'
-                    ${PKG_MGR} remove {1}
-                else
-                    echo -e '${C_MSG_INSTALL}--- package is not installed. Preparing to INSTALL... ---${C_RESET}'
-                    ${PKG_MGR} install {1}
-                fi
-            )"
             --bind '?:toggle-preview'
         )
     }
@@ -144,10 +136,27 @@ _pkgs_preview_command() {
     local C_MSG_REMOVE='\033[1;31m'
 
     local PREVIEW_LAYOUT=$(_pkgs_detect_layout)
-    local -a FZF_ARGS
-    _pkgs_build_fzf_args "$*"
 
-    _pkgs_generate_list | fzf "${FZF_ARGS[@]}"
+    while true; do
+        local -a FZF_ARGS
+        _pkgs_build_fzf_args "$*"
+
+        local selection
+        selection=$(_pkgs_generate_list | fzf "${FZF_ARGS[@]}")
+        local ret=$?
+
+        [[ $ret -ne 0 ]] && break
+
+        local pkg_name="${selection%%|*}"
+
+        if dpkg -s "$pkg_name" >/dev/null 2>&1; then
+            echo -e "${C_MSG_REMOVE}--- package is installed. Preparing to REMOVE... ---${C_RESET}"
+            ${PKG_MGR} remove "$pkg_name"
+        else
+            echo -e "${C_MSG_INSTALL}--- package is not installed. Preparing to INSTALL... ---${C_RESET}"
+            ${PKG_MGR} install "$pkg_name"
+        fi
+    done
 }
 ```
 Ctrl + O, Enter, and Ctrl + X. 😌
@@ -174,9 +183,10 @@ You can go beyond the basics by fine-tuning the internal logic of pkgs.zsh. Modi
    * The --color flag in the _pkgs_build_fzf_args function is the key to a custom aesthetic. You can map any of the ANSI 256 colors to specific elements like fg+ (current line foreground), bg+ (current line background), or hl+ (highlighted match in the current line).
    * Example: Change pointer:161 (a vibrant red/pink) to pointer:045 for a crisp cyan accent.
  * **Enhancing the "Action" Logic**:
-   * Look at the enter:become block in _pkgs_build_fzf_args. You can change the behavior of the Enter key.
-   * Want to perform a reinstall instead of a basic install? Swap ${PKG_MGR} install {1} for ${PKG_MGR} reinstall {1}.
-   * Need to see more info before acting? Add an echo line inside the become block to log your actions to a file (e.g., echo "$(date): Installed {1}" >> ~/.pkgs_log).
+    * Look at the while loop at the bottom of the pkgs function. The action logic runs after fzf returns a selection.
+    * Want to perform a reinstall instead of a basic install? Swap ${PKG_MGR} install "$pkg_name" for ${PKG_MGR} reinstall "$pkg_name".
+    * Need to log your actions? Add a line like echo "$(date): Installed $pkg_name" >> ~/.pkgs_log inside the loop.
+    * The store automatically re-opens after each operation. To quit, press Ctrl-C or Esc.
  * **Tuning the Preview Command**:
    * Want to see *more* than just the top 5 dependencies? Find the deps=$(...) line in _pkgs_preview_command and change head -n 5 to head -n 10 or remove the | head -n 5 pipe entirely to see the full list.
    * Tired of the cowsay message? Replace the cowsay line in _pkgs_preview_command with a simple echo "No dependencies found." to speed up the preview rendering.
@@ -187,7 +197,7 @@ You can go beyond the basics by fine-tuning the internal logic of pkgs.zsh. Modi
  * **Terminal Environment Overrides**:
    * If your terminal emulator struggles with specific ANSI colors, you can override the C_ variables to use standard 16-color codes instead of the complex escape sequences. This ensures maximum compatibility across different Termux themes or fonts.
  * **Log Everything**:
-   * Add a helper variable local LOG_FILE="$HOME/.pkgs_history" and append to it within your enter:become logic. This gives you a permanent record of every package you've ever installed or removed via the script—super useful for cleaning up your system later.
+    * Add a helper variable local LOG_FILE="$HOME/.pkgs_history" and append to it within the while loop. This gives you a permanent record of every package you've ever installed or removed via the script—super useful for cleaning up your system later.
 > **Pro Tip 2 (The "Stealth" Mode)**: If you're tired of seeing the package description every time, you can hide the preview window by default by changing --preview-window="$PREVIEW_LAYOUT" to --preview-window="$PREVIEW_LAYOUT:hidden". You can then press ? to toggle it on only when you need it.
 > 
 > **Pro Tip 3 (Dynamic Scaling)**: Instead of hard-coding PORTRAIT_SPLIT, you can write a secondary if/else block that calculates the percentage based on total screen height, ensuring that the preview window is always exactly 5 lines less than your terminal height.
