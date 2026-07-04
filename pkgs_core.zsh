@@ -63,15 +63,6 @@ _pkgs_preview_command() {
             --no-hscroll
             --bind 'left:ignore,right:ignore,alt-left:ignore,alt-right:ignore'
             --preview "$(_pkgs_preview_command)"
-            --bind "enter:become(
-                if dpkg -s {1} >/dev/null 2>&1; then
-                    echo -e '${C_MSG_REMOVE}--- package is installed. Preparing to REMOVE... ---${C_RESET}'
-                    ${PKG_MGR} remove {1}
-                else
-                    echo -e '${C_MSG_INSTALL}--- package is not installed. Preparing to INSTALL... ---${C_RESET}'
-                    ${PKG_MGR} install {1}
-                fi
-            )"
             --bind '?:toggle-preview'
         )
     }
@@ -91,9 +82,26 @@ _pkgs_preview_command() {
     local C_MSG_REMOVE='\033[1;31m'
 
     local PREVIEW_LAYOUT=$(_pkgs_detect_layout)
-    local -a FZF_ARGS
-    _pkgs_build_fzf_args "$*"
 
-    _pkgs_generate_list | fzf "${FZF_ARGS[@]}"
+    while true; do
+        local -a FZF_ARGS
+        _pkgs_build_fzf_args "$*"
+
+        local selection
+        selection=$(_pkgs_generate_list | fzf "${FZF_ARGS[@]}")
+        local ret=$?
+
+        [[ $ret -ne 0 ]] && break
+
+        local pkg_name="${selection%%|*}"
+
+        if dpkg -s "$pkg_name" >/dev/null 2>&1; then
+            echo -e "${C_MSG_REMOVE}--- package is installed. Preparing to REMOVE... ---${C_RESET}"
+            ${PKG_MGR} remove "$pkg_name"
+        else
+            echo -e "${C_MSG_INSTALL}--- package is not installed. Preparing to INSTALL... ---${C_RESET}"
+            ${PKG_MGR} install "$pkg_name"
+        fi
+    done
 }
 
