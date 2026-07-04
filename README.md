@@ -18,12 +18,32 @@
   <a href="https://github.com/Mark44928/Termux-TUI-Package-Store/issues">
     <img src="https://img.shields.io/github/issues/Mark44928/Termux-TUI-Package-Store?style=for-the-badge&color=red" alt="Issues">
   </a>
+  <a href="https://github.com/Mark44928/Termux-TUI-Package-Store/pulls">
+    <img src="https://img.shields.io/github/issues-pr/Mark44928/Termux-TUI-Package-Store?style=for-the-badge&color=blueviolet" alt="PRs">
+  </a>
+  <a href="https://github.com/Mark44928/Termux-TUI-Package-Store">
+    <img src="https://img.shields.io/badge/maintained-yes-brightgreen?style=for-the-badge" alt="Maintained">
+  </a>
+  <a href="https://github.com/Mark44928/Termux-TUI-Package-Store">
+    <img src="https://img.shields.io/badge/PRs-welcome-orange?style=for-the-badge" alt="PRs Welcome">
+  </a>
 </p>
 
 <h1 align="center">Termux TUI Package Store 📦</h1>
 
 <p align="center">
   <em>An interactive, fzf-powered package browser for Termux — search, preview, install, and remove packages without typing individual package-manager commands.</em>
+</p>
+
+<p align="center">
+  <a href="#quick-install">Quick Install</a> •
+  <a href="#usage">Usage</a> •
+  <a href="#configuration">Configuration</a> •
+  <a href="#contributing">Contributing</a>
+</p>
+
+<p align="center">
+  <b>⭐ Star this repo if you find it useful! It helps others discover it.</b>
 </p>
 
 ---
@@ -297,6 +317,22 @@ This tool runs `pkg install` and `pkg remove` commands with elevated privileges 
 - [junegunn/fzf](https://github.com/junegunn/fzf) — the incredible fuzzy-finder that makes this tool possible
 - The [Termux](https://termux.com/) community for maintaining an excellent Android terminal environment
 - Everyone who has submitted issues, suggestions, or pull requests
+
+---
+
+## Show Your Support
+
+If Termux TUI Package Store makes your Termux life easier, consider:
+
+| | |
+|---|---|
+| ⭐ | **Star the repo** — it helps others discover the project |
+| 🐛 | **Report bugs** — open an [issue](https://github.com/Mark44928/Termux-TUI-Package-Store/issues) |
+| 🔧 | **Contribute** — submit a [pull request](https://github.com/Mark44928/Termux-TUI-Package-Store/pulls) |
+| 📢 | **Share it** — tell your Termux-using friends |
+| 💬 | **Give feedback** — ideas and suggestions are always welcome |
+
+Every star, issue, and PR makes this project better. Thank you!
 
 ---
 
