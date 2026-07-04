@@ -55,6 +55,8 @@ _pkgs_preview_command() {
             --prompt="  Find > "
             --pointer="▶"
             --info=inline
+            --multi
+            --print-query
             --color='fg:250,bg:-1,hl:063,fg+:231,bg+:235,hl+:063,info:144,prompt:161,pointer:161,marker:118,spinner:135,header:087'
             --preview-window="$PREVIEW_LAYOUT"
             --delimiter='\|'
@@ -80,28 +82,72 @@ _pkgs_preview_command() {
     local C_PKG_DESC='\x1b[2;37m'
     local C_MSG_INSTALL='\033[1;32m'
     local C_MSG_REMOVE='\033[1;31m'
+    local C_MSG_INFO='\033[1;33m'
 
     local PREVIEW_LAYOUT=$(_pkgs_detect_layout)
 
+    local initial_query="$*"
+    local query="$initial_query"
+
     while true; do
         local -a FZF_ARGS
-        _pkgs_build_fzf_args "$*"
+        _pkgs_build_fzf_args "$query"
 
-        local selection
-        selection=$(_pkgs_generate_list | fzf "${FZF_ARGS[@]}")
+        local output
+        output=$({
+            echo "__UPGRADE__|${C_MSG_INFO}⬆  Upgrade all packages${C_RESET}"
+            echo "__EXPORT__|${C_MSG_INFO}💾  Export package list${C_RESET}"
+            _pkgs_generate_list
+        } | fzf "${FZF_ARGS[@]}")
         local ret=$?
 
         [[ $ret -ne 0 ]] && break
+        [[ -z "$output" ]] && continue
 
-        local pkg_name="${selection%%|*}"
+        local lines=("${(@f)output}")
+        local query="${lines[1]}"
 
-        if dpkg -s "$pkg_name" >/dev/null 2>&1; then
-            echo -e "${C_MSG_REMOVE}--- package is installed. Preparing to REMOVE... ---${C_RESET}"
-            ${PKG_MGR} remove "$pkg_name"
-        else
-            echo -e "${C_MSG_INSTALL}--- package is not installed. Preparing to INSTALL... ---${C_RESET}"
-            ${PKG_MGR} install "$pkg_name"
-        fi
+        [[ ${#lines} -lt 2 ]] && continue
+
+        local line
+        for line in "${(@)lines[2,$#lines]}"; do
+            [[ -z "$line" ]] && continue
+            local pkg_name="${line%%|*}"
+
+            case "$pkg_name" in
+                __UPGRADE__)
+                    echo
+                    echo -e "${C_MSG_INFO}--- Upgrading all packages... ---${C_RESET}"
+                    ${PKG_MGR} upgrade
+                    echo
+                    continue
+                    ;;
+                __EXPORT__)
+                    local export_file="termux-packages-export-$(date +%Y%m%d-%H%M%S).txt"
+                    dpkg-query -W -f='${Package}\n' > "$export_file"
+                    echo
+                    echo -e "${C_MSG_INFO}--- Exported package list to ${C_RESET}$export_file"
+                    echo
+                    continue
+                    ;;
+            esac
+
+            local confirm
+            read -q "confirm?${C_MSG_INFO}Process $pkg_name? (y/N) ${C_RESET}"
+            echo
+            [[ $confirm == 'y' ]] || {
+                echo -e "${C_MSG_INFO}Skipped.${C_RESET}"
+                continue
+            }
+
+            if dpkg -s "$pkg_name" >/dev/null 2>&1; then
+                echo -e "${C_MSG_REMOVE}--- Removing $pkg_name ---${C_RESET}"
+                ${PKG_MGR} remove "$pkg_name"
+            else
+                echo -e "${C_MSG_INSTALL}--- Installing $pkg_name ---${C_RESET}"
+                ${PKG_MGR} install "$pkg_name"
+            fi
+        done
     done
 }
 
