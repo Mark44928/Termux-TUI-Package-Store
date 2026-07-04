@@ -106,5 +106,5 @@ _pkgs_preview_command() {
     done
 }
 
-[[ ! -o sourced ]] && pkgs "$@"
+[[ $ZSH_EVAL_CONTEXT == toplevel ]] && pkgs "$@"
 
