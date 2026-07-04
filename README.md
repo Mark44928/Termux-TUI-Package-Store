@@ -23,7 +23,7 @@
 <h1 align="center">Termux TUI Package Store 📦</h1>
 
 <p align="center">
-  <em>An interactive, fzf-powered package browser for Termux — search, preview, install, and remove packages without ever touching the command line.</em>
+  <em>An interactive, fzf-powered package browser for Termux — search, preview, install, and remove packages without typing individual package-manager commands.</em>
 </p>
 
 ---
@@ -44,6 +44,7 @@
 - [Uninstallation](#uninstallation)
 - [Contributing](#contributing)
 - [License](#license)
+- [Disclaimer](#disclaimer)
 - [Acknowledgments](#acknowledgments)
 
 ---
@@ -71,19 +72,21 @@ The tool adapts to your terminal size, color-codes installed vs. available packa
 
 ## Requirements
 
-- **Termux** (Android) — [Get it from F-Droid](https://f-droid.org/en/packages/com.termux/) or GitHub
+- **Termux** (Android 7+) — [Get it from F-Droid](https://f-droid.org/en/packages/com.termux/) or GitHub
 - **Zsh** — the script runs on zsh (Termux's default shell)
 - **Runtime dependencies** (installed automatically by the installer):
 
-| Package | Purpose |
-|---|---|
-| `fzf` | Fuzzy-finder interface |
-| `gawk` | Data processing (package list generation) |
-| `coreutils` | `numfmt` for human-readable size formatting |
-| `cowsay` | Fun status messages when a package has no dependencies |
-| `grep`, `sed` | Text processing in previews |
-| `ncurses` | Terminal handling (`tput`) |
-| `curl` | Downloading the script during installation |
+| Package | Purpose | Required |
+|---|---|---|
+| `fzf` | Fuzzy-finder interface | Yes |
+| `gawk` | Data processing (package list generation) | Yes |
+| `coreutils` | `numfmt` for human-readable size formatting | Yes |
+| `cowsay` | Fun status messages when a package has no dependencies | No |
+| `grep`, `sed` | Text processing in previews | Yes |
+| `ncurses` | Terminal handling (`tput`) | Yes |
+| `curl` | Downloading the script during installation | Yes |
+
+> **Note:** Tested on Termux v0.118.x with fzf 0.53.0. Older versions may work but are not guaranteed.
 
 ---
 
@@ -146,6 +149,7 @@ This opens the store with "python" already typed in the search box.
 | Key | Action |
 |---|---|
 | `Enter` | Install or remove the selected package |
+| `Tab` | Select multiple packages (when `--multi` is enabled) |
 | `?` | Toggle the preview pane |
 | `Esc` or `Ctrl+C` | Exit the store |
 | Typing | Search/filter packages in real time |
@@ -170,7 +174,9 @@ This opens the store with "python" already typed in the search box.
 
 ## Configuration
 
-The entire script lives in a single file at `$PREFIX/bin/pkgs`. Edit it directly to customize behavior. (`$PREFIX` is typically `/data/data/com.termux/files/usr` in Termux.)
+> **Note:** `$PREFIX` is Termux's installation prefix, typically `/data/data/com.termux/files/usr`.
+
+The entire script lives in a single file at `$PREFIX/bin/pkgs`. Edit it directly to customize behavior.
 
 ### Preview Window
 
@@ -266,7 +272,7 @@ Contributions are welcome! Whether it's a bug fix, a new feature, or improved do
 1. Fork the repository.
 2. Create a feature branch (`git checkout -b feat/my-change`).
 3. Make your changes.
-4. Run `shellcheck pkgs_core.zsh install.sh` if you modified shell scripts.
+4. Run `shellcheck install.sh` if you modified the installer. (Note: `shellcheck` does not support zsh syntax natively; test zsh scripts manually.)
 5. Commit with a descriptive message (e.g., `feat: add --dry-run flag`).
 6. Push and open a pull request.
 
@@ -276,7 +282,13 @@ Please follow the [Contributor Covenant](https://www.contributor-covenant.org/) 
 
 ## License
 
-This project is licensed under the **MIT License**. See [LICENSE](LICENSE) for details.
+This project is licensed under the **MIT License**. See [LICENSE](https://github.com/Mark44928/Termux-TUI-Package-Store/blob/main/LICENSE) for details.
+
+---
+
+## Disclaimer
+
+This tool runs `pkg install` and `pkg remove` commands with elevated privileges within the Termux environment. Always review package names before confirming installations. The authors are not responsible for any system damage resulting from misuse.
 
 ---
 
