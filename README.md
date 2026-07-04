@@ -1,3 +1,4 @@
+## Repo is in buggy statue. updates soon
 <p align="center">
   <img src="assets/pkgs.png" alt="Termux TUI Package Store interface showing a split-panel layout with a searchable package list on the left and package metadata preview on the right" width="700">
 </p>
