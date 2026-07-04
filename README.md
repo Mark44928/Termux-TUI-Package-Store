@@ -1,18 +1,38 @@
 # Termux-TUI-Package-Store 📦
 
+<p align="center">
+  <img src="assets/pkgs.png" alt="pkgs screenshot" width="700">
+</p>
+
+<p align="center">
+  <a href="https://github.com/Mark44928/Termux-TUI-Package-Store/releases">
+    <img src="https://img.shields.io/github/v/release/Mark44928/Termux-TUI-Package-Store?style=for-the-badge&color=blue" alt="Release">
+  </a>
+  <a href="https://github.com/Mark44928/Termux-TUI-Package-Store/stargazers">
+    <img src="https://img.shields.io/github/stars/Mark44928/Termux-TUI-Package-Store?style=for-the-badge&color=yellow" alt="Stars">
+  </a>
+  <a href="https://github.com/Mark44928/Termux-TUI-Package-Store/blob/main/LICENSE">
+    <img src="https://img.shields.io/github/license/Mark44928/Termux-TUI-Package-Store?style=for-the-badge&color=green" alt="License">
+  </a>
+  <a href="https://github.com/Mark44928/Termux-TUI-Package-Store">
+    <img src="https://img.shields.io/github/repo-size/Mark44928/Termux-TUI-Package-Store?style=for-the-badge&color=orange" alt="Repo Size">
+  </a>
+  <a href="https://github.com/Mark44928/Termux-TUI-Package-Store/issues">
+    <img src="https://img.shields.io/github/issues/Mark44928/Termux-TUI-Package-Store?style=for-the-badge&color=red" alt="Issues">
+  </a>
+</p>
+
 **The TUI package manager wrapper for Termux.**
 
 Termux-TUI-Package-Store is a high-performance, fzf-powered interface that replaces tedious manual pkg commands with a smooth, interactive TUI. It intelligently detects your terminal layout, visually highlights installed vs. available packages, and manages your software installation with a single keystroke.
+
+[![Star History Chart](https://api.star-history.com/svg?repos=Mark44928/Termux-TUI-Package-Store&type=Date)](https://star-history.com/#Mark44928/Termux-TUI-Package-Store&Date)
 ## 🛠 How It Works
 The script operates as a bridge between your system's package database and an interactive fuzzy-finder.
  1. **Layout Detection**: Uses tput to measure your window size and automatically decides whether to split the screen horizontally or vertically.
  2. **Data Processing**: Runs a two-pass awk script. It first reads dpkg-query to identify installed items, then merges this with apt-cache search to provide a comprehensive list of every available package.
  3. **Live Previews**: As you highlight a package, the script dynamically pulls its metadata (Version, Section, Size) and dependency tree using apt-cache.
   4. **Action Binding**: Upon hitting Enter, it performs a status check on the package. If installed, it removes; if missing, it installs. After the operation, the store automatically re-opens so you can keep managing packages. Press Ctrl-C or Esc to exit.
-
-## 📸 Screenshot
-
-![pkgs screenshot](assets/pkgs.png)
 
 ## 🚀 One-Line Install
 
