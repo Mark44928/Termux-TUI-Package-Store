@@ -80,7 +80,7 @@ The tool adapts to your terminal size, color-codes installed vs. available packa
 ## Features
 
 | Feature | Description |
-|---|---|---|
+|---|---|
 | **🔍 Fuzzy Search** | Filter hundreds of packages instantly as you type |
 | **📋 Live Previews** | See version, size, dependencies, and description for any package |
 | **🔄 Persistent Session** | Store stays open after install/remove — keep going until you press Esc |
