@@ -30,7 +30,27 @@ pkgs() {
     }
 
     _pkgs_preview_command() {
-        echo "apt-cache show {1} | grep -E '^(Version|Section|Installed-Size):'
+        echo "case \"{1}\" in
+              __UPGRADE__)
+                  echo -e '\\033[1;33m━━━ Upgrade All Packages ━━━\\033[0m'
+                  echo
+                  echo 'Upgrades all installed packages to their latest available'
+                  echo 'versions. Equivalent to: pkg upgrade'
+                  echo
+                  echo 'Select this entry and press Enter to proceed.'
+                  exit 0
+                  ;;
+              __EXPORT__)
+                  echo -e '\\033[1;33m━━━ Export Package List ━━━\\033[0m'
+                  echo
+                  echo 'Saves a list of all currently installed packages to a'
+                  echo 'timestamped text file in the current directory.'
+                  echo
+                  echo 'Select this entry and press Enter to proceed.'
+                  exit 0
+                  ;;
+              esac
+              apt-cache show {1} | grep -E '^(Version|Section|Installed-Size):'
               echo -n 'Size: '
               size=\$(apt-cache show {1} | grep '^Size:' | cut -d' ' -f2)
               if command -v numfmt >/dev/null 2>&1; then
