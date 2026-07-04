@@ -30,9 +30,10 @@ pkgs() {
     }
 
     _pkgs_preview_command() {
-        echo "case \"{1}\" in
+        echo "pkg=\$(echo \"{}\" | sed 's/|.*//')
+              case \"\$pkg\" in
               __UPGRADE__)
-                  echo -e '\\033[1;33m━━━ Upgrade All Packages ━━━\\033[0m'
+                  printf '\\033[1;33m━━━ Upgrade All Packages ━━━\\033[0m\\n'
                   echo
                   echo 'Upgrades all installed packages to their latest available'
                   echo 'versions. Equivalent to: pkg upgrade'
@@ -41,7 +42,7 @@ pkgs() {
                   exit 0
                   ;;
               __EXPORT__)
-                  echo -e '\\033[1;33m━━━ Export Package List ━━━\\033[0m'
+                  printf '\\033[1;33m━━━ Export Package List ━━━\\033[0m\\n'
                   echo
                   echo 'Saves a list of all currently installed packages to a'
                   echo 'timestamped text file in the current directory.'
@@ -50,23 +51,23 @@ pkgs() {
                   exit 0
                   ;;
               esac
-              apt-cache show {1} | grep -E '^(Version|Section|Installed-Size):'
-              echo -n 'Size: '
-              size=\$(apt-cache show {1} | grep '^Size:' | cut -d' ' -f2)
+              apt-cache show \"\$pkg\" | grep -E '^(Version|Section|Installed-Size):'
+              printf 'Size: '
+              size=\$(apt-cache show \"\$pkg\" | grep '^Size:' | cut -d' ' -f2)
               if command -v numfmt >/dev/null 2>&1; then
-                  echo \"\$size\" | numfmt --to=iec --suffix=B
+                  printf '%s\\n' \"\$size\" | numfmt --to=iec --suffix=B
               else
-                  echo \"\${size:-0} B\"
+                  printf '%s B\\n' \"\${size:-0}\"
               fi
-              echo -e '\n--- DEPENDENCIES ---'
-              deps=\$(apt-cache depends {1} | grep 'Depends:' | cut -d':' -f2 | sort -u | head -n 5 | xargs)
+              printf '\\n--- DEPENDENCIES ---\\n'
+              deps=\$(apt-cache depends \"\$pkg\" | grep 'Depends:' | cut -d':' -f2 | sort -u | head -n 5 | xargs)
               if [ -z \"\$deps\" ]; then
                   echo 'No dependencies.'
               else
                   echo \"\$deps\"
               fi
-              echo -e '\n--- DESCRIPTION ---'
-              apt-cache show {1} | sed -n '/^Description:/ { s/^Description: //p; :a; n; /^ / { s/^ //p; ba }; }'"
+              printf '\\n--- DESCRIPTION ---\\n'
+              apt-cache show \"\$pkg\" | sed -n '/^Description:/ { s/^Description: //p; :a; n; /^ / { s/^ //p; ba }; }'"
     }
     _pkgs_build_fzf_args() {
         local query="$1"
