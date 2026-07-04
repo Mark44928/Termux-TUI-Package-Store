@@ -59,8 +59,8 @@ The tool adapts to your terminal size, color-codes installed vs. available packa
 
 ## Features
 
-| | |
-|---|---|
+| Feature | Description |
+|---|---|---|
 | **🔍 Fuzzy Search** | Filter hundreds of packages instantly as you type |
 | **📋 Live Previews** | See version, size, dependencies, and description for any package |
 | **🔄 Persistent Session** | Store stays open after install/remove — keep going until you press Esc |
@@ -162,7 +162,7 @@ This opens the store with "python" already typed in the search box.
    The tool measures your terminal with `tput` and decides whether to show the preview alongside the package list (wide terminals) or below it (narrow terminals).
 
 2. **Package Discovery**  
-   A two-pass `awk` script reads installed packages from `dpkg-query`, then merges them with every available package from `apt-cache search`. Each line is tagged `[I]` (installed) or `[-]` (available).
+   An `awk` script reads installed packages from `dpkg-query`, then merges them with every available package from `apt-cache search`. Each line is tagged `[I]` (installed) or `[-]` (available).
 
 3. **Live Previews**  
    When you highlight a package, `fzf` runs `apt-cache show` in the background and displays version, section, size, top dependencies, and the description.
