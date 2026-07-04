@@ -29,27 +29,32 @@ pkgs() {
         ' <(dpkg-query -W -f='${Package}\n') <(apt-cache search ".*")
     }
 
-_pkgs_preview_command() {
-    echo "apt-cache show {1} | grep -E '^(Version|Section|Installed-Size):'
-          echo -n 'Size: '
-          apt-cache show {1} | grep '^Size:' | cut -d' ' -f2 | numfmt --to=iec --suffix=B
-          echo -e '\n--- DEPENDENCIES ---'
-          deps=\$(apt-cache depends {1} | grep 'Depends:' | cut -d':' -f2 | sort -u | head -n 5 | xargs)
-          if [ -z \"\$deps\" ]; then
-              cowsay 'This Package had no dependencies yet.'
-          else
-              echo \"\$deps\"
-          fi
-          echo -e '\n--- DESCRIPTION ---'
-          apt-cache show {1} | sed -n 's/^Description: //p'"
-}
+    _pkgs_preview_command() {
+        echo "apt-cache show {1} | grep -E '^(Version|Section|Installed-Size):'
+              echo -n 'Size: '
+              size=\$(apt-cache show {1} | grep '^Size:' | cut -d' ' -f2)
+              if command -v numfmt >/dev/null 2>&1; then
+                  echo \"\$size\" | numfmt --to=iec --suffix=B
+              else
+                  echo \"\${size:-0} B\"
+              fi
+              echo -e '\n--- DEPENDENCIES ---'
+              deps=\$(apt-cache depends {1} | grep 'Depends:' | cut -d':' -f2 | sort -u | head -n 5 | xargs)
+              if [ -z \"\$deps\" ]; then
+                  echo 'No dependencies.'
+              else
+                  echo \"\$deps\"
+              fi
+              echo -e '\n--- DESCRIPTION ---'
+              apt-cache show {1} | sed -n '/^Description:/ { s/^Description: //p; :a; n; /^ / { s/^ //p; ba }; }'"
+    }
     _pkgs_build_fzf_args() {
         local query="$1"
         FZF_ARGS=(
             --ansi
             --query "$query"
             --layout=reverse
-            --border=$BORDER_STYLE
+            --border="$BORDER_STYLE"
             --border-label=" Packages "
             --preview-label=" Package Details "
             --prompt="  Find > "
@@ -75,14 +80,14 @@ _pkgs_preview_command() {
     local PORTRAIT_SPLIT="down:48%:wrap"
     local LANDSCAPE_SPLIT="right:40%:wrap"
     local BORDER_STYLE="rounded"
-    local C_RESET='\033[0m'
-    local C_INST_PREFIX='\x1b[1;36m[I]\x1b[0m'
-    local C_NOT_INST_PREFIX='\x1b[1;30m[-]\x1b[0m'
-    local C_PKG_NAME='\x1b[1;32m'
-    local C_PKG_DESC='\x1b[2;37m'
-    local C_MSG_INSTALL='\033[1;32m'
-    local C_MSG_REMOVE='\033[1;31m'
-    local C_MSG_INFO='\033[1;33m'
+    local C_RESET=$'\033[0m'
+    local C_INST_PREFIX=$'\033[1;36m[I]\033[0m'
+    local C_NOT_INST_PREFIX=$'\033[1;30m[-]\033[0m'
+    local C_PKG_NAME=$'\033[1;32m'
+    local C_PKG_DESC=$'\033[2;37m'
+    local C_MSG_INSTALL=$'\033[1;32m'
+    local C_MSG_REMOVE=$'\033[1;31m'
+    local C_MSG_INFO=$'\033[1;33m'
 
     local PREVIEW_LAYOUT=$(_pkgs_detect_layout)
 
@@ -110,42 +115,46 @@ _pkgs_preview_command() {
         [[ ${#lines} -lt 2 ]] && continue
 
         local line
-        for line in "${(@)lines[2,$#lines]}"; do
+        for line in "${(@)lines[2,-1]}"; do
             [[ -z "$line" ]] && continue
             local pkg_name="${line%%|*}"
+            [[ -z "$pkg_name" ]] && continue
 
             case "$pkg_name" in
                 __UPGRADE__)
                     echo
                     echo -e "${C_MSG_INFO}--- Upgrading all packages... ---${C_RESET}"
-                    ${PKG_MGR} upgrade
+                    "${PKG_MGR}" upgrade
                     echo
                     continue
                     ;;
                 __EXPORT__)
                     local export_file="termux-packages-export-$(date +%Y%m%d-%H%M%S).txt"
-                    dpkg-query -W -f='${Package}\n' > "$export_file"
-                    echo
-                    echo -e "${C_MSG_INFO}--- Exported package list to ${C_RESET}$export_file"
-                    echo
+                    if dpkg-query -W -f='${Package}\n' > "$export_file"; then
+                        echo
+                        echo -e "${C_MSG_INFO}--- Exported package list to ${C_RESET}$export_file"
+                        echo
+                    else
+                        echo -e "${C_MSG_REMOVE}--- Export failed ---${C_RESET}"
+                    fi
                     continue
                     ;;
             esac
 
-            local confirm
-            read -q "confirm?${C_MSG_INFO}Process $pkg_name? (y/N) ${C_RESET}"
+            print -n "${C_MSG_INFO}Process $pkg_name? (y/N) ${C_RESET}"
+            read -q confirm
             echo
             [[ $confirm == 'y' ]] || {
                 echo -e "${C_MSG_INFO}Skipped.${C_RESET}"
                 continue
             }
 
-            if dpkg -s "$pkg_name" >/dev/null 2>&1; then
+            if dpkg -s "$pkg_name" 2>/dev/null | grep -q '^Status: install ok installed'; then
                 echo -e "${C_MSG_REMOVE}--- Removing $pkg_name ---${C_RESET}"
-                ${PKG_MGR} remove "$pkg_name"
+                "${PKG_MGR}" remove "$pkg_name" || echo -e "${C_MSG_REMOVE}Remove failed${C_RESET}"
             else
                 echo -e "${C_MSG_INSTALL}--- Installing $pkg_name ---${C_RESET}"
-                ${PKG_MGR} install "$pkg_name"
+                "${PKG_MGR}" install "$pkg_name" || echo -e "${C_MSG_REMOVE}Install failed${C_RESET}"
             fi
         done
     done
