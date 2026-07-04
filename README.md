@@ -65,11 +65,31 @@ You can go beyond the basics by fine-tuning the internal logic of pkgs.zsh. Edit
    * If your terminal emulator struggles with specific ANSI colors, you can override the C_ variables to use standard 16-color codes instead of the complex escape sequences. This ensures maximum compatibility across different Termux themes or fonts.
  * **Log Everything**:
     * Add a helper variable local LOG_FILE="$HOME/.pkgs_history" and append to it within the while loop. This gives you a permanent record of every package you've ever installed or removed via the script—super useful for cleaning up your system later.
+ * **Switch Package Manager**:
+    * Change `PKG_MGR="pkg"` to `PKG_MGR="apt"` to use apt directly. Useful if you want the raw apt output or need to bypass pkg's extra checks.
+ * **Batch Multi-Select Mode**:
+    * Add `--multi` to the `FZF_ARGS` array to allow selecting multiple packages with Tab. Then change the while loop to iterate over `$selection` (which becomes a newline-separated list) and process each package in sequence.
+ * **Confirmation Prompt**:
+    * Wrap the install/remove commands with a `read -q "confirm?Proceed? (y/N) "` to ask for confirmation before each operation. Great for avoiding accidental installs.
+ * **Custom Prompt Icon**:
+    * Swap the `--prompt="  Find > "` string for any icon or text you prefer, like `--prompt=" 🔍 "` or `--prompt=" Search > "`.
+ * **Pre-Fill Default Search**:
+    * Pass a default query via `pkgs somekeyword` — the `$*` argument is already wired to the fzf `--query` flag. For a hard-coded default, change `--query "$query"` to `--query="python"` to always start with Python packages listed.
+ * **Exclude Unwanted Packages**:
+    * Append `| grep -vE '^(lib|python-|perl-|ruby-)'` to the `_pkgs_generate_list` pipeline to filter out library packages and focus on end-user software.
+ * **Toggle Fullscreen / Floating**:
+    * Add `--height=80%` to the `FZF_ARGS` array for a floating overlay instead of fullscreen. Combine with `--border` options like `--border=sharp` or `--border=double` for a different look.
+ * **Hide Installed Packages**:
+    * In `_pkgs_generate_list`, pipe through `grep -v '\[I\]'` after the awk script to only show packages that aren't yet installed — ideal for discovering new software.
 > **Pro Tip 2 (The "Stealth" Mode)**: If you're tired of seeing the package description every time, you can hide the preview window by default by changing --preview-window="$PREVIEW_LAYOUT" to --preview-window="$PREVIEW_LAYOUT:hidden". You can then press ? to toggle it on only when you need it.
 > 
 > **Pro Tip 3 (Dynamic Scaling)**: Instead of hard-coding PORTRAIT_SPLIT, you can write a secondary if/else block that calculates the percentage based on total screen height, ensuring that the preview window is always exactly 5 lines less than your terminal height.
 > 
 > **Pro Tip 4 (Filter Optimization)**: You can expand the _pkgs_generate_list command by adding a grep -v filter to exclude specific library packages (like lib* or python-dev-*) from the list, keeping your search results cleaner and focusing only on end-user software.
+> 
+> **Pro Tip 5 (Fast Reinstall)**: Bind a separate key like `ctrl-r` to reinstall the selected package without leaving fzf by adding `--bind "ctrl-r:execute(${PKG_MGR} reinstall {1})+reload(...)"` to FZF_ARGS.
+> 
+> **Pro Tip 6 (Keep Query on Return)**: By default the search resets each time the store re-opens. To preserve your query, store it in a variable before fzf exits and pass it back: `query=$(_pkgs_generate_list | fzf --query "$query" --print-query ...)` and tweak the loop to use `$query` instead of `$*`.
 > 
 
 ## When Reporting Bugs... 🐛
