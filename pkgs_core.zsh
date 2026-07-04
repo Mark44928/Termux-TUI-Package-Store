@@ -70,7 +70,6 @@ _pkgs_preview_command() {
 
     # Configuration
     local PKG_MGR="pkg"
-    local BAT_THEME="${PKGL_BAT_THEME:-OneHalfDark}"
     local PORTRAIT_SPLIT="down:48%:wrap"
     local LANDSCAPE_SPLIT="right:40%:wrap"
     local BORDER_STYLE="rounded"

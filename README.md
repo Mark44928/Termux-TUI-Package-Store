@@ -1,7 +1,5 @@
-# Termux-TUI-Package-Store 📦
-
 <p align="center">
-  <img src="assets/pkgs.png" alt="pkgs screenshot" width="700">
+  <img src="assets/pkgs.png" alt="Termux TUI Package Store interface showing a split-panel layout with a searchable package list on the left and package metadata preview on the right" width="700">
 </p>
 
 <p align="center">
@@ -22,101 +20,274 @@
   </a>
 </p>
 
-**The TUI package manager wrapper for Termux.**
+<h1 align="center">Termux TUI Package Store 📦</h1>
 
-Termux-TUI-Package-Store is a high-performance, fzf-powered interface that replaces tedious manual pkg commands with a smooth, interactive TUI. It intelligently detects your terminal layout, visually highlights installed vs. available packages, and manages your software installation with a single keystroke.
+<p align="center">
+  <em>An interactive, fzf-powered package browser for Termux — search, preview, install, and remove packages without ever touching the command line.</em>
+</p>
 
-## 🛠 How It Works
-The script operates as a bridge between your system's package database and an interactive fuzzy-finder.
- 1. **Layout Detection**: Uses tput to measure your window size and automatically decides whether to split the screen horizontally or vertically.
- 2. **Data Processing**: Runs a two-pass awk script. It first reads dpkg-query to identify installed items, then merges this with apt-cache search to provide a comprehensive list of every available package.
- 3. **Live Previews**: As you highlight a package, the script dynamically pulls its metadata (Version, Section, Size) and dependency tree using apt-cache.
-  4. **Action Binding**: Upon hitting Enter, it performs a status check on the package. If installed, it removes; if missing, it installs. After the operation, the store automatically re-opens so you can keep managing packages. Press Ctrl-C or Esc to exit.
+---
 
-## 🚀 One-Line Install
+## Table of Contents
+
+- [Overview](#overview)
+- [Features](#features)
+- [Requirements](#requirements)
+- [Quick Install](#quick-install)
+- [Manual Installation](#manual-installation)
+- [Usage](#usage)
+- [Key Bindings](#key-bindings)
+- [How It Works](#how-it-works)
+- [Configuration](#configuration)
+- [Troubleshooting](#troubleshooting)
+- [FAQ](#faq)
+- [Uninstallation](#uninstallation)
+- [Contributing](#contributing)
+- [License](#license)
+- [Acknowledgments](#acknowledgments)
+
+---
+
+## Overview
+
+Termux TUI Package Store is a high-performance terminal interface for managing packages on Termux. It wraps `pkg` (Termux's package manager) with an interactive fuzzy-finder that lets you search, preview, install, and remove packages in a single keystroke.
+
+The tool adapts to your terminal size, color-codes installed vs. available packages, and shows live metadata previews — version, size, dependencies, and description — for every package you highlight.
+
+---
+
+## Features
+
+| | |
+|---|---|
+| **🔍 Fuzzy Search** | Filter hundreds of packages instantly as you type |
+| **📋 Live Previews** | See version, size, dependencies, and description for any package |
+| **🔄 Persistent Session** | Store stays open after install/remove — keep going until you press Esc |
+| **📐 Smart Layout** | Automatically switches between landscape (side-by-side) and portrait (stacked) preview |
+| **🎨 Color-Coded Status** | Installed packages tagged `[I]`, available packages tagged `[-]` |
+| **⚡ Zero Config** | Works out of the box — no config files or shell integration required |
+
+---
+
+## Requirements
+
+- **Termux** (Android) — [Get it from F-Droid](https://f-droid.org/en/packages/com.termux/) or GitHub
+- **Zsh** — the script runs on zsh (Termux's default shell)
+- **Runtime dependencies** (installed automatically by the installer):
+
+| Package | Purpose |
+|---|---|
+| `fzf` | Fuzzy-finder interface |
+| `gawk` | Data processing (package list generation) |
+| `coreutils` | `numfmt` for human-readable size formatting |
+| `cowsay` | Fun status messages when a package has no dependencies |
+| `grep`, `sed` | Text processing in previews |
+| `ncurses` | Terminal handling (`tput`) |
+| `curl` | Downloading the script during installation |
+
+---
+
+## Quick Install
 
 ```sh
-bash <(curl -fsSL https://raw.githubusercontent.com/Mark44928/Termux-TUI-Package-Store/main/install.sh)
+zsh <(curl -fsSL https://raw.githubusercontent.com/Mark44928/Termux-TUI-Package-Store/main/install.sh)
 ```
 
-## 🚀 Full Step-by-Step Installation
-Follow these steps to integrate this TUI store into your Termux environment.
-### 1. Install Dependencies
-You need fzf for the interface, gawk for data processing, and cowsay for the status feedback.
-```bash
-pkg update && pkg upgrade && pkg install bat fzf cowsay coreutils gawk grep sed ncurses
+> **Note:** If `zsh` is not your current shell, run `bash` instead of `zsh` in the command above. The installer will set everything up regardless.
 
-```
-### 2. Install the Script
-Download and install the script to your PATH:
-```bash
-curl -fsSL https://raw.githubusercontent.com/Mark44928/Termux-TUI-Package-Store/main/pkgs_core.zsh -o $PREFIX/bin/pkgs && chmod +x $PREFIX/bin/pkgs
+---
 
-```
-### 3. Usage
-Simply type the following into your terminal:
-```bash
+## Manual Installation
+
+1. **Install dependencies:**
+
+   ```sh
+   pkg update && pkg upgrade
+   pkg install zsh fzf cowsay coreutils gawk grep sed ncurses curl
+   ```
+
+2. **Download the script and make it executable:**
+
+   ```sh
+   curl -fsSL https://raw.githubusercontent.com/Mark44928/Termux-TUI-Package-Store/main/pkgs_core.zsh -o $PREFIX/bin/pkgs
+   chmod +x $PREFIX/bin/pkgs
+   ```
+
+3. **Run it:**
+
+   ```sh
+   pkgs
+   ```
+
+---
+
+## Usage
+
+Launch the store by typing:
+
+```sh
 pkgs
-
 ```
-## 🔧 Advanced Tweaks & Configuration
-You can go beyond the basics by fine-tuning the internal logic of pkgs.zsh. Edit the file at `$PREFIX/bin/pkgs` to make the tool truly yours:
- * **Customizing the Preview Window**:
-   * Want the preview to be larger? Modify PORTRAIT_SPLIT="down:48%:wrap" to a higher percentage like down:60%:wrap.
-   * Prefer the preview on the left instead of the right? In LANDSCAPE_SPLIT="right:40%:wrap", change right to left.
-   * You can also add --cycle or --scrollbar to the FZF_ARGS array if you want more navigation control.
- * **Deep Color Palette Tweaking**:
-   * The --color flag in the _pkgs_build_fzf_args function is the key to a custom aesthetic. You can map any of the ANSI 256 colors to specific elements like fg+ (current line foreground), bg+ (current line background), or hl+ (highlighted match in the current line).
-   * Example: Change pointer:161 (a vibrant red/pink) to pointer:045 for a crisp cyan accent.
- * **Enhancing the "Action" Logic**:
-    * Look at the while loop at the bottom of the pkgs function. The action logic runs after fzf returns a selection.
-    * Want to perform a reinstall instead of a basic install? Swap ${PKG_MGR} install "$pkg_name" for ${PKG_MGR} reinstall "$pkg_name".
-    * Need to log your actions? Add a line like echo "$(date): Installed $pkg_name" >> ~/.pkgs_log inside the loop.
-    * The store automatically re-opens after each operation. To quit, press Ctrl-C or Esc.
- * **Tuning the Preview Command**:
-   * Want to see *more* than just the top 5 dependencies? Find the deps=$(...) line in _pkgs_preview_command and change head -n 5 to head -n 10 or remove the | head -n 5 pipe entirely to see the full list.
-   * Tired of the cowsay message? Replace the cowsay line in _pkgs_preview_command with a simple echo "No dependencies found." to speed up the preview rendering.
- * **Optimizing Performance**:
-   * If you have a massive amount of packages and the awk processing feels slow, you can cache the package list to a temporary file. Simply point _pkgs_generate_list to read from a file that updates only once a day instead of running apt-cache search every single time you launch the script.
- * **Data Parsing Precision**:
-   * The awk block uses match($0, / - /) to split the package name from the description. If your specific apt output format varies or contains unusual characters, you can adjust this regex. For example, changing it to match($0, / {2,}/) might be better if your package descriptions are separated by multiple spaces rather than a hyphen.
- * **Terminal Environment Overrides**:
-   * If your terminal emulator struggles with specific ANSI colors, you can override the C_ variables to use standard 16-color codes instead of the complex escape sequences. This ensures maximum compatibility across different Termux themes or fonts.
- * **Log Everything**:
-    * Add a helper variable local LOG_FILE="$HOME/.pkgs_history" and append to it within the while loop. This gives you a permanent record of every package you've ever installed or removed via the script—super useful for cleaning up your system later.
- * **Switch Package Manager**:
-    * Change `PKG_MGR="pkg"` to `PKG_MGR="apt"` to use apt directly. Useful if you want the raw apt output or need to bypass pkg's extra checks.
- * **Batch Multi-Select Mode**:
-    * Add `--multi` to the `FZF_ARGS` array to allow selecting multiple packages with Tab. Then change the while loop to iterate over `$selection` (which becomes a newline-separated list) and process each package in sequence.
- * **Confirmation Prompt**:
-    * Wrap the install/remove commands with a `read -q "confirm?Proceed? (y/N) "` to ask for confirmation before each operation. Great for avoiding accidental installs.
- * **Custom Prompt Icon**:
-    * Swap the `--prompt="  Find > "` string for any icon or text you prefer, like `--prompt=" 🔍 "` or `--prompt=" Search > "`.
- * **Pre-Fill Default Search**:
-    * Pass a default query via `pkgs somekeyword` — the `$*` argument is already wired to the fzf `--query` flag. For a hard-coded default, change `--query "$query"` to `--query="python"` to always start with Python packages listed.
- * **Exclude Unwanted Packages**:
-    * Append `| grep -vE '^(lib|python-|perl-|ruby-)'` to the `_pkgs_generate_list` pipeline to filter out library packages and focus on end-user software.
- * **Toggle Fullscreen / Floating**:
-    * Add `--height=80%` to the `FZF_ARGS` array for a floating overlay instead of fullscreen. Combine with `--border` options like `--border=sharp` or `--border=double` for a different look.
- * **Hide Installed Packages**:
-    * In `_pkgs_generate_list`, pipe through `grep -v '\[I\]'` after the awk script to only show packages that aren't yet installed — ideal for discovering new software.
-> **Pro Tip 2 (The "Stealth" Mode)**: If you're tired of seeing the package description every time, you can hide the preview window by default by changing --preview-window="$PREVIEW_LAYOUT" to --preview-window="$PREVIEW_LAYOUT:hidden". You can then press ? to toggle it on only when you need it.
-> 
-> **Pro Tip 3 (Dynamic Scaling)**: Instead of hard-coding PORTRAIT_SPLIT, you can write a secondary if/else block that calculates the percentage based on total screen height, ensuring that the preview window is always exactly 5 lines less than your terminal height.
-> 
-> **Pro Tip 4 (Filter Optimization)**: You can expand the _pkgs_generate_list command by adding a grep -v filter to exclude specific library packages (like lib* or python-dev-*) from the list, keeping your search results cleaner and focusing only on end-user software.
-> 
-> **Pro Tip 5 (Fast Reinstall)**: Bind a separate key like `ctrl-r` to reinstall the selected package without leaving fzf by adding `--bind "ctrl-r:execute(${PKG_MGR} reinstall {1})+reload(...)"` to FZF_ARGS.
-> 
-> **Pro Tip 6 (Keep Query on Return)**: By default the search resets each time the store re-opens. To preserve your query, store it in a variable before fzf exits and pass it back: `query=$(_pkgs_generate_list | fzf --query "$query" --print-query ...)` and tweak the loop to use `$query` instead of `$*`.
-> 
 
-## When Reporting Bugs... 🐛
+Type to filter packages. The list updates in real time. Press **Enter** on any package to install it (if not installed) or remove it (if installed). After the operation completes, the store re-opens automatically. Press **Esc** or **Ctrl+C** to exit.
 
-Please include:
-- Android version
-- Termux version
-- Shell (zsh/bash/ksh)
-- Error message
-- Device model
-- Screenshot (if applicable)
+You can also pre-filter by passing a search term:
+
+```sh
+pkgs python
+```
+
+This opens the store with "python" already typed in the search box.
+
+---
+
+## Key Bindings
+
+| Key | Action |
+|---|---|
+| `Enter` | Install or remove the selected package |
+| `?` | Toggle the preview pane |
+| `Esc` or `Ctrl+C` | Exit the store |
+| Typing | Search/filter packages in real time |
+
+---
+
+## How It Works
+
+1. **Layout Detection**  
+   The tool measures your terminal with `tput` and decides whether to show the preview alongside the package list (wide terminals) or below it (narrow terminals).
+
+2. **Package Discovery**  
+   A two-pass `awk` script reads installed packages from `dpkg-query`, then merges them with every available package from `apt-cache search`. Each line is tagged `[I]` (installed) or `[-]` (available).
+
+3. **Live Previews**  
+   When you highlight a package, `fzf` runs `apt-cache show` in the background and displays version, section, size, top dependencies, and the description.
+
+4. **Action & Loop**  
+   Pressing Enter triggers `pkg install` or `pkg remove`. When the command finishes, the store refreshes the package list and re-opens — no need to relaunch.
+
+---
+
+## Configuration
+
+The entire script lives in a single file at `$PREFIX/bin/pkgs`. Edit it directly to customize behavior. (`$PREFIX` is typically `/data/data/com.termux/files/usr` in Termux.)
+
+### Preview Window
+
+| Setting | Default | Description |
+|---|---|---|
+| `PORTRAIT_SPLIT` | `down:48%:wrap` | Preview position/height in portrait mode |
+| `LANDSCAPE_SPLIT` | `right:40%:wrap` | Preview position/width in landscape mode |
+
+**Examples:**
+
+```zsh
+PORTRAIT_SPLIT="down:60%:wrap"   # taller preview in portrait
+LANDSCAPE_SPLIT="left:40%:wrap"   # preview on the left in landscape
+```
+
+### Colors
+
+The `--color` flag in `_pkgs_build_fzf_args` uses 256-color ANSI codes. Customize any element:
+
+```zsh
+--color='fg:250,bg:-1,hl:063,fg+:231,bg+:235,hl+:063,info:144,prompt:161,pointer:045,marker:118,spinner:135,header:087'
+```
+
+See the [fzf documentation](https://github.com/junegunn/fzf#color-schemes) for available color slots.
+
+### Behavior
+
+| Variable | Default | Description |
+|---|---|---|
+| `PKG_MGR` | `pkg` | Package manager command (`pkg` or `apt`) |
+| `BORDER_STYLE` | `rounded` | fzf border style (`rounded`, `sharp`, `double`, `bold`) |
+
+### Common Customizations
+
+- **Reinstall instead of install:** Change `${PKG_MGR} install "$pkg_name"` to `${PKG_MGR} reinstall "$pkg_name"`.
+- **Confirm before acting:** Wrap the install/remove line with a `read -q` prompt.
+- **Log every action:** Add `echo "$(date): $action $pkg_name" >> ~/.pkgs_history` inside the loop.
+- **Exclude library packages:** Append `| grep -vE '^(lib|python-|perl-|ruby-)'` to the `_pkgs_generate_list` pipeline.
+- **Hide already-installed packages:** Pipe through `grep -v '\[I\]'` after the awk script.
+- **Floating overlay:** Add `--height=80%` to `FZF_ARGS` for a non-fullscreen view.
+- **Multi-select:** Add `--multi` to `FZF_ARGS` to select multiple packages with Tab.
+- **Hide preview by default:** Change `--preview-window="$PREVIEW_LAYOUT"` to `--preview-window="$PREVIEW_LAYOUT:hidden"`. Press `?` to toggle.
+- **Keep search query across operations:** Store the query in a variable before fzf exits and pass it back on re-entry.
+
+---
+
+## Troubleshooting
+
+| Problem | Likely Cause | Fix |
+|---|---|---|
+| `pkgs: command not found` | Script not in PATH | Run `which pkgs` — should show `$PREFIX/bin/pkgs`. Re-run `install.sh` if missing. |
+| `zsh: no such file or directory` | Shebang path wrong | Run `head -1 $(which pkgs)` — should show `#!/data/data/com.termux/files/usr/bin/zsh`. Reinstall if corrupted. |
+| Empty package list | `apt-cache` needs updating | Run `pkg update` and try again. |
+| `fzf: command not found` | Dependency missing | Run `pkg install fzf`. |
+| Colors look wrong | Terminal lacks 256-color support | Simplify the `--color` flag to basic 16-color ANSI codes. |
+| Preview shows nothing | `apt-cache show` failed for that package | Try `apt-cache show <package>` manually to verify. |
+
+---
+
+## FAQ
+
+**Q: Why does the store re-open after I install something?**  
+A: The tool loops back to the package list so you can manage multiple packages in one session. Press Esc or Ctrl+C to quit.
+
+**Q: Can I use `apt` instead of `pkg`?**  
+A: Yes. Change `PKG_MGR="pkg"` to `PKG_MGR="apt"` in the configuration section.
+
+**Q: Does this work outside Termux?**  
+A: No. The script depends on Termux-specific paths (`$PREFIX`) and package management tools (`pkg`, `apt-cache`, `dpkg-query`).
+
+**Q: How do I update to the latest version?**  
+A: Re-run the one-liner install command. It overwrites `$PREFIX/bin/pkgs` with the latest version.
+
+**Q: Can I contribute?**  
+A: Absolutely — see [Contributing](#contributing).
+
+---
+
+## Uninstallation
+
+```sh
+rm $PREFIX/bin/pkgs
+```
+
+That's it. No config files, no sourced shell lines, no lingering data.
+
+---
+
+## Contributing
+
+Contributions are welcome! Whether it's a bug fix, a new feature, or improved documentation:
+
+1. Fork the repository.
+2. Create a feature branch (`git checkout -b feat/my-change`).
+3. Make your changes.
+4. Run `shellcheck pkgs_core.zsh install.sh` if you modified shell scripts.
+5. Commit with a descriptive message (e.g., `feat: add --dry-run flag`).
+6. Push and open a pull request.
+
+Please follow the [Contributor Covenant](https://www.contributor-covenant.org/) code of conduct. Be kind, be respectful, and keep discussions constructive.
+
+---
+
+## License
+
+This project is licensed under the **MIT License**. See [LICENSE](LICENSE) for details.
+
+---
+
+## Acknowledgments
+
+- [junegunn/fzf](https://github.com/junegunn/fzf) — the incredible fuzzy-finder that makes this tool possible
+- The [Termux](https://termux.com/) community for maintaining an excellent Android terminal environment
+- Everyone who has submitted issues, suggestions, or pull requests
+
+---
+
+<p align="center">
+  Made with ❤️ for the Termux community
+</p>
