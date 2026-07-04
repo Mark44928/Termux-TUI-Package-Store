@@ -4,7 +4,7 @@ set -e
 
 REPO="Mark44928/Termux-TUI-Package-Store"
 BRANCH="main"
-INSTALL_PATH="$HOME/.pkgs_core.zsh"
+INSTALL_PATH="$PREFIX/bin/pkgs"
 
 echo "📦 Termux-TUI-Package-Store Installer"
 echo "===================================="
@@ -31,31 +31,10 @@ if [ ! -f "$INSTALL_PATH" ]; then
     exit 1
 fi
 
-echo "✅ Downloaded to $INSTALL_PATH"
+chmod +x "$INSTALL_PATH"
 
-# Detect shell
-echo "🧠 Configuring shell..."
-
-SHELL_FILE=""
-
-if [ -n "$ZSH_VERSION" ] || echo "$SHELL" | grep -q "zsh"; then
-    SHELL_FILE="$HOME/.zshrc"
-elif [ -n "$BASH_VERSION" ] || echo "$SHELL" | grep -q "bash"; then
-    SHELL_FILE="$HOME/.bashrc"
-elif [ -n "$KSH_VERSION" ] || echo "$SHELL" | grep -q "ksh" || [ "$(basename "$0")" = "ksh" ]; then
-    SHELL_FILE="$HOME/.kshrc"
-else
-    SHELL_FILE="$HOME/.profile"
-fi
-
-# Avoid duplicate sourcing
-if ! grep -q "pkgs_core.zsh" "$SHELL_FILE" 2>/dev/null; then
-    echo "source $INSTALL_PATH" >> "$SHELL_FILE"
-    echo "✅ Added to $SHELL_FILE"
-else
-    echo "⚠️ Already configured in $SHELL_FILE"
-fi
+echo "✅ Installed to $INSTALL_PATH"
 
 echo ""
 echo "🎉 Installation complete!"
-echo "👉 Restart Termux then run: pkgs"
+echo "👉 Run: pkgs"

@@ -1,3 +1,4 @@
+#!/data/data/com.termux/files/usr/bin/zsh
 pkgs() {
     _pkgs_detect_layout() {
         local cols lines
@@ -104,4 +105,6 @@ _pkgs_preview_command() {
         fi
     done
 }
+
+[[ ! -o sourced ]] && pkgs "$@"
 
