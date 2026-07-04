@@ -10,22 +10,6 @@ RED=$(tput setaf 1 2>/dev/null || printf '')
 CYAN=$(tput setaf 6 2>/dev/null || printf '')
 MAGENTA=$(tput setaf 5 2>/dev/null || printf '')
 
-banner() {
-  clear 2>/dev/null || true
-  echo "${CYAN}  _____                      _             _____ _   _ ___ "
-  echo " |_   _|                    | |           |_   _| | | |_ _|"
-  echo "   | |_ __ ___  _ __  _   _| |_ ___  _     | | | | | || | "
-  echo "   | | '__/ _ \\| '_ \\| | | | __/ _ \\| |    | | | |_| || | "
-  echo "  _| |_| | | (_) | | | | |_| | | (_) | |___| |_|\\___/|_| "
-  echo " |_____|_|  \\___/|_| |_|\\__,_|\\__\\___/|_____|_(_)   |___|${RESET}"
-  echo ""
-  echo "${CYAN}  ╔══════════════════════════════════════════╗${RESET}"
-  echo "${CYAN}  ║${RESET}  ${BOLD}Termux TUI Package Store${RESET}            ${CYAN}║${RESET}"
-  echo "${CYAN}  ║${RESET}  fzf-powered interactive package browser ${CYAN}║${RESET}"
-  echo "${CYAN}  ╚══════════════════════════════════════════╝${RESET}"
-  echo ""
-}
-
 spinner() {
   local pid=$1 msg=$2 spin='-\|/' i=0
   while kill -0 "$pid" 2>/dev/null; do
@@ -41,8 +25,7 @@ cleanup() {
 }
 trap cleanup EXIT
 
-banner
-
+# ── Pre-flight ──────────────────────────────────────────────
 if [ -z "$PREFIX" ]; then
   echo "${RED}  ✗ This installer is designed for Termux.${RESET}"
   echo "${YELLOW}  Please run this script inside Termux on Android.${RESET}"
@@ -54,29 +37,41 @@ echo "  ─────────────────"
 echo "  ${GREEN}✓${RESET} Termux detected at $PREFIX"
 echo ""
 
+# ── Install dependencies (including figlet for the banner) ──
 echo "${BOLD}  🔧 Installing dependencies${RESET}"
 echo "  ─────────────────────────"
 (
   pkg update -y >/dev/null 2>&1 && \
-  pkg install -y zsh fzf cowsay coreutils gawk grep sed ncurses curl >/dev/null 2>&1
+  pkg install -y zsh fzf cowsay coreutils gawk grep sed ncurses curl figlet >/dev/null 2>&1
 ) &
 spinner $! "Updating and installing packages"
 
 missing=''
-for cmd in fzf awk zsh curl tput; do
+for cmd in fzf awk zsh curl tput figlet; do
   if ! command -v "$cmd" >/dev/null 2>&1; then
     missing="$missing $cmd"
   fi
 done
 if [ -n "$missing" ]; then
   echo "${YELLOW}  ⚠  Missing:${RESET}$missing"
-  echo "${YELLOW}     Some dependencies may not have been installed.${RESET}"
   echo "${YELLOW}     Run: pkg install$missing${RESET}"
 else
   echo "  ${GREEN}✓${RESET} All core dependencies available"
 fi
 echo ""
 
+# ── Banner (after figlet is installed) ──────────────────────
+clear 2>/dev/null || true
+figlet -f big "Termux" 2>/dev/null | sed "s/^/${CYAN}/" | sed "s/$/${RESET}/"
+figlet -f big "TUI Store" 2>/dev/null | sed "s/^/${MAGENTA}/" | sed "s/$/${RESET}/"
+echo ""
+echo "${CYAN}  ╔══════════════════════════════════════════╗${RESET}"
+echo "${CYAN}  ║${RESET}  ${BOLD}Termux TUI Package Store${RESET}            ${CYAN}║${RESET}"
+echo "${CYAN}  ║${RESET}  fzf-powered interactive package browser ${CYAN}║${RESET}"
+echo "${CYAN}  ╚══════════════════════════════════════════╝${RESET}"
+echo ""
+
+# ── Download ────────────────────────────────────────────────
 echo "${BOLD}  ⬇️  Downloading pkgs${RESET}"
 echo "  ─────────────────────"
 URL="https://raw.githubusercontent.com/${REPO:-Mark44928/Termux-TUI-Package-Store}/${BRANCH:-main}/pkgs_core.zsh"
@@ -96,6 +91,7 @@ chmod +x "$INSTALL_PATH"
 echo "  ${GREEN}✓${RESET} Installed to ${BOLD}$INSTALL_PATH${RESET}"
 echo ""
 
+# ── Complete ────────────────────────────────────────────────
 echo "${GREEN}  ┌─────────────────────────────────────────────────────┐${RESET}"
 echo "${GREEN}  │${RESET}                                                       ${GREEN}│${RESET}"
 echo "${GREEN}  │${RESET}   ${BOLD}🎉  INSTALLATION COMPLETE!${RESET}                    ${GREEN}│${RESET}"
