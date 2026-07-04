@@ -73,7 +73,7 @@ The tool adapts to your terminal size, color-codes installed vs. available packa
 ## Requirements
 
 - **Termux** (Android 7+) — [Get it from F-Droid](https://f-droid.org/en/packages/com.termux/) or GitHub
-- **Zsh** — the script runs on zsh (Termux's default shell)
+- **Zsh** — the script runs on zsh
 - **Runtime dependencies** (installed automatically by the installer):
 
 | Package | Purpose | Required |
