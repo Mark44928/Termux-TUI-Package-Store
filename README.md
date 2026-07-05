@@ -367,6 +367,25 @@ Every star, issue, and PR makes this project better. Thank you!
 
 ---
 
+## You Might Also Like
+
+- [NoNameOS](https://github.com/Mark44928/NoNameOS) - Pure C++ hobbyist OS simulation
+- [Anti-Bloatware List](https://github.com/Mark44928/Anti-bloatware-list-for-Android-TV-Boxes-and-Sticks-for-rooted) - Debloat rooted Android TV sticks
+
+---
+
+## Star History
+
+<a href="https://star-history.com/#Mark44928/Termux-TUI-Package-Store&Date">
+ <picture>
+   <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/svg?repos=Mark44928/Termux-TUI-Package-Store&type=Date&theme=dark" />
+   <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/svg?repos=Mark44928/Termux-TUI-Package-Store&type=Date" />
+   <img alt="Star History Chart" src="https://api.star-history.com/svg?repos=Mark44928/Termux-TUI-Package-Store&type=Date" />
+ </picture>
+</a>
+
+---
+
 <p align="center">
   Made with ❤️ for the Termux community
 </p>
