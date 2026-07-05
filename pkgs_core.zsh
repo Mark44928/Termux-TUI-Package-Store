@@ -76,8 +76,8 @@ echo "$pkg" | sed -n "/^Description:/ { s/^Description: //p; :a; n; /^ / { s/^ /
             --border="$BORDER_STYLE"
             --border-label="  Packages "
             --preview-label="  Package Details "
-            --prompt="  Search Here... > "
-            --pointer="▶"
+            --prompt="  Search Here > "
+            --pointer="➜ "
             --info=inline
             --multi
             --print-query
@@ -107,8 +107,8 @@ echo "$pkg" | sed -n "/^Description:/ { s/^Description: //p; :a; n; /^ / { s/^ /
     local LANDSCAPE_SPLIT="right:40%:wrap"
     local BORDER_STYLE="rounded"
     local C_RESET=$'\033[0m'
-    local C_INST_PREFIX=$'\033[1;36m[I]\033[0m'
-    local C_NOT_INST_PREFIX=$'\033[2;37m[-]\033[0m'
+    local C_INST_PREFIX=$'\033[1;36m[✓]\033[0m'
+    local C_NOT_INST_PREFIX=$'\033[2;37m[✗]\033[0m'
     local C_PKG_NAME=$'\033[1;32m'
     local C_PKG_DESC=$'\033[2;37m'
     local C_MSG_INSTALL=$'\033[1;32m'
