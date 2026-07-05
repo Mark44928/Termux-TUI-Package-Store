@@ -374,18 +374,6 @@ Every star, issue, and PR makes this project better. Thank you!
 
 ---
 
-## Star History
-
-<a href="https://star-history.com/#Mark44928/Termux-TUI-Package-Store&Date">
- <picture>
-   <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/svg?repos=Mark44928/Termux-TUI-Package-Store&type=Date&theme=dark" />
-   <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/svg?repos=Mark44928/Termux-TUI-Package-Store&type=Date" />
-   <img alt="Star History Chart" src="https://api.star-history.com/svg?repos=Mark44928/Termux-TUI-Package-Store&type=Date" />
- </picture>
-</a>
-
----
-
 <p align="center">
   Made with ❤️ for the Termux community
 </p>
