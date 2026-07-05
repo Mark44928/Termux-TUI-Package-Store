@@ -62,11 +62,11 @@ echo ""
 
 # ── Banner (after figlet is installed) ──────────────────────
 clear 2>/dev/null || true
-figlet -f big "Termux" 2>/dev/null | sed "s/^/${CYAN}/" | sed "s/$/${RESET}/"
-figlet -f big "TUI Store" 2>/dev/null | sed "s/^/${MAGENTA}/" | sed "s/$/${RESET}/"
+figlet -f smslant "Termux" 2>/dev/null | sed "s/^/${CYAN}/" | sed "s/$/${RESET}/"
+figlet -f smslant "TUI Store" 2>/dev/null | sed "s/^/${MAGENTA}/" | sed "s/$/${RESET}/"
 echo ""
 echo "${CYAN}  ╔══════════════════════════════════════════╗${RESET}"
-echo "${CYAN}  ║${RESET}  ${BOLD}Termux TUI Package Store${RESET}              ${CYAN}║${RESET}"
+echo "${CYAN}  ║${RESET}  ${BOLD}Termux TUI Package Store${RESET}                ${CYAN}║${RESET}"
 echo "${CYAN}  ║${RESET}  fzf-powered interactive package browser ${CYAN}║${RESET}"
 echo "${CYAN}  ╚══════════════════════════════════════════╝${RESET}"
 echo ""
