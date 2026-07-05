@@ -74,9 +74,9 @@ echo "$pkg" | sed -n "/^Description:/ { s/^Description: //p; :a; n; /^ / { s/^ /
             --query "$query"
             --layout=reverse
             --border="$BORDER_STYLE"
-            --border-label=" Packages "
-            --preview-label=" Package Details "
-            --prompt="  Find > "
+            --border-label="  Packages "
+            --preview-label="  Package Details "
+            --prompt="  Search Here... > "
             --pointer="▶"
             --info=inline
             --multi
