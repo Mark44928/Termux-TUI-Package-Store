@@ -87,7 +87,7 @@ The tool adapts to your terminal size, color-codes installed vs. available packa
 | **📐 Smart Layout** | Automatically switches between landscape (side-by-side) and portrait (stacked) preview |
 | **🎨 Color-Coded Status** | Installed packages tagged `[I]`, available packages tagged `[-]` |
 | **⚡ Slash Commands** | Type `/install <query>`, `/remove <query>`, `/export <query>`, or `/upgrade` in the search box |
-| **🛡️ Prerequisite Checks** | Validates fzf and package manager tools on startup |
+| **🛡️ Prerequisite Checks** | Validates fzf, pkg, apt-cache, and dpkg-query on startup |
 | **⚡ Zero Config** | Works out of the box — no config files or shell integration required |
 
 ---
@@ -173,7 +173,7 @@ Type these directly in the search box:
 | `/upgrade` | Upgrade all installed packages |
 | `/install <query>` | Install all packages matching `<query>` |
 | `/remove <query>` | Remove all packages matching `<query>` |
-| `/export <query>` | Export matching packages to a runnable shell script |
+| `/export <query>` | Export matching packages to a runnable shell script in the current directory |
 
 Examples:
 - `/install python` — installs all packages with "python" in the name
@@ -186,8 +186,8 @@ Examples:
 
 | Key | Action |
 |---|---|
-| `Enter` | Install or remove the selected package |
-| `Tab` | Select multiple packages (when `--multi` is enabled) |
+| `Enter` | Install or remove the selected package (prompts `y/N` confirmation per package) |
+| `Tab` | Select multiple packages |
 | `?` | Toggle the preview pane |
 | `Esc` or `Ctrl+C` | Exit the store |
 | Typing | Search/filter packages in real time |
@@ -235,7 +235,7 @@ LANDSCAPE_SPLIT="left:40%:wrap"   # preview on the left in landscape
 The `--color` flag in `_pkgs_build_fzf_args` uses 256-color ANSI codes. Customize any element:
 
 ```zsh
---color='fg:250,bg:-1,hl:063,fg+:231,bg+:235,hl+:063,info:144,prompt:161,pointer:045,marker:118,spinner:135,header:087'
+--color='fg:250,bg:-1,hl:063,fg+:231,bg+:235,hl+:063,info:144,prompt:161,pointer:161,marker:118,spinner:135,header:087'
 ```
 
 See the [fzf documentation](https://github.com/junegunn/fzf#color-schemes) for available color slots.
@@ -255,7 +255,6 @@ See the [fzf documentation](https://github.com/junegunn/fzf#color-schemes) for a
 - **Exclude library packages:** Append `| grep -vE '^(lib|python-|perl-|ruby-)'` to the `_pkgs_generate_list` pipeline.
 - **Hide already-installed packages:** Pipe through `grep -v '\[I\]'` after the awk script.
 - **Floating overlay:** Add `--height=80%` to `FZF_ARGS` for a non-fullscreen view.
-- **Multi-select:** Add `--multi` to `FZF_ARGS` to select multiple packages with Tab.
 - **Hide preview by default:** Change `--preview-window="$PREVIEW_LAYOUT"` to `--preview-window="$PREVIEW_LAYOUT:hidden"`. Press `?` to toggle.
 - **Keep search query across operations:** Store the query in a variable before fzf exits and pass it back on re-entry.
 
@@ -326,7 +325,7 @@ This project is licensed under the **MIT License**. See [LICENSE](https://github
 
 ## Disclaimer
 
-This tool runs `pkg install` and `pkg remove` commands with elevated privileges within the Termux environment. Always review package names before confirming installations. The authors are not responsible for any system damage resulting from misuse.
+This tool runs `pkg install` and `pkg remove` commands that modify your Termux environment. Always review package names before confirming installations. The authors are not responsible for any system damage resulting from misuse.
 
 ---
 
