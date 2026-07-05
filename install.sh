@@ -32,6 +32,7 @@ if [ -z "$PREFIX" ]; then
   exit 1
 fi
 
+echo
 echo "${BOLD}  📋 Pre-flight check${RESET}"
 echo "  ─────────────────"
 echo "  ${GREEN}✓${RESET} Termux detected at $PREFIX"
