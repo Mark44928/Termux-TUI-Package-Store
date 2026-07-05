@@ -1,4 +1,3 @@
-## Repo is in buggy statue. updates soon
 <p align="center">
   <img src="assets/pkgs.png" alt="Termux TUI Package Store interface showing a split-panel layout with a searchable package list on the left and package metadata preview on the right" width="700">
 </p>
@@ -87,6 +86,8 @@ The tool adapts to your terminal size, color-codes installed vs. available packa
 | **🔄 Persistent Session** | Store stays open after install/remove — keep going until you press Esc |
 | **📐 Smart Layout** | Automatically switches between landscape (side-by-side) and portrait (stacked) preview |
 | **🎨 Color-Coded Status** | Installed packages tagged `[I]`, available packages tagged `[-]` |
+| **⚡ Slash Commands** | Type `/install <query>`, `/remove <query>`, `/export <query>`, or `/upgrade` in the search box |
+| **🛡️ Prerequisite Checks** | Validates fzf and package manager tools on startup |
 | **⚡ Zero Config** | Works out of the box — no config files or shell integration required |
 
 ---
@@ -162,6 +163,22 @@ pkgs python
 ```
 
 This opens the store with "python" already typed in the search box.
+
+### Slash Commands
+
+Type these directly in the search box:
+
+| Command | Description |
+|---|---|
+| `/upgrade` | Upgrade all installed packages |
+| `/install <query>` | Install all packages matching `<query>` |
+| `/remove <query>` | Remove all packages matching `<query>` |
+| `/export <query>` | Export matching packages to a runnable shell script |
+
+Examples:
+- `/install python` — installs all packages with "python" in the name
+- `/remove vim` — removes all matching packages
+- `/export git` — saves matching packages to `pkg-install-*.sh`
 
 ---
 
