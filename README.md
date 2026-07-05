@@ -56,6 +56,7 @@
 - [Quick Install](#quick-install)
 - [Manual Installation](#manual-installation)
 - [Usage](#usage)
+  - [Slash Commands](#slash-commands)
 - [Key Bindings](#key-bindings)
 - [How It Works](#how-it-works)
 - [Configuration](#configuration)
@@ -71,9 +72,9 @@
 
 ## Overview
 
-Termux TUI Package Store is a high-performance terminal interface for managing packages on Termux. It wraps `pkg` (Termux's package manager) with an interactive fuzzy-finder that lets you search, preview, install, and remove packages in a single keystroke.
+Termux TUI Package Store is a terminal UI for managing packages on Termux. It wraps `pkg` with an interactive fuzzy-finder that lets you search, preview, install, and remove packages — all without leaving a single screen.
 
-The tool adapts to your terminal size, color-codes installed vs. available packages, and shows live metadata previews — version, size, dependencies, and description — for every package you highlight.
+The tool adapts to your terminal size, color-codes installed vs. available packages, and shows live metadata previews (version, size, dependencies, description) for every package you highlight. Type `/install`, `/remove`, `/export`, or `/upgrade` to run bulk operations directly from the search box.
 
 ---
 
@@ -82,13 +83,13 @@ The tool adapts to your terminal size, color-codes installed vs. available packa
 | Feature | Description |
 |---|---|
 | **🔍 Fuzzy Search** | Filter hundreds of packages instantly as you type |
-| **📋 Live Previews** | See version, size, dependencies, and description for any package |
+| **📋 Live Previews** | See version, installed/download size, dependencies, and description for any package |
 | **🔄 Persistent Session** | Store stays open after install/remove — keep going until you press Esc |
 | **📐 Smart Layout** | Automatically switches between landscape (side-by-side) and portrait (stacked) preview |
 | **🎨 Color-Coded Status** | Installed packages tagged `[I]`, available packages tagged `[-]` |
 | **⚡ Slash Commands** | Type `/install <query>`, `/remove <query>`, `/export <query>`, or `/upgrade` in the search box |
 | **🛡️ Prerequisite Checks** | Validates fzf, pkg, apt-cache, and dpkg-query on startup |
-| **⚡ Zero Config** | Works out of the box — no config files or shell integration required |
+| **⚡ Zero Config** | No config files needed — runs as a single script at `$PREFIX/bin/pkgs` |
 
 ---
 
@@ -96,17 +97,16 @@ The tool adapts to your terminal size, color-codes installed vs. available packa
 
 - **Termux** (Android 7+) — [Get it from F-Droid](https://f-droid.org/en/packages/com.termux/) or GitHub
 - **Zsh** — the script runs on zsh
-- **Runtime dependencies** (installed automatically by the installer):
+- **Runtime dependencies:**
 
 | Package | Purpose | Required |
 |---|---|---|
 | `fzf` | Fuzzy-finder interface | Yes |
 | `gawk` | Data processing (package list generation) | Yes |
-| `coreutils` | `numfmt` for human-readable size formatting | Yes |
-| `cowsay` | Fun status messages when a package has no dependencies | No |
 | `grep`, `sed` | Text processing in previews | Yes |
 | `ncurses` | Terminal handling (`tput`) | Yes |
-| `curl` | Downloading the script during installation | Yes |
+
+The installer also pulls `curl`, `coreutils` (`numfmt`), `cowsay`, and `figlet` for the install banner — these are not needed at runtime.
 
 > **Note:** Tested on Termux v0.118.x with fzf 0.53.0. Older versions may work but are not guaranteed.
 
@@ -128,7 +128,7 @@ zsh <(curl -fsSL https://raw.githubusercontent.com/Mark44928/Termux-TUI-Package-
 
    ```sh
    pkg update && pkg upgrade
-   pkg install zsh fzf cowsay coreutils gawk grep sed ncurses curl
+   pkg install zsh fzf cowsay coreutils gawk grep sed ncurses curl figlet
    ```
 
 2. **Download the script and make it executable:**
@@ -178,7 +178,7 @@ Type these directly in the search box:
 Examples:
 - `/install python` — installs all packages with "python" in the name
 - `/remove vim` — removes all matching packages
-- `/export git` — saves matching packages to `pkg-install-*.sh`
+- `/export git` — saves matching packages to `pkg-install-YYYYMMDD-HHMMSS.sh`
 
 ---
 
@@ -200,13 +200,16 @@ Examples:
    The tool measures your terminal with `tput` and decides whether to show the preview alongside the package list (wide terminals) or below it (narrow terminals).
 
 2. **Package Discovery**  
-   An `awk` script reads installed packages from `dpkg-query`, then merges them with every available package from `apt-cache search`. Each line is tagged `[I]` (installed) or `[-]` (available).
+   An `awk` script cross-references installed packages from `dpkg-query` against every available package from `apt-cache search ".*"`. Each line is tagged `[I]` (installed) or `[-]` (not installed).
 
 3. **Live Previews**  
    When you highlight a package, `fzf` runs `apt-cache show` in the background and displays version, section, size, top dependencies, and the description.
 
-4. **Action & Loop**  
-   Pressing Enter triggers `pkg install` or `pkg remove`. When the command finishes, the store refreshes the package list and re-opens — no need to relaunch.
+4. **Slash Commands**  
+   Typing `/upgrade`, `/install <query>`, `/remove <query>`, or `/export <query>` in the search box triggers bulk operations instead of package selection. Packages are validated against `apt-cache` before any action runs.
+
+5. **Action & Loop**  
+   Pressing Enter triggers a per-package `y/N` confirmation, then `pkg install` or `pkg remove`. When the command finishes, the store refreshes the package list and re-opens — no need to relaunch.
 
 ---
 
@@ -240,6 +243,18 @@ The `--color` flag in `_pkgs_build_fzf_args` uses 256-color ANSI codes. Customiz
 
 See the [fzf documentation](https://github.com/junegunn/fzf#color-schemes) for available color slots.
 
+### Message Colors
+
+| Variable | Default | Description |
+|---|---|---|
+| `C_INST_PREFIX` | `[I]` (cyan) | Tag for installed packages |
+| `C_NOT_INST_PREFIX` | `[-]` (dim white) | Tag for not-installed packages |
+| `C_PKG_NAME` | Green | Package name in list |
+| `C_PKG_DESC` | Dim white | Description in list |
+| `C_MSG_INSTALL` | Green | Install success messages |
+| `C_MSG_REMOVE` | Red | Remove/failure messages |
+| `C_MSG_INFO` | Yellow | Info/prompts |
+
 ### Behavior
 
 | Variable | Default | Description |
@@ -250,7 +265,6 @@ See the [fzf documentation](https://github.com/junegunn/fzf#color-schemes) for a
 ### Common Customizations
 
 - **Reinstall instead of install:** Change `${PKG_MGR} install "$pkg_name"` to `${PKG_MGR} reinstall "$pkg_name"`.
-- **Confirm before acting:** Wrap the install/remove line with a `read -q` prompt.
 - **Log every action:** Add `echo "$(date): $action $pkg_name" >> ~/.pkgs_history` inside the loop.
 - **Exclude library packages:** Append `| grep -vE '^(lib|python-|perl-|ruby-)'` to the `_pkgs_generate_list` pipeline.
 - **Hide already-installed packages:** Pipe through `grep -v '\[I\]'` after the awk script.
