@@ -1,38 +1,51 @@
 <p align="center">
-  <img src="assets/pkgs.png" alt="Termux TUI Package Store interface showing a split-panel layout with a searchable package list on the left and package metadata preview on the right" width="700">
+   <img src="assets/pkgs.png" alt="Termux TUI Package Store interface showing a split-panel layout with a searchable package list on the left and package metadata preview on the right" width="700">
 </p>
 
 <p align="center">
-  <a href="https://github.com/Mark44928/Termux-TUI-Package-Store/releases">
-    <img src="https://img.shields.io/github/v/release/Mark44928/Termux-TUI-Package-Store?style=for-the-badge&color=blue" alt="Release">
-  </a>
-  <a href="https://github.com/Mark44928/Termux-TUI-Package-Store/stargazers">
-    <img src="https://img.shields.io/github/stars/Mark44928/Termux-TUI-Package-Store?style=for-the-badge&color=yellow" alt="Stars">
-  </a>
-  <a href="https://github.com/Mark44928/Termux-TUI-Package-Store/blob/main/LICENSE">
-    <img src="https://img.shields.io/github/license/Mark44928/Termux-TUI-Package-Store?style=for-the-badge&color=green" alt="License">
-  </a>
-  <a href="https://github.com/Mark44928/Termux-TUI-Package-Store">
-    <img src="https://img.shields.io/github/repo-size/Mark44928/Termux-TUI-Package-Store?style=for-the-badge&color=orange" alt="Repo Size">
-  </a>
-  <a href="https://github.com/Mark44928/Termux-TUI-Package-Store/issues">
-    <img src="https://img.shields.io/github/issues/Mark44928/Termux-TUI-Package-Store?style=for-the-badge&color=red" alt="Issues">
-  </a>
-  <a href="https://github.com/Mark44928/Termux-TUI-Package-Store/pulls">
-    <img src="https://img.shields.io/github/issues-pr/Mark44928/Termux-TUI-Package-Store?style=for-the-badge&color=blueviolet" alt="PRs">
-  </a>
-  <a href="https://github.com/Mark44928/Termux-TUI-Package-Store">
-    <img src="https://img.shields.io/badge/maintained-yes-brightgreen?style=for-the-badge" alt="Maintained">
-  </a>
-  <a href="https://github.com/Mark44928/Termux-TUI-Package-Store">
-    <img src="https://img.shields.io/badge/PRs-welcome-orange?style=for-the-badge" alt="PRs Welcome">
-  </a>
+   <a href="https://github.com/Mark44928/Termux-TUI-Package-Store/releases">
+     <img src="https://img.shields.io/github/v/release/Mark44928/Termux-TUI-Package-Store?style=for-the-badge&color=blue" alt="Release">
+   </a>
+   <a href="https://github.com/Mark44928/Termux-TUI-Package-Store/stargazers">
+     <img src="https://img.shields.io/github/stars/Mark44928/Termux-TUI-Package-Store?style=for-the-badge&color=yellow" alt="Stars">
+   </a>
+   <a href="https://github.com/Mark44928/Termux-TUI-Package-Store/network/members">
+     <img src="https://img.shields.io/github/forks/Mark44928/Termux-TUI-Package-Store?style=for-the-badge&color=cyan" alt="Forks">
+   </a>
+   <a href="https://github.com/Mark44928/Termux-TUI-Package-Store/issues">
+     <img src="https://img.shields.io/github/issues/Mark44928/Termux-TUI-Package-Store?style=for-the-badge&color=red" alt="Issues">
+   </a>
+   <a href="https://github.com/Mark44928/Termux-TUI-Package-Store/pulls">
+     <img src="https://img.shields.io/github/issues-pr/Mark44928/Termux-TUI-Package-Store?style=for-the-badge&color=blueviolet" alt="PRs">
+   </a>
+   <a href="https://github.com/Mark44928/Termux-TUI-Package-Store">
+     <img src="https://img.shields.io/github/repo-size/Mark44928/Termux-TUI-Package-Store?style=for-the-badge&color=orange" alt="Repo Size">
+   </a>
+   <a href="https://github.com/Mark44928/Termux-TUI-Package-Store">
+     <img src="https://img.shields.io/github/languages/top/Mark44928/Termux-TUI-Package-Store?style=for-the-badge&color=ff69b4" alt="Language">
+   </a>
+   <a href="https://github.com/Mark44928/Termux-TUI-Package-Store/blob/main/LICENSE">
+     <img src="https://img.shields.io/github/license/Mark44928/Termux-TUI-Package-Store?style=for-the-badge&color=green" alt="License">
+   </a>
+   <a href="https://github.com/Mark44928/Termux-TUI-Package-Store">
+     <img src="https://img.shields.io/badge/maintained-yes-brightgreen?style=for-the-badge" alt="Maintained">
+   </a>
+   <a href="https://github.com/Mark44928/Termux-TUI-Package-Store">
+     <img src="https://img.shields.io/badge/PRs-welcome-orange?style=for-the-badge" alt="PRs Welcome">
+   </a>
+   <a href="https://github.com/Mark44928/Termux-TUI-Package-Store">
+     <img src="https://img.shields.io/badge/last_commit-active-blue?style=for-the-badge" alt="Active">
+   </a>
 </p>
 
 <h1 align="center">Termux TUI Package Store 📦</h1>
 
 <p align="center">
-  <em>An interactive, fzf-powered package browser for Termux — search, preview, install, and remove packages without typing individual package-manager commands.</em>
+   <em>Interactive fzf-powered terminal UI for browsing, previewing, installing, and removing Termux packages — no more typing repetitive <code>pkg install</code> commands.</em>
+</p>
+
+<p align="center">
+   <b>⚡ One keystroke. Instant preview. Persistent session. Search, install, remove, and export packages without leaving your terminal.</b>
 </p>
 
 <p align="center">
@@ -45,6 +58,27 @@
 <p align="center">
   <b>⭐ Star this repo if you find it useful! It helps others discover it.</b>
 </p>
+
+---
+
+## Why pkgs?
+
+| Problem with `pkg` | How pkgs solves it |
+|---|---|
+| Typing full package names every time | Fuzzy search matches partial names instantly |
+| No preview of what you're installing | Live pane shows version, size, deps, and description |
+| Have to run install/remove separately for each package | Tab to select multiple, or use `/install <query>` for bulk ops |
+| Session closes after every install | Persistent loop — keep managing packages until you press Esc |
+| No way to audit installed packages | Color-coded `[I]` / `[-]` tags at a glance |
+
+---
+
+## Perfect For
+
+- **Termux power users** who manage dozens of packages regularly
+- **Android developers** setting up fresh Termux environments
+- **Automation lovers** who want to export install scripts in one click
+- **New Termux users** overwhelmed by typing `pkg install` repeatedly
 
 ---
 
@@ -133,10 +167,12 @@ zsh <(curl -fsSL https://raw.githubusercontent.com/Mark44928/Termux-TUI-Package-
 
 2. **Download the script and make it executable:**
 
-   ```sh
-   curl -fsSL https://raw.githubusercontent.com/Mark44928/Termux-TUI-Package-Store/main/pkgs_core.zsh -o $PREFIX/bin/pkgs
-   chmod +x $PREFIX/bin/pkgs
-   ```
+    ```sh
+    curl -fsSL https://raw.githubusercontent.com/Mark44928/Termux-TUI-Package-Store/main/pkgs_core.zsh -o $PREFIX/bin/pkgs
+    chmod +x $PREFIX/bin/pkgs
+    ```
+
+> **Note:** The source file is `pkgs_core.zsh` in this repo, but it is installed as `$PREFIX/bin/pkgs` on your device. Edit that file to customize behavior.
 
 3. **Run it:**
 
@@ -200,7 +236,7 @@ Examples:
    The tool measures your terminal with `tput` and decides whether to show the preview alongside the package list (wide terminals) or below it (narrow terminals).
 
 2. **Package Discovery**  
-   An `awk` script cross-references installed packages from `dpkg-query` against every available package from `apt-cache search ".*"`. Each line is tagged `[I]` (installed) or `[-]` (not installed).
+   An `awk` (gawk) script cross-references installed packages from `dpkg-query` against every available package from `apt-cache search ".*"`. Each line is tagged `[I]` (installed) or `[-]` (not installed).
 
 3. **Live Previews**  
    When you highlight a package, `fzf` runs `apt-cache show` in the background and displays version, section, size, top dependencies, and the description.
