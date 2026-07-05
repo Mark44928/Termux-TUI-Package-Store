@@ -77,7 +77,7 @@ echo "$pkg" | sed -n "/^Description:/ { s/^Description: //p; :a; n; /^ / { s/^ /
             --border-label="  Packages "
             --preview-label="  Package Details "
             --prompt="  Search Here > "
-            --pointer="➜ "
+            --pointer="➜"
             --info=inline
             --multi
             --print-query
@@ -223,7 +223,7 @@ echo "$pkg" | sed -n "/^Description:/ { s/^Description: //p; :a; n; /^ / { s/^ /
             local pkg_name="${line%%|*}"
             [[ -z "$pkg_name" ]] && continue
 
-            print -n "${C_MSG_INFO}Process $pkg_name? (y/N) ${C_RESET}"
+            clear && print -n "${C_MSG_INFO}Process $pkg_name? (y/N) ${C_RESET}"
             read -q confirm; read -r
             echo
             [[ $confirm == 'y' ]] || {
