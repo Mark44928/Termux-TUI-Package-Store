@@ -27,7 +27,7 @@ spinner() {
 }
 
 cleanup() {
-  rm -f "${INSTALL_PATH}.tmp" 2>/dev/null
+  rm -f "${INSTALL_PATH:-}.tmp" 2>/dev/null
 }
 trap cleanup EXIT
 
@@ -51,7 +51,7 @@ echo "  ────────────────────────
   pkg update -y >/dev/null 2>&1 && \
   pkg install -y zsh fzf coreutils gawk grep sed ncurses curl figlet >/dev/null 2>&1
 ) &
-spinner $! "Updating and installing packages"
+spinner "$!" "Updating and installing packages"
 
 missing=''
 for cmd in fzf awk zsh curl tput figlet; do
