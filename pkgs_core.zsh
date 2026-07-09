@@ -204,7 +204,7 @@ printf "\n--- REVERSE DEPS ---\n"
 if ! apt-cache show "$pkg_name" >/dev/null 2>&1; then
     echo "Package not found."
 else
-    rdeps=$(apt-cache rdepends "$pkg_name" 2>/dev/null | tail -n +2 | head -n 5 | xargs 2>/dev/null)
+    rdeps=$(apt-cache rdepends "$pkg_name" 2>/dev/null | tail -n +3 | head -n 5 | xargs 2>/dev/null)
     if [ -z "$rdeps" ]; then
         echo "Nothing depends on this."
     else
@@ -515,7 +515,7 @@ echo "$pkg" | sed -n "/^Description:/ { s/^Description: //p; :a; n; /^ / { s/^ /
             else
                 printf "\n${C_MSG_INFO}--- Reverse dependencies of %s ---${C_RESET}\n\n" "$rdeps_pkg"
                 local rdeps_out
-                rdeps_out=$(apt-cache rdepends "$rdeps_pkg" 2>/dev/null | tail -n +2)
+                rdeps_out=$(apt-cache rdepends "$rdeps_pkg" 2>/dev/null | tail -n +3)
                 if [[ -z "$rdeps_out" ]]; then
                     printf "${C_DIM}Nothing depends on %s.${C_RESET}\n" "$rdeps_pkg"
                 else
