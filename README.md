@@ -217,7 +217,7 @@ Type these directly in the search box:
 | `/installed` | Filter: show only installed packages |
 | `/available` | Filter: show only available packages |
 | `/all` | Reset filter: show all packages |
-| `/sort name\|size` | Sort packages by name or size |
+| `/sort name` or `/sort size` | Sort packages by name or size |
 | `/history` | View today's operation log |
 | `/undo` | Reverse last install or remove |
 | `/help` | Show in-app help |

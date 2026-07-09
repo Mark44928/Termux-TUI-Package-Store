@@ -26,8 +26,6 @@ pkgs() {
     local C_TEAL=$'\033[38;5;109m'
     local C_AMBER=$'\033[38;5;180m'
     local C_RED=$'\033[38;5;203m'
-    local C_PURPLE=$'\033[38;5;139m'
-    local C_GRAY=$'\033[38;5;102m'
     local C_WHITE=$'\033[38;5;223m'
     local C_DIM=$'\033[38;5;59m'
 
@@ -90,7 +88,7 @@ pkgs() {
         if dpkg -s "$pkg_name" 2>/dev/null | grep -q '^Status: install ok installed'; then
             status_str="${C_GREEN}installed${C_RESET}"
         fi
-        printf "  ${C_GREEN}│${C_RESET}  ${C_DIM}Status:%-37b${C_RESET} ${C_GREEN}│${C_RESET}\n" "$status_str"
+        printf "  ${C_GREEN}│${C_RESET}  ${C_DIM}Status:%-37s${C_RESET} ${C_GREEN}│${C_RESET}\n" "$status_str"
         printf "  ${C_GREEN}├──────────────────────────────────────────────┤${C_RESET}\n"
         local desc
         desc=$(echo "$info" | sed -n '/^Description:/{ s/^Description: //p; :a; n; /^ /{ s/^ //p; ba }; }')
@@ -119,7 +117,7 @@ pkgs() {
         printf "  ${C_GREEN}│${C_RESET}    ${C_TEAL}/installed${C_RESET}       Show only installed      ${C_GREEN}│${C_RESET}\n"
         printf "  ${C_GREEN}│${C_RESET}    ${C_TEAL}/available${C_RESET}       Show only available      ${C_GREEN}│${C_RESET}\n"
         printf "  ${C_GREEN}│${C_RESET}    ${C_TEAL}/all${C_RESET}             Show all packages        ${C_GREEN}│${C_RESET}\n"
-        printf "  ${C_GREEN}│${C_RESET}    ${C_TEAL}/sort name|size${C_RESET}    Sort packages            ${C_GREEN}│${C_RESET}\n"
+        printf "  ${C_GREEN}│${C_RESET}    ${C_TEAL}/sort name${C_RESET} or ${C_TEAL}/sort size${C_RESET}  Sort packages    ${C_GREEN}│${C_RESET}\n"
         printf "  ${C_GREEN}│${C_RESET}    ${C_TEAL}/history${C_RESET}         View today's log         ${C_GREEN}│${C_RESET}\n"
         printf "  ${C_GREEN}│${C_RESET}    ${C_TEAL}/undo${C_RESET}            Undo last operation      ${C_GREEN}│${C_RESET}\n"
         printf "  ${C_GREEN}│${C_RESET}    ${C_TEAL}/help${C_RESET}            Show this help           ${C_GREEN}│${C_RESET}\n"
@@ -147,7 +145,9 @@ pkgs() {
 
     _pkgs_generate_list() {
         local filter="$_PKGS_FILTER"
-        awk -v c_inst="$C_INST_PREFIX" -v c_not_inst="$C_NOT_INST_PREFIX" \
+        local sort_mode="$_PKGS_SORT"
+        local list_output
+        list_output=$(awk -v c_inst="$C_INST_PREFIX" -v c_not_inst="$C_NOT_INST_PREFIX" \
             -v c_name="$C_PKG_NAME" -v c_desc="$C_PKG_DESC" -v c_reset="$C_RESET" \
             -v filter="$filter" '
         NR==FNR { installed[$1]=1; next }
@@ -164,7 +164,21 @@ pkgs() {
                 printf "%s|%s %s%s%s - %s%s%s\n", name, prefix, c_name, name, c_reset, c_desc, desc, c_reset
             }
         }
-        ' <(dpkg-query -W -f='${Package}\n') <(apt-cache search ".*")
+        ' <(dpkg-query -W -f='${Package}\n') <(apt-cache search ".*"))
+        if [[ "$sort_mode" == "size" ]]; then
+            local -A pkg_sizes
+            while read -r pname psize; do
+                [[ -n "$pname" ]] && pkg_sizes[$pname]=$psize
+            done < <(dpkg-query -W -f='${Package} ${Installed-Size}\n' 2>/dev/null)
+            local line
+            while IFS= read -r line; do
+                local pkg="${line%%|*}"
+                local size="${pkg_sizes[$pkg]:-0}"
+                printf "%010d|%s\n" "$size" "$line"
+            done <<< "$list_output" | sort -t'|' -k1,1 -rn | cut -d'|' -f2-
+        else
+            echo "$list_output" | sort -t'|' -k1,1
+        fi
     }
 
     _pkgs_get_cached_list() {
@@ -341,6 +355,12 @@ echo "$pkg" | sed -n "/^Description:/ { s/^Description: //p; :a; n; /^ / { s/^ /
             if [[ "$sort_arg" == "name" || "$sort_arg" == "size" ]]; then
                 _PKGS_SORT="$sort_arg"
                 _pkgs_invalidate_cache
+            elif [[ -z "$sort_arg" ]]; then
+                printf "${C_MSG_WARN}Usage: /sort name or /sort size${C_RESET}\n"
+                sleep 1
+            else
+                printf "${C_MSG_REMOVE}Invalid sort: %s (use name or size)${C_RESET}\n" "$sort_arg"
+                sleep 1
             fi
             query=""
             continue
@@ -431,6 +451,12 @@ echo "$pkg" | sed -n "/^Description:/ { s/^Description: //p; :a; n; /^ / { s/^ /
                 query=""
                 continue
             fi
+            if ! _pkgs_validate_name "$info_pkg"; then
+                printf "${C_MSG_REMOVE}Invalid package name: %s${C_RESET}\n" "$info_pkg"
+                sleep 1
+                query=""
+                continue
+            fi
             _pkgs_show_info "$info_pkg"
             clear
             query=""
@@ -442,7 +468,9 @@ echo "$pkg" | sed -n "/^Description:/ { s/^Description: //p; :a; n; /^ / { s/^ /
             printf "\n${C_MSG_INFO}--- Cleaning apt cache... ---${C_RESET}\n"
             "${PKG_MGR}" clean 2>/dev/null
             printf "${C_MSG_INFO}--- Removing unused dependencies... ---${C_RESET}\n"
-            if apt autoremove --dry-run 2>/dev/null | grep -q "0 upgraded, 0 newly installed"; then
+            local autoremove_out
+            autoremove_out=$(apt autoremove --dry-run 2>&1)
+            if [[ $? -ne 0 ]] || echo "$autoremove_out" | grep -qE "^0 upgraded, 0 newly installed, 0 to remove"; then
                 printf "${C_MSG_DONE}Nothing to remove.${C_RESET}\n"
             else
                 printf "${C_MSG_WARN}Remove unused dependencies? (y/N) ${C_RESET}"
@@ -473,27 +501,31 @@ echo "$pkg" | sed -n "/^Description:/ { s/^Description: //p; :a; n; /^ / { s/^ /
             clear
             printf "\n${C_MSG_INFO}--- Searching descriptions for \"%s\"... ---${C_RESET}\n\n" "$search_text"
             local -a desc_matches=()
+            local -a desc_texts=()
+            local match_limit=50
             while IFS= read -r line; do
-                local dname="${line%%:*}"
-                local ddesc="${line#*: }"
+                local dname="${line%% *}"
+                local ddesc="${line#* - }"
                 if [[ "$ddesc" == *"$search_text"* ]]; then
                     _pkgs_validate_name "$dname" || continue
                     desc_matches+=("$dname")
+                    desc_texts+=("$ddesc")
+                    if (( ${#desc_matches[@]} >= match_limit )); then
+                        break
+                    fi
                 fi
-            done < <(apt-cache search "" 2>/dev/null | while IFS= read -r entry; do
-                local ename="${entry%% *}"
-                local edesc="${entry#* - }"
-                printf "%s:%s\n" "$ename" "$edesc"
-            done)
+            done < <(apt-cache search "" 2>/dev/null)
             if [[ ${#desc_matches[@]} -eq 0 ]]; then
                 printf "${C_MSG_REMOVE}No packages found.${C_RESET}\n"
             else
                 printf "${C_MSG_DONE}Found %d packages:${C_RESET}\n\n" "${#desc_matches[@]}"
-                for m in "${desc_matches[@]}"; do
-                    local mdesc
-                    mdesc=$(apt-cache show "$m" 2>/dev/null | sed -n '/^Description:/{ s/^Description: //p; q; }')
-                    printf "  ${C_GREEN}%-24s${C_RESET} %s\n" "$m" "${mdesc:0:48}"
+                local i
+                for i in {1..${#desc_matches[@]}}; do
+                    printf "  ${C_GREEN}%-24s${C_RESET} %s\n" "${desc_matches[$i]}" "${desc_texts[$i]:0:48}"
                 done
+                if (( ${#desc_matches[@]} >= match_limit )); then
+                    printf "\n${C_MSG_WARN}Results limited to %d packages. Use a more specific search.${C_RESET}\n" "$match_limit"
+                fi
             fi
             printf "\n${C_MSG_INFO}Press Enter to return.${C_RESET}"
             read -r
@@ -675,7 +707,7 @@ Interactive Commands (type in search box):
   /installed            Filter: show only installed
   /available            Filter: show only available
   /all                  Reset filter: show everything
-  /sort name|size       Sort packages
+  /sort name or /sort size  Sort by name or size
   /history              View today's operation log
   /undo                 Reverse last install/remove
   /help                 Show in-app help
