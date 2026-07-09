@@ -478,14 +478,14 @@ echo "$pkg" | sed -n "/^Description:/ { s/^Description: //p; :a; n; /^ / { s/^ /
             "${PKG_MGR}" clean 2>/dev/null
             printf "${C_MSG_INFO}--- Removing unused dependencies... ---${C_RESET}\n"
             local autoremove_out
-            autoremove_out=$(apt autoremove --dry-run 2>&1)
+            autoremove_out=$("${PKG_MGR}" autoremove --dry-run 2>&1)
             if [[ $? -ne 0 ]] || echo "$autoremove_out" | grep -qE "^0 upgraded, 0 newly installed, 0 to remove"; then
                 printf "${C_MSG_DONE}Nothing to remove.${C_RESET}\n"
             else
                 printf "${C_MSG_WARN}Remove unused dependencies? (y/N) ${C_RESET}"
                 read -q confirm; read -r
                 if [[ "$confirm" == "y" ]]; then
-                    apt autoremove -y 2>/dev/null
+                    "${PKG_MGR}" autoremove -y 2>/dev/null
                     _pkgs_log_history "CLEAN" "autoremove+cache"
                     printf "${C_MSG_DONE}Done.${C_RESET}\n"
                 else
