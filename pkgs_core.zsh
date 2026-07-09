@@ -203,14 +203,13 @@ fi
 printf "\n--- REVERSE DEPS ---\n"
 if ! apt-cache show "$pkg_name" >/dev/null 2>&1; then
     echo "Package not found."
-elif rdeps=$(apt-cache rdepends "$pkg_name" 2>/dev/null | tail -n +2 | head -n 5 | xargs); then
+else
+    rdeps=$(apt-cache rdepends "$pkg_name" 2>/dev/null | tail -n +2 | head -n 5 | xargs 2>/dev/null)
     if [ -z "$rdeps" ]; then
         echo "Nothing depends on this."
     else
         echo "$rdeps"
     fi
-else
-    echo "Unable to retrieve reverse deps."
 fi
 if dpkg -s "$pkg_name" 2>/dev/null | grep -q "^Status: install ok installed"; then
     printf "\n--- INSTALLED FILES ---\n"
