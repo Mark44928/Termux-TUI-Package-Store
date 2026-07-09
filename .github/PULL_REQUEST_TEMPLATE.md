@@ -19,4 +19,4 @@ Describe the tests you ran to verify your changes.
 - [ ] My code follows the existing code style
 - [ ] I have tested my changes locally
 - [ ] I have updated the documentation if needed
-- [ ] My changes compile without warnings
+- [ ] My changes pass `zsh -n` syntax check

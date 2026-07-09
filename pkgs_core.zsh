@@ -201,11 +201,16 @@ else
     echo "$deps"
 fi
 printf "\n--- REVERSE DEPS ---\n"
-rdeps=$(apt-cache rdepends "$pkg_name" 2>/dev/null | tail -n +2 | head -n 5 | xargs)
-if [ -z "$rdeps" ]; then
-    echo "Nothing depends on this."
+if ! apt-cache show "$pkg_name" >/dev/null 2>&1; then
+    echo "Package not found."
+elif rdeps=$(apt-cache rdepends "$pkg_name" 2>/dev/null | tail -n +2 | head -n 5 | xargs); then
+    if [ -z "$rdeps" ]; then
+        echo "Nothing depends on this."
+    else
+        echo "$rdeps"
+    fi
 else
-    echo "$rdeps"
+    echo "Unable to retrieve reverse deps."
 fi
 if dpkg -s "$pkg_name" 2>/dev/null | grep -q "^Status: install ok installed"; then
     printf "\n--- INSTALLED FILES ---\n"
@@ -437,23 +442,19 @@ echo "$pkg" | sed -n "/^Description:/ { s/^Description: //p; :a; n; /^ / { s/^ /
             clear
             printf "\n${C_MSG_INFO}--- Cleaning apt cache... ---${C_RESET}\n"
             "${PKG_MGR}" clean 2>/dev/null
-            printf "${C_MSG_INFO}--- Removing orphaned packages... ---${C_RESET}\n"
-            local orphans
-            orphans=$(dpkg --no-pager -l 2>/dev/null | awk '/^rc/{print $2}')
-            if [[ -n "$orphans" ]]; then
-                local count
-                count=$(echo "$orphans" | wc -l)
-                printf "${C_MSG_WARN}Found %d orphaned packages. Remove? (y/N) ${C_RESET}" "$count"
+            printf "${C_MSG_INFO}--- Removing unused dependencies... ---${C_RESET}\n"
+            if apt autoremove --dry-run 2>/dev/null | grep -q "0 upgraded, 0 newly installed"; then
+                printf "${C_MSG_DONE}Nothing to remove.${C_RESET}\n"
+            else
+                printf "${C_MSG_WARN}Remove unused dependencies? (y/N) ${C_RESET}"
                 read -q confirm; read -r
                 if [[ "$confirm" == "y" ]]; then
-                    echo "$orphans" | xargs "${PKG_MGR}" remove -y 2>/dev/null
-                    _pkgs_log_history "CLEAN" "orphans+cache"
+                    apt autoremove -y 2>/dev/null
+                    _pkgs_log_history "CLEAN" "autoremove+cache"
                     printf "${C_MSG_DONE}Done.${C_RESET}\n"
                 else
                     printf "${C_DIM}Cancelled.${C_RESET}\n"
                 fi
-            else
-                printf "${C_MSG_DONE}No orphaned packages found.${C_RESET}\n"
             fi
             _pkgs_invalidate_cache
             printf "\n${C_MSG_INFO}Press Enter to return.${C_RESET}"
@@ -510,13 +511,17 @@ echo "$pkg" | sed -n "/^Description:/ { s/^Description: //p; :a; n; /^ / { s/^ /
                 continue
             fi
             clear
-            printf "\n${C_MSG_INFO}--- Reverse dependencies of %s ---${C_RESET}\n\n" "$rdeps_pkg"
-            local rdeps_out
-            rdeps_out=$(apt-cache rdepends "$rdeps_pkg" 2>/dev/null | tail -n +2)
-            if [[ -z "$rdeps_out" ]]; then
-                printf "${C_DIM}Nothing depends on %s.${C_RESET}\n" "$rdeps_pkg"
+            if ! apt-cache show "$rdeps_pkg" >/dev/null 2>&1; then
+                printf "${C_MSG_REMOVE}Package not found: %s${C_RESET}\n" "$rdeps_pkg"
             else
-                printf "%s\n" "$rdeps_out"
+                printf "\n${C_MSG_INFO}--- Reverse dependencies of %s ---${C_RESET}\n\n" "$rdeps_pkg"
+                local rdeps_out
+                rdeps_out=$(apt-cache rdepends "$rdeps_pkg" 2>/dev/null | tail -n +2)
+                if [[ -z "$rdeps_out" ]]; then
+                    printf "${C_DIM}Nothing depends on %s.${C_RESET}\n" "$rdeps_pkg"
+                else
+                    printf "%s\n" "$rdeps_out"
+                fi
             fi
             printf "\n${C_MSG_INFO}Press Enter to return.${C_RESET}"
             read -r
@@ -576,7 +581,7 @@ echo "$pkg" | sed -n "/^Description:/ { s/^Description: //p; :a; n; /^ / { s/^ /
                     local user_path
                     read -r user_path
                     [[ -n "$user_path" ]] && export_file="$user_path"
-                    if _pkgs_validate_name "${export_file%.sh}" 2>/dev/null || [[ "$export_file" == *.sh ]]; then
+                    if [[ -n "$export_file" ]] && { [[ -d "$(dirname "$export_file")" ]] || [[ -d "." ]]; }; then
                         {
                             printf "#!/data/data/com.termux/files/usr/bin/sh\n"
                             printf "${PKG_MGR} install \\\\\n"
