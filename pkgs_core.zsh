@@ -215,7 +215,7 @@ else
     echo "$deps"
 fi
 printf "\n--- REVERSE DEPS ---\n"
-if ! apt-cache show "$pkg_name" >/dev/null 2>&1; then
+if [ -z "$pkg" ]; then
     echo "Package not found."
 else
     rdeps=$(apt-cache rdepends "$pkg_name" 2>/dev/null | tail -n +3 | head -n 5 | xargs 2>/dev/null)
@@ -350,8 +350,11 @@ echo "$pkg" | sed -n "/^Description:/ { s/^Description: //p; :a; n; /^ / { s/^ /
         fi
 
         if [[ "$query" == /sort* ]]; then
-            local sort_arg="${query#* }"
-            sort_arg="$(print -r -- "$sort_arg" | xargs)"
+            local sort_arg=""
+            if [[ "$query" != "/sort" ]]; then
+                sort_arg="${query#* }"
+                sort_arg="$(print -r -- "$sort_arg" | xargs)"
+            fi
             if [[ "$sort_arg" == "name" || "$sort_arg" == "size" ]]; then
                 _PKGS_SORT="$sort_arg"
                 _pkgs_invalidate_cache
@@ -445,6 +448,12 @@ echo "$pkg" | sed -n "/^Description:/ { s/^Description: //p; :a; n; /^ / { s/^ /
         fi
 
         if [[ "$query" == /info* ]]; then
+            if [[ "$query" == "/info" ]]; then
+                printf "${C_MSG_WARN}Usage: /info <package>${C_RESET}\n"
+                sleep 1
+                query=""
+                continue
+            fi
             local info_pkg="${query#* }"
             info_pkg="$(print -r -- "$info_pkg" | xargs)"
             if [[ -z "$info_pkg" ]]; then
@@ -492,6 +501,12 @@ echo "$pkg" | sed -n "/^Description:/ { s/^Description: //p; :a; n; /^ / { s/^ /
         fi
 
         if [[ "$query" == /search* ]]; then
+            if [[ "$query" == "/search" ]]; then
+                printf "${C_MSG_WARN}Usage: /search <text>${C_RESET}\n"
+                sleep 1
+                query=""
+                continue
+            fi
             local search_text="${query#* }"
             search_text="$(print -r -- "$search_text" | xargs)"
             if [[ -z "$search_text" ]]; then
@@ -535,6 +550,12 @@ echo "$pkg" | sed -n "/^Description:/ { s/^Description: //p; :a; n; /^ / { s/^ /
         fi
 
         if [[ "$query" == /rdeps* ]]; then
+            if [[ "$query" == "/rdeps" ]]; then
+                printf "${C_MSG_WARN}Usage: /rdeps <package>${C_RESET}\n"
+                sleep 1
+                query=""
+                continue
+            fi
             local rdeps_pkg="${query#* }"
             rdeps_pkg="$(print -r -- "$rdeps_pkg" | xargs)"
             if [[ -z "$rdeps_pkg" ]]; then

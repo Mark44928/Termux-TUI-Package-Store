@@ -68,7 +68,7 @@
 | No preview of what you're installing | Live pane shows version, size, deps, and description |
 | Have to run install/remove separately for each package | Tab to select multiple, or use `/install <query>` for bulk ops |
 | Session closes after every install | Persistent loop — keep managing packages until you press Esc |
-| No way to audit installed packages | Color-coded `[I]` / `[-]` tags at a glance |
+| No way to audit installed packages | Color-coded `[✓]` / `[ ]` tags at a glance |
 
 ---
 
@@ -250,7 +250,7 @@ Examples:
    The tool measures your terminal with `tput` and decides whether to show the preview alongside the package list (wide terminals) or below it (narrow terminals).
 
 2. **Package Discovery**  
-   An `awk` (gawk) script cross-references installed packages from `dpkg-query` against every available package from `apt-cache search ".*"`. Each line is tagged `[I]` (installed) or `[-]` (not installed).
+   An `awk` (gawk) script cross-references installed packages from `dpkg-query` against every available package from `apt-cache search ".*"`. Each line is tagged `[✓]` (installed) or `[ ]` (not installed).
 
 3. **Live Previews**  
    When you highlight a package, `fzf` runs `apt-cache show` in the background and displays version, section, size, top dependencies, and the description.
@@ -317,7 +317,7 @@ See the [fzf documentation](https://github.com/junegunn/fzf#color-schemes) for a
 - **Reinstall instead of install:** Change `${PKG_MGR} install "$pkg_name"` to `${PKG_MGR} reinstall "$pkg_name"`.
 - **Log every action:** Add `echo "$(date): $action $pkg_name" >> ~/.pkgs_history` inside the loop.
 - **Exclude library packages:** Append `| grep -vE '^(lib|python-|perl-|ruby-)'` to the `_pkgs_generate_list` pipeline.
-- **Hide already-installed packages:** Pipe through `grep -v '\[I\]'` after the awk script.
+- **Hide already-installed packages:** Pipe through `grep -v '\[✓\]'` after the awk script.
 - **Floating overlay:** Add `--height=80%` to `FZF_ARGS` for a non-fullscreen view.
 - **Hide preview by default:** Change `--preview-window="$PREVIEW_LAYOUT"` to `--preview-window="$PREVIEW_LAYOUT:hidden"`. Press `?` to toggle.
 - **Keep search query across operations:** Store the query in a variable before fzf exits and pass it back on re-entry.
