@@ -17,7 +17,13 @@ spinner() {
     printf "\r${YELLOW}  [%c]${RESET} %s ..." "${spin:$i:1}" "$msg"
     sleep 0.12
   done
-  printf "\r${GREEN}  [✓]${RESET} %s    \n" "$msg"
+  wait "$pid" 2>/dev/null
+  local exit_code=$?
+  if [ "$exit_code" -eq 0 ]; then
+    printf "\r${GREEN}  [✓]${RESET} %s    \n" "$msg"
+  else
+    printf "\r${RED}  [✗]${RESET} %s failed\n" "$msg"
+  fi
 }
 
 cleanup() {
@@ -43,7 +49,7 @@ echo "${BOLD}  🔧 Installing dependencies${RESET}"
 echo "  ─────────────────────────"
 (
   pkg update -y >/dev/null 2>&1 && \
-  pkg install -y zsh fzf cowsay coreutils gawk grep sed ncurses curl figlet >/dev/null 2>&1
+  pkg install -y zsh fzf coreutils gawk grep sed ncurses curl figlet >/dev/null 2>&1
 ) &
 spinner $! "Updating and installing packages"
 

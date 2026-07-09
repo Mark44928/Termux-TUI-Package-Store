@@ -119,7 +119,7 @@ The tool adapts to your terminal size, color-codes installed vs. available packa
 | **📋 Live Previews** | See version, installed/download size, dependencies, and description for any package |
 | **🔄 Persistent Session** | Store stays open after install/remove — keep going until you press Esc |
 | **📐 Smart Layout** | Automatically switches between landscape (side-by-side) and portrait (stacked) preview |
-| **🎨 Color-Coded Status** | Installed packages tagged `[I]`, available packages tagged `[-]` |
+| **🎨 Color-Coded Status** | Installed packages tagged `[✓]`, available packages tagged `[ ]` |
 | **⚡ Slash Commands** | Type `/install <query>`, `/remove <query>`, `/export <query>`, or `/upgrade` in the search box |
 | **🛡️ Prerequisite Checks** | Validates fzf, pkg, apt-cache, and dpkg-query on startup |
 | **⚡ Zero Config** | No config files needed — runs as a single script at `$PREFIX/bin/pkgs` |
@@ -135,11 +135,12 @@ The tool adapts to your terminal size, color-codes installed vs. available packa
 | Package | Purpose | Required |
 |---|---|---|
 | `fzf` | Fuzzy-finder interface | Yes |
-| `gawk` | Data processing (package list generation) | Yes |
+| `awk` | Data processing (package list generation) | Yes |
 | `grep`, `sed` | Text processing in previews | Yes |
 | `ncurses` | Terminal handling (`tput`) | Yes |
+| `coreutils` | Human-readable sizes (`numfmt`) | Optional |
 
-The installer also pulls `curl`, `coreutils` (`numfmt`), `cowsay`, and `figlet` for the install banner — these are not needed at runtime.
+The installer also pulls `curl` and `figlet` for the install banner — these are not needed at runtime.
 
 > **Note:** Tested on Termux v0.118.x with fzf 0.53.0. Older versions may work but are not guaranteed.
 
@@ -151,7 +152,7 @@ The installer also pulls `curl`, `coreutils` (`numfmt`), `cowsay`, and `figlet` 
 zsh <(curl -fsSL https://raw.githubusercontent.com/Mark44928/Termux-TUI-Package-Store/main/install.sh)
 ```
 
-> **Note:** If `zsh` is not your current shell, run `bash` instead of `zsh` in the command above. The installer will set everything up regardless.
+> **Note:** If `zsh` is not installed, replace `zsh` with `bash` in the command above. The installer will set everything up regardless.
 
 ---
 
@@ -161,14 +162,14 @@ zsh <(curl -fsSL https://raw.githubusercontent.com/Mark44928/Termux-TUI-Package-
 
    ```sh
    pkg update && pkg upgrade
-   pkg install zsh fzf cowsay coreutils gawk grep sed ncurses curl figlet
+    pkg install zsh fzf coreutils gawk grep sed ncurses curl figlet
    ```
 
 2. **Download the script and make it executable:**
 
     ```sh
-    curl -fsSL https://raw.githubusercontent.com/Mark44928/Termux-TUI-Package-Store/main/pkgs_core.zsh -o $PREFIX/bin/pkgs
-    chmod +x $PREFIX/bin/pkgs
+    curl -fsSL https://raw.githubusercontent.com/Mark44928/Termux-TUI-Package-Store/main/pkgs_core.zsh -o "$PREFIX/bin/pkgs"
+    chmod +x "$PREFIX/bin/pkgs"
     ```
 
 > **Note:** The source file is `pkgs_core.zsh` in this repo, but it is installed as `$PREFIX/bin/pkgs` on your device. Edit that file to customize behavior.
@@ -208,12 +209,26 @@ Type these directly in the search box:
 | `/upgrade` | Upgrade all installed packages |
 | `/install <query>` | Install all packages matching `<query>` |
 | `/remove <query>` | Remove all packages matching `<query>` |
-| `/export <query>` | Export matching packages to a runnable shell script in the current directory |
+| `/export <query>` | Export matching packages to a runnable shell script |
+| `/info <pkg>` | Show full package details in a panel |
+| `/search <text>` | Search package descriptions (not just names) |
+| `/rdeps <pkg>` | Show reverse dependencies (what depends on this) |
+| `/clean` | Remove orphaned packages and clean apt cache |
+| `/installed` | Filter: show only installed packages |
+| `/available` | Filter: show only available packages |
+| `/all` | Reset filter: show all packages |
+| `/sort name\|size` | Sort packages by name or size |
+| `/history` | View today's operation log |
+| `/undo` | Reverse last install or remove |
+| `/help` | Show in-app help |
 
 Examples:
 - `/install python` — installs all packages with "python" in the name
 - `/remove vim` — removes all matching packages
 - `/export git` — saves matching packages to `pkg-install-YYYYMMDD-HHMMSS.sh`
+- `/search editor` — finds packages whose descriptions mention "editor"
+- `/rdeps python` — shows what depends on python
+- `/clean` — cleans up orphaned packages and apt cache
 
 ---
 
@@ -282,13 +297,13 @@ See the [fzf documentation](https://github.com/junegunn/fzf#color-schemes) for a
 
 | Variable | Default | Description |
 |---|---|---|
-| `C_INST_PREFIX` | `[I]` (cyan) | Tag for installed packages |
-| `C_NOT_INST_PREFIX` | `[-]` (dim white) | Tag for not-installed packages |
+| `C_INST_PREFIX` | `[✓]` (green) | Tag for installed packages |
+| `C_NOT_INST_PREFIX` | `[ ]` (dim) | Tag for not-installed packages |
 | `C_PKG_NAME` | Green | Package name in list |
-| `C_PKG_DESC` | Dim white | Description in list |
+| `C_PKG_DESC` | Dim | Description in list |
 | `C_MSG_INSTALL` | Green | Install success messages |
 | `C_MSG_REMOVE` | Red | Remove/failure messages |
-| `C_MSG_INFO` | Yellow | Info/prompts |
+| `C_MSG_INFO` | Amber | Info/prompts |
 
 ### Behavior
 
@@ -344,10 +359,11 @@ A: Absolutely — see [Contributing](#contributing).
 ## Uninstallation
 
 ```sh
-rm $PREFIX/bin/pkgs
+rm "$PREFIX/bin/pkgs"
+rm -rf ~/.local/share/pkgs
 ```
 
-That's it. No config files, no sourced shell lines, no lingering data.
+The first command removes the script. The second removes history logs stored at `~/.local/share/pkgs/history/`. No other config files or shell modifications exist.
 
 ---
 
