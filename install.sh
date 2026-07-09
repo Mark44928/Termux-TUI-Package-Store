@@ -17,8 +17,8 @@ spinner() {
     printf "\r${YELLOW}  [%c]${RESET} %s ..." "${spin:$i:1}" "$msg"
     sleep 0.12
   done
-  wait "$pid" 2>/dev/null
-  local exit_code=$?
+  local exit_code=0
+  wait "$pid" 2>/dev/null || exit_code=$?
   if [ "$exit_code" -eq 0 ]; then
     printf "\r${GREEN}  [✓]${RESET} %s    \n" "$msg"
   else
@@ -27,7 +27,7 @@ spinner() {
 }
 
 cleanup() {
-  rm -f "${INSTALL_PATH:-}.tmp" 2>/dev/null
+  [[ -n "${INSTALL_PATH:-}" ]] && rm -f "${INSTALL_PATH}.tmp" 2>/dev/null
 }
 trap cleanup EXIT
 
