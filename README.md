@@ -39,7 +39,7 @@
 </p>
 
 <h1 align="center">Termux TUI Package Store 📦</h1>
-
+> Note: the screenshot that you see is outdated, the current version is looks kinda different. 🐧😭
 <p align="center">
    <em>Interactive fzf-powered terminal UI for browsing, previewing, installing, and removing Termux packages — no more typing repetitive <code>pkg install</code> commands.</em>
 </p>
