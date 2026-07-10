@@ -1,6 +1,12 @@
-# Contributing to Termux TUI Package Store
+<p align="center">
+   <b>Contributing to Termux TUI Package Store</b>
+</p>
 
-Thanks for your interest in contributing!
+<p align="center">
+   <em>Thanks for your interest in contributing! Here's how to get started.</em>
+</p>
+
+---
 
 ## How to Contribute
 
@@ -10,6 +16,8 @@ Thanks for your interest in contributing!
 4. **Push** to the branch (`git push origin feature/my-feature`)
 5. **Open** a Pull Request
 
+---
+
 ## Development Setup
 
 ```bash
@@ -18,18 +26,25 @@ cd Termux-TUI-Package-Store
 # Requires zsh and fzf
 ```
 
+---
+
 ## Guidelines
 
 - Follow the existing code style (zsh)
 - Test your changes on a real Termux environment
+- Run `zsh -n pkgs_core.zsh` to check for syntax errors
 - Keep changes focused and minimal
+
+---
 
 ## Ideas for Contributions
 
-- Add new package categories
-- Improve the TUI interface
-- Add search filters
-- Fix bugs
+- New package categories or filters
+- TUI interface improvements
+- Search filter enhancements
+- Bug fixes
+
+---
 
 ## License
 
