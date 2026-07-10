@@ -214,10 +214,10 @@ zsh <(curl -fsSL https://raw.githubusercontent.com/Mark44928/Termux-TUI-Package-
 
 2. **Download the script and make it executable:**
 
-    ```sh
-    curl -fsSL https://raw.githubusercontent.com/Mark44928/Termux-TUI-Package-Store/main/pkgs_core.zsh -o "$PREFIX/bin/pkgs"
-    chmod +x "$PREFIX/bin/pkgs"
-    ```
+   ```sh
+   curl -fsSL https://raw.githubusercontent.com/Mark44928/Termux-TUI-Package-Store/main/pkgs_core.zsh -o "$PREFIX/bin/pkgs"
+   chmod +x "$PREFIX/bin/pkgs"
+   ```
 
 > **Note:** The source file is `pkgs_core.zsh` in this repo, but it is installed as `$PREFIX/bin/pkgs` on your device. Edit that file to customize behavior.
 
@@ -319,7 +319,7 @@ LANDSCAPE_SPLIT="left:40%:wrap"   # preview on the left in landscape
 The `--color` flag in `_pkgs_build_fzf_args` uses 256-color ANSI codes. Customize any element:
 
 ```zsh
---color='fg:250,bg:-1,hl:063,fg+:231,bg+:235,hl+:063,info:144,prompt:161,pointer:161,marker:118,spinner:135,header:087'
+--color='fg:223,bg:-1,hl:114,fg+:223,bg+:235,hl+:109,info:109,prompt:180,pointer:203,marker:114,spinner:139,header:59'
 ```
 
 See the [fzf documentation](https://github.com/junegunn/fzf#color-schemes) for available color slots.
