@@ -36,6 +36,12 @@
    <a href="https://github.com/Mark44928/Termux-TUI-Package-Store">
      <img src="https://img.shields.io/badge/last_commit-active-blue?style=for-the-badge" alt="Active">
    </a>
+   <a href="https://github.com/Mark44928/Termux-TUI-Package-Store">
+     <img src="https://img.shields.io/badge/platform-termux%20%7C%20android-006600?style=for-the-badge" alt="Platform">
+   </a>
+   <a href="https://github.com/Mark44928/Termux-TUI-Package-Store">
+     <img src="https://img.shields.io/badge/shell-zsh-blue?style=for-the-badge" alt="Shell">
+   </a>
 </p>
 	
 <h1 align="center">Termux TUI Package Store 📦</h1>
@@ -97,6 +103,7 @@
 - [FAQ](#faq)
 - [Uninstallation](#uninstallation)
 - [Contributing](#contributing)
+- [Changelog](#changelog)
 - [License](#license)
 - [Disclaimer](#disclaimer)
 - [Acknowledgments](#acknowledgments)
@@ -120,9 +127,43 @@ The tool adapts to your terminal size, color-codes installed vs. available packa
 | **🔄 Persistent Session** | Store stays open after install/remove — keep going until you press Esc |
 | **📐 Smart Layout** | Automatically switches between landscape (side-by-side) and portrait (stacked) preview |
 | **🎨 Color-Coded Status** | Installed packages tagged `[✓]`, available packages tagged `[ ]` |
-| **⚡ Slash Commands** | Type `/install <query>`, `/remove <query>`, `/export <query>`, or `/upgrade` in the search box |
+| **⚡ 21 Slash Commands** | Bulk install/remove/export, filters, sorting, notes, comparison, backup/restore, and more |
+| **📦 Batch Operations** | Multi-select with Tab, preview with dry-run, categorized summary with progress |
 | **🛡️ Prerequisite Checks** | Validates fzf, pkg, apt-cache, and dpkg-query on startup |
+| **📊 Disk Usage** | Visual breakdown by section with bar charts |
+| **📝 Package Notes** | Add/edit notes per package, persisted across sessions |
+| **⚖️ Package Comparison** | Side-by-side view of two packages |
+| **💾 Backup & Restore** | Export full package list, reinstall from it later |
+| **🕐 Recent Activity** | Filter packages installed today via dpkg logs |
+| **📜 Operation History** | Daily log of all install/remove/export operations |
+| **↩️ Undo Support** | Reverse last install or remove operation |
 | **⚡ Zero Config** | No config files needed — runs as a single script at `$PREFIX/bin/pkgs` |
+
+### Slash Commands (21 total)
+
+| Command | Description |
+|---|---|
+| `/upgrade` | Upgrade all installed packages |
+| `/install <query>` | Install all packages matching `<query>` |
+| `/remove <query>` | Remove all packages matching `<query>` |
+| `/export <query>` | Export matching packages to a runnable shell script |
+| `/info <pkg>` | Show full package details in a panel |
+| `/search <text>` | Search package descriptions (not just names) |
+| `/rdeps <pkg>` | Show reverse dependencies (what depends on this) |
+| `/compare <a> <b>` | Compare two packages side by side |
+| `/note <pkg> <text>` | Add or view a note for a package |
+| `/clean` | Remove orphaned packages and clean apt cache |
+| `/installed` | Filter: show only installed packages |
+| `/available` | Filter: show only available packages |
+| `/recent` | Filter: show only packages installed today |
+| `/usage` | Show disk usage breakdown by section |
+| `/all` | Reset filter: show all packages |
+| `/sort name` or `/sort size` | Sort packages by name or size |
+| `/history` | View today's operation log |
+| `/backup` | Export your full package list to a file |
+| `/restore <file>` | Install all packages from a backup file |
+| `/undo` | Reverse last install or remove |
+| `/help` | Show in-app help |
 
 ---
 
@@ -244,6 +285,8 @@ Examples:
 |---|---|
 | `Enter` | Install or remove the selected package (prompts `y/N` confirmation per package) |
 | `Tab` | Select multiple packages |
+| `Ctrl-A` | Select all visible packages |
+| `Ctrl-D` | Deselect all packages |
 | `?` | Toggle the preview pane |
 | `Esc` or `Ctrl+C` | Exit the store |
 | Typing | Search/filter packages in real time |
@@ -385,6 +428,12 @@ Contributions are welcome! Whether it's a bug fix, a new feature, or improved do
 6. Push and open a pull request.
 
 Please follow the [Contributor Covenant](https://www.contributor-covenant.org/) code of conduct. Be kind, be respectful, and keep discussions constructive.
+
+---
+
+## Changelog
+
+See [CHANGELOG.md](CHANGELOG.md) for a detailed list of all changes.
 
 ---
 

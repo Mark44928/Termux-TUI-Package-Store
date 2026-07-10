@@ -532,23 +532,17 @@ echo "$pkg" | sed -n "/^Description:/ { s/^Description: //p; :a; n; /^ / { s/^ /
         fi
 
         if [[ "$query" == /compare* ]]; then
-            if [[ "$query" == "/compare" || "$query" != *" "* ]]; then
+            local cmp_args="${query#compare }"
+            if [[ -z "$cmp_args" || "$cmp_args" != *" "* ]]; then
                 printf "${C_MSG_WARN}Usage: /compare <pkg1> <pkg2>${C_RESET}\n"
                 sleep 1
                 query=""
                 continue
             fi
-            local cmp_pkgs="${query#* }"
-            local cmp_p1="${cmp_pkgs%% *}"
-            local cmp_p2="${cmp_pkgs#* }"
-            cmp_p1="$(print -r -- "$cmp_p1" | xargs)"
-            cmp_p2="$(print -r -- "$cmp_p2" | xargs)"
-            if [[ -z "$cmp_p1" || -z "$cmp_p2" ]]; then
-                printf "${C_MSG_WARN}Usage: /compare <pkg1> <pkg2>${C_RESET}\n"
-                sleep 1
-                query=""
-                continue
-            fi
+            local cmp_p1="${cmp_args%% *}"
+            local cmp_p2="${cmp_args#* }"
+            _pkgs_validate_name "$cmp_p1" || { printf "${C_MSG_REMOVE}Invalid package name: %s${C_RESET}\n" "$cmp_p1"; sleep 1; query=""; continue; }
+            _pkgs_validate_name "$cmp_p2" || { printf "${C_MSG_REMOVE}Invalid package name: %s${C_RESET}\n" "$cmp_p2"; sleep 1; query=""; continue; }
             local info1 info2
             info1=$(apt-cache show "$cmp_p1" 2>/dev/null)
             info2=$(apt-cache show "$cmp_p2" 2>/dev/null)
@@ -819,9 +813,9 @@ echo "$pkg" | sed -n "/^Description:/ { s/^Description: //p; :a; n; /^ / { s/^ /
             printf "\n${C_MSG_INFO}--- Cleaning apt cache... ---${C_RESET}\n"
             "${PKG_MGR}" clean 2>/dev/null
             printf "${C_MSG_INFO}--- Removing unused dependencies... ---${C_RESET}\n"
-            local autoremove_out autoremove_rc
-            autoremove_out=$("${PKG_MGR}" autoremove --dry-run 2>&1) || autoremove_rc=$?
-            if [[ -n "$autoremove_rc" ]]; then
+            local autoremove_out
+            autoremove_out=$("${PKG_MGR}" autoremove --dry-run 2>&1)
+            if [[ $? -ne 0 ]]; then
                 printf "${C_MSG_WARN}Could not check dependencies: %s${C_RESET}\n" "$autoremove_out"
             elif echo "$autoremove_out" | grep -qE "^0 upgraded, 0 newly installed, 0 to remove"; then
                 printf "${C_MSG_DONE}Nothing to remove.${C_RESET}\n"
