@@ -676,7 +676,7 @@ echo "$pkg" | sed -n "/^Description:/ { s/^Description: //p; :a; n; /^ / { s/^ /
             chmod +x "$export_all_file" 2>/dev/null
             local pkg_count
             pkg_count=$(wc -l < "$export_all_file" | xargs)
-            printf "\n${C_MSG_DONE}Exported %s packages to: %s${C_RESET}\n" "$((pkg_count - 3))" "$export_all_file"
+            printf "\n${C_MSG_DONE}Exported %s packages to: %s${C_RESET}\n" "$((pkg_count - 4))" "$export_all_file"
             printf "\n${C_MSG_INFO}Press Enter to return.${C_RESET}"
             read -r
             clear
@@ -738,9 +738,9 @@ echo "$pkg" | sed -n "/^Description:/ { s/^Description: //p; :a; n; /^ / { s/^ /
                     query=""
                     continue
                 fi
-                if [[ -f "$_PKGS_NOTES_FILE" ]] && grep -q "^${note_pkg}|" "$_PKGS_NOTES_FILE" 2>/dev/null; then
+                if [[ -f "$_PKGS_NOTES_FILE" ]] && grep -qF "${note_pkg}|" "$_PKGS_NOTES_FILE" 2>/dev/null; then
                     local existing
-                    existing=$(grep "^${note_pkg}|" "$_PKGS_NOTES_FILE" | head -1 | cut -d'|' -f2-)
+                    existing=$(grep -F "${note_pkg}|" "$_PKGS_NOTES_FILE" | head -1 | cut -d'|' -f2-)
                     printf "  ${C_WHITE}%-24s${C_RESET} %s\n" "$note_pkg" "$existing"
                 else
                     printf "${C_DIM}No note for %s${C_RESET}\n" "$note_pkg"
@@ -752,7 +752,7 @@ echo "$pkg" | sed -n "/^Description:/ { s/^Description: //p; :a; n; /^ / { s/^ /
         fi
 
         if [[ "$query" == /compare* ]]; then
-            local cmp_args="${query#compare }"
+            local cmp_args="${query#* }"
             if [[ -z "$cmp_args" || "$cmp_args" != *" "* ]]; then
                 printf "${C_MSG_WARN}Usage: /compare <pkg1> <pkg2>${C_RESET}\n"
                 sleep 1
