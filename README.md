@@ -3,6 +3,10 @@
 </p>
 
 <p align="center">
+   <em><sub>Screenshot may not reflect the latest version. Run <code>pkgs</code> to see the current interface.</sub></em>
+</p>
+
+<p align="center">
    <a href="https://github.com/Mark44928/Termux-TUI-Package-Store/releases">
      <img src="https://img.shields.io/github/v/release/Mark44928/Termux-TUI-Package-Store?style=for-the-badge&color=blue" alt="Release">
    </a>
