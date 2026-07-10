@@ -116,6 +116,14 @@ pkgs() {
         printf "  ${C_GREEN}│${C_RESET}    ${C_TEAL}/rdeps <pkg>${C_RESET}      Reverse dependencies    ${C_GREEN}│${C_RESET}\n"
         printf "  ${C_GREEN}│${C_RESET}    ${C_TEAL}/compare <a> <b>${C_RESET} Compare packages       ${C_GREEN}│${C_RESET}\n"
         printf "  ${C_GREEN}│${C_RESET}    ${C_TEAL}/note <pkg> <text>${C_RESET} Add/view package note  ${C_GREEN}│${C_RESET}\n"
+        printf "  ${C_GREEN}│${C_RESET}    ${C_TEAL}/deps <pkg>${C_RESET}      Show dependencies      ${C_GREEN}│${C_RESET}\n"
+        printf "  ${C_GREEN}│${C_RESET}    ${C_TEAL}/tree <pkg>${C_RESET}      Dependency tree        ${C_GREEN}│${C_RESET}\n"
+        printf "  ${C_GREEN}│${C_RESET}    ${C_TEAL}/orphans${C_RESET}         Show orphaned packages ${C_GREEN}│${C_RESET}\n"
+        printf "  ${C_GREEN}│${C_RESET}    ${C_TEAL}/top${C_RESET}            Top 10 largest pkgs    ${C_GREEN}│${C_RESET}\n"
+        printf "  ${C_GREEN}│${C_RESET}    ${C_TEAL}/size${C_RESET}           Total installed size   ${C_GREEN}│${C_RESET}\n"
+        printf "  ${C_GREEN}│${C_RESET}    ${C_TEAL}/count${C_RESET}          Count packages         ${C_GREEN}│${C_RESET}\n"
+        printf "  ${C_GREEN}│${C_RESET}    ${C_TEAL}/update${C_RESET}         Update apt cache       ${C_GREEN}│${C_RESET}\n"
+        printf "  ${C_GREEN}│${C_RESET}    ${C_TEAL}/export-all${C_RESET}     Export all installed   ${C_GREEN}│${C_RESET}\n"
         printf "  ${C_GREEN}│${C_RESET}    ${C_TEAL}/clean${C_RESET}            Clean orphans + cache   ${C_GREEN}│${C_RESET}\n"
         printf "  ${C_GREEN}│${C_RESET}    ${C_TEAL}/installed${C_RESET}       Show only installed      ${C_GREEN}│${C_RESET}\n"
         printf "  ${C_GREEN}│${C_RESET}    ${C_TEAL}/available${C_RESET}       Show only available      ${C_GREEN}│${C_RESET}\n"
@@ -458,6 +466,218 @@ echo "$pkg" | sed -n "/^Description:/ { s/^Description: //p; :a; n; /^ / { s/^ /
             fi
             printf "\n  ${C_GREEN}Total:${C_RESET} %s across %d sections\n" "$total_display" "${#section_sizes[@]}"
             printf "\n  ${C_MSG_INFO}Press Enter to return.${C_RESET}"
+            read -r
+            clear
+            query=""
+            continue
+        fi
+
+        if [[ "$query" == /deps* ]]; then
+            if [[ "$query" == "/deps" ]]; then
+                printf "${C_MSG_WARN}Usage: /deps <pkg>${C_RESET}\n"
+                sleep 1
+                query=""
+                continue
+            fi
+            local deps_pkg="${query#* }"
+            deps_pkg="$(print -r -- "$deps_pkg" | xargs)"
+            if [[ -z "$deps_pkg" ]]; then
+                printf "${C_MSG_WARN}Usage: /deps <pkg>${C_RESET}\n"
+                sleep 1
+                query=""
+                continue
+            fi
+            clear
+            if ! apt-cache show "$deps_pkg" >/dev/null 2>&1; then
+                printf "${C_MSG_REMOVE}Package not found: %s${C_RESET}\n" "$deps_pkg"
+            else
+                printf "\n${C_MSG_INFO}--- Dependencies of %s ---${C_RESET}\n\n" "$deps_pkg"
+                local deps_out
+                deps_out=$(apt-cache depends --no-recommends --no-suggests --no-conflicts --no-breaks --no-replaces --no-enhances "$deps_pkg" 2>/dev/null | grep "^\w" | sort -u)
+                if [[ -z "$deps_out" ]]; then
+                    printf "${C_DIM}No dependencies.${C_RESET}\n"
+                else
+                    printf "%s\n" "$deps_out"
+                fi
+            fi
+            printf "\n${C_MSG_INFO}Press Enter to return.${C_RESET}"
+            read -r
+            clear
+            query=""
+            continue
+        fi
+
+        if [[ "$query" == /tree* ]]; then
+            if [[ "$query" == "/tree" ]]; then
+                printf "${C_MSG_WARN}Usage: /tree <pkg>${C_RESET}\n"
+                sleep 1
+                query=""
+                continue
+            fi
+            local tree_pkg="${query#* }"
+            tree_pkg="$(print -r -- "$tree_pkg" | xargs)"
+            if [[ -z "$tree_pkg" ]]; then
+                printf "${C_MSG_WARN}Usage: /tree <pkg>${C_RESET}\n"
+                sleep 1
+                query=""
+                continue
+            fi
+            clear
+            if ! apt-cache show "$tree_pkg" >/dev/null 2>&1; then
+                printf "${C_MSG_REMOVE}Package not found: %s${C_RESET}\n" "$tree_pkg"
+            else
+                printf "\n${C_MSG_INFO}--- Dependency tree for %s ---${C_RESET}\n\n" "$tree_pkg"
+                apt-cache depends --recurse --no-recommends --no-suggests --no-conflicts --no-breaks --no-replaces --no-enhances "$tree_pkg" 2>/dev/null | head -50
+                local total_deps
+                total_deps=$(apt-cache depends --recurse --no-recommends --no-suggests --no-conflicts --no-breaks --no-replaces --no-enhances "$tree_pkg" 2>/dev/null | grep "^\w" | sort -u | wc -l | xargs)
+                printf "\n  ${C_DIM}Total unique dependencies: %s${C_RESET}\n" "$total_deps"
+            fi
+            printf "\n${C_MSG_INFO}Press Enter to return.${C_RESET}"
+            read -r
+            clear
+            query=""
+            continue
+        fi
+
+        if [[ "$query" == /orphans ]]; then
+            clear
+            printf "\n${C_MSG_INFO}--- Orphaned Packages (auto-installed, no dependents) ---${C_RESET}\n\n"
+            local orphans_out
+            orphans_out=$(apt-cache showpkg 2>/dev/null | awk '/^Package:/{pkg=$2} /^ReverseDependencies:/{if(NF==1) print pkg}' | sort -u)
+            if [[ -z "$orphans_out" ]]; then
+                printf "${C_DIM}No orphaned packages found.${C_RESET}\n"
+            else
+                printf "%s\n" "$orphans_out"
+                local orphans_count
+                orphans_count=$(echo "$orphans_out" | wc -l | xargs)
+                printf "\n  ${C_DIM}Total orphaned: %s${C_RESET}\n" "$orphans_count"
+            fi
+            printf "\n${C_MSG_INFO}Press Enter to return.${C_RESET}"
+            read -r
+            clear
+            query=""
+            continue
+        fi
+
+        if [[ "$query" == /top ]]; then
+            clear
+            printf "\n${C_MSG_INFO}--- Top 10 Largest Installed Packages ---${C_RESET}\n\n"
+            printf "  ${C_DIM}%-4s %-24s %-10s${C_RESET}\n" "#" "Package" "Size"
+            printf "  ${C_DIM}%-4s %-24s %-10s${C_RESET}\n" "---" "-------" "----"
+            local rank=0
+            while read -r line; do
+                ((rank++))
+                [[ $rank -gt 10 ]] && break
+                local pkg_name="${line%% *}"
+                local rest="${line#* }"
+                local pkg_size="${rest%% *}"
+                [[ -z "$pkg_size" || "$pkg_size" == "?" ]] && { ((rank--)); continue; }
+                local display_size
+                if command -v numfmt >/dev/null 2>&1; then
+                    display_size=$(printf "%s" "$((pkg_size * 1024))" | numfmt --to=iec --suffix=B 2>/dev/null || echo "${pkg_size} KiB")
+                else
+                    display_size="${pkg_size} KiB"
+                fi
+                printf "  ${C_WHITE}%-4s${C_RESET} ${C_TEAL}%-24s${C_RESET} ${C_AMBER}%-10s${C_RESET}\n" "$rank" "$pkg_name" "$display_size"
+            done < <(dpkg-query -W -f='${Package} ${Installed-Size}\n' 2>/dev/null | sort -k2 -rn)
+            printf "\n${C_MSG_INFO}Press Enter to return.${C_RESET}"
+            read -r
+            clear
+            query=""
+            continue
+        fi
+
+        if [[ "$query" == /size ]]; then
+            clear
+            printf "\n${C_MSG_INFO}--- Total Installed Size ---${C_RESET}\n\n"
+            local total_size_kb
+            total_size_kb=$(dpkg-query -W -f='${Installed-Size}\n' 2>/dev/null | awk '{s+=$1}END{print s}')
+            local total_pkgs
+            total_pkgs=$(dpkg-query -W -f='${Package}\n' 2>/dev/null | wc -l | xargs)
+            local display_total
+            if command -v numfmt >/dev/null 2>&1; then
+                display_total=$(printf "%s" "$((total_size_kb * 1024))" | numfmt --to=iec --suffix=B 2>/dev/null || echo "${total_size_kb} KiB")
+            else
+                display_total="${total_size_kb} KiB"
+            fi
+            printf "  ${C_WHITE}Total packages:${C_RESET}    %s\n" "$total_pkgs"
+            printf "  ${C_WHITE}Total size:${C_RESET}        %s\n" "$display_total"
+            local avg_kb=0
+            (( total_pkgs > 0 )) && avg_kb=$(( total_size_kb / total_pkgs ))
+            local avg_display
+            if command -v numfmt >/dev/null 2>&1; then
+                avg_display=$(printf "%s" "$((avg_kb * 1024))" | numfmt --to=iec --suffix=B 2>/dev/null || echo "${avg_kb} KiB")
+            else
+                avg_display="${avg_kb} KiB"
+            fi
+            printf "  ${C_WHITE}Average per package:${C_RESET} %s\n" "$avg_display"
+            printf "\n${C_MSG_INFO}Press Enter to return.${C_RESET}"
+            read -r
+            clear
+            query=""
+            continue
+        fi
+
+        if [[ "$query" == /count ]]; then
+            clear
+            printf "\n${C_MSG_INFO}--- Package Counts ---${C_RESET}\n\n"
+            local count_installed count_available count_total
+            count_installed=$(dpkg-query -W -f='${Package}\n' 2>/dev/null | wc -l | xargs)
+            count_total=$(apt-cache search ".*" 2>/dev/null | wc -l | xargs)
+            count_available=$(( count_total - count_installed ))
+            printf "  ${C_WHITE}Installed:${C_RESET}   %s\n" "$count_installed"
+            printf "  ${C_WHITE}Available:${C_RESET}   %s\n" "$count_available"
+            printf "  ${C_WHITE}Total:${C_RESET}       %s\n" "$count_total"
+            printf "\n${C_MSG_INFO}Press Enter to return.${C_RESET}"
+            read -r
+            clear
+            query=""
+            continue
+        fi
+
+        if [[ "$query" == /update ]]; then
+            clear
+            printf "\n${C_MSG_INFO}--- Updating package cache... ---${C_RESET}\n\n"
+            if "${PKG_MGR}" update 2>&1; then
+                _pkgs_invalidate_cache
+                printf "\n${C_MSG_DONE}Cache updated successfully.${C_RESET}\n"
+            else
+                printf "\n${C_MSG_REMOVE}Update encountered errors.${C_RESET}\n"
+            fi
+            printf "\n${C_MSG_INFO}Press Enter to return.${C_RESET}"
+            read -r
+            clear
+            query=""
+            continue
+        fi
+
+        if [[ "$query" == /export-all ]]; then
+            clear
+            local export_all_file="pkg-export-all-$(date +%Y%m%d-%H%M%S).sh"
+            printf "${C_MSG_INFO}Export path [${C_RESET}%s${C_MSG_INFO}]: ${C_RESET}" "$export_all_file"
+            local user_path
+            read -r user_path
+            [[ -n "$user_path" ]] && export_all_file="$user_path"
+            {
+                printf "#!/data/data/com.termux/files/usr/bin/sh\n"
+                printf "# Exported all installed packages by pkgs on $(date)\n\n"
+                printf "${PKG_MGR} install \\\\\n"
+                local -a all_pkgs
+                all_pkgs=(${(@f)$(dpkg-query -W -f='${Package}\n' 2>/dev/null | sort)})
+                local i
+                for i in {1..${#all_pkgs[@]}}; do
+                    if (( i < ${#all_pkgs[@]} )); then
+                        printf "    %s \\\\\n" "${all_pkgs[$i]}"
+                    else
+                        printf "    %s\n" "${all_pkgs[$i]}"
+                    fi
+                done
+            } > "$export_all_file"
+            chmod +x "$export_all_file" 2>/dev/null
+            local pkg_count
+            pkg_count=$(wc -l < "$export_all_file" | xargs)
+            printf "\n${C_MSG_DONE}Exported %s packages to: %s${C_RESET}\n" "$((pkg_count - 3))" "$export_all_file"
+            printf "\n${C_MSG_INFO}Press Enter to return.${C_RESET}"
             read -r
             clear
             query=""
@@ -1210,11 +1430,19 @@ Interactive Commands (type in search box):
   /install <pkg>        Install package by name
   /remove <pkg>         Remove package by name
   /export <pkg>         Export install script to .sh file
+  /export-all           Export all installed packages
   /info <pkg>           Show full package details
   /search <text>        Search package descriptions
   /rdeps <pkg>          Show reverse dependencies
+  /deps <pkg>           Show dependencies
+  /tree <pkg>           Show dependency tree
   /compare <a> <b>      Compare two packages side by side
   /note <pkg> <text>    Add/view package note
+  /orphans              Show orphaned packages
+  /top                  Top 10 largest packages
+  /size                 Total installed size
+  /count                Count installed/available packages
+  /update               Update apt cache
   /clean                Remove orphaned packages and cache
   /installed            Filter: show only installed
   /available            Filter: show only available
@@ -1243,7 +1471,7 @@ Examples:
 USAGE
 }
 
-_pkgs_version() { echo "pkgs 1.1.0"; }
+_pkgs_version() { echo "pkgs 1.2.0"; }
 
 if [[ "$1" == "-h" || "$1" == "--help" ]]; then
     _pkgs_usage

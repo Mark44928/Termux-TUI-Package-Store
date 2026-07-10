@@ -8,7 +8,21 @@
 
 ---
 
-## [Unreleased]
+## [1.2.0] - 2026-07-10
+
+### Added
+- `/deps <pkg>` — Show what a package depends on
+- `/tree <pkg>` — Show full dependency tree
+- `/orphans` — Show orphaned packages (installed as dependencies, no longer needed)
+- `/top` — Top 10 largest installed packages
+- `/size` — Total installed size with package count
+- `/count` — Count installed vs available packages
+- `/update` — Update apt cache from the TUI
+- `/export-all` — Export all installed packages to a shell script
+
+---
+
+## [1.1.0] - 2026-07-10
 
 ### Added
 - `/note <pkg> <text>` — Add/view package notes (persisted in `~/.local/share/pkgs/notes`)
@@ -35,16 +49,3 @@
 - Multi-select processing rewritten with batch confirmation
 - Post-processing flow: "Press Enter to exit" → "Press Enter to return" (continues loop)
 - README updated with all 21 slash commands documented
-
----
-
-## [1.1.0] - 2026-07-10
-
-### Added
-- Initial release
-- Fuzzy search with live previews
-- 21 slash commands
-- Persistent session with smart layout
-- Color-coded installed/available status
-- Batch operations with multi-select
-- Configuration via environment variables
