@@ -43,10 +43,14 @@
      <img src="https://img.shields.io/badge/shell-zsh-blue?style=for-the-badge" alt="Shell">
    </a>
 </p>
-	
+
 <h1 align="center">Termux TUI Package Store 📦</h1>
 <p align="center">
    <em>Interactive fzf-powered terminal UI for browsing, previewing, installing, and removing Termux packages — no more typing repetitive <code>pkg install</code> commands.</em>
+</p>
+
+<p align="center">
+   <b>v1.1.0</b>
 </p>
 
 <p align="center">
@@ -114,7 +118,7 @@
 
 Termux TUI Package Store is a terminal UI for managing packages on Termux. It wraps `pkg` with an interactive fuzzy-finder that lets you search, preview, install, and remove packages — all without leaving a single screen.
 
-The tool adapts to your terminal size, color-codes installed vs. available packages, and shows live metadata previews (version, size, dependencies, description) for every package you highlight. Type `/install`, `/remove`, `/export`, or `/upgrade` to run bulk operations directly from the search box.
+The tool adapts to your terminal size, color-codes installed vs. available packages, and shows live metadata previews (version, size, dependencies, description) for every package you highlight. Type `/help` in the search box to see all 21 available slash commands.
 
 ---
 
@@ -179,6 +183,8 @@ The tool adapts to your terminal size, color-codes installed vs. available packa
 | `awk` | Data processing (package list generation) | Yes |
 | `grep`, `sed` | Text processing in previews | Yes |
 | `ncurses` | Terminal handling (`tput`) | Yes |
+| `dpkg` | Package queries (`dpkg-query`) | Yes |
+| `apt-cache` | Package metadata and search | Yes |
 | `coreutils` | Human-readable sizes (`numfmt`) | Optional |
 
 The installer also pulls `curl` and `figlet` for the install banner — these are not needed at runtime.
@@ -203,7 +209,7 @@ zsh <(curl -fsSL https://raw.githubusercontent.com/Mark44928/Termux-TUI-Package-
 
    ```sh
    pkg update && pkg upgrade
-    pkg install zsh fzf coreutils gawk grep sed ncurses curl figlet
+   pkg install zsh fzf coreutils gawk grep sed ncurses curl figlet
    ```
 
 2. **Download the script and make it executable:**
@@ -243,31 +249,7 @@ This opens the store with "python" already typed in the search box.
 
 ### Slash Commands
 
-Type these directly in the search box:
-
-| Command | Description |
-|---|---|
-| `/upgrade` | Upgrade all installed packages |
-| `/install <query>` | Install all packages matching `<query>` |
-| `/remove <query>` | Remove all packages matching `<query>` |
-| `/export <query>` | Export matching packages to a runnable shell script |
-| `/info <pkg>` | Show full package details in a panel |
-| `/search <text>` | Search package descriptions (not just names) |
-| `/rdeps <pkg>` | Show reverse dependencies (what depends on this) |
-| `/compare <a> <b>` | Compare two packages side by side |
-| `/note <pkg> <text>` | Add or view a note for a package |
-| `/clean` | Remove orphaned packages and clean apt cache |
-| `/installed` | Filter: show only installed packages |
-| `/available` | Filter: show only available packages |
-| `/recent` | Filter: show only packages installed today |
-| `/usage` | Show disk usage breakdown by section |
-| `/all` | Reset filter: show all packages |
-| `/sort name` or `/sort size` | Sort packages by name or size |
-| `/history` | View today's operation log |
-| `/backup` | Export your full package list to a file |
-| `/restore <file>` | Install all packages from a backup file |
-| `/undo` | Reverse last install or remove |
-| `/help` | Show in-app help |
+Type these directly in the search box. See the [Features](#features) section for the full list.
 
 Examples:
 - `/install python` — installs all packages with "python" in the name
@@ -305,7 +287,7 @@ Examples:
    When you highlight a package, `fzf` runs `apt-cache show` in the background and displays version, section, size, top dependencies, and the description.
 
 4. **Slash Commands**  
-   Typing `/upgrade`, `/install <query>`, `/remove <query>`, or `/export <query>` in the search box triggers bulk operations instead of package selection. Packages are validated against `apt-cache` before any action runs.
+   Typing `/install <query>`, `/remove <query>`, `/export <query>`, or any of the 21 slash commands in the search box triggers bulk operations instead of package selection. Packages are validated against `apt-cache` before any action runs.
 
 5. **Action & Loop**  
    Pressing Enter triggers a per-package `y/N` confirmation, then `pkg install` or `pkg remove`. When the command finishes, the store refreshes the package list and re-opens — no need to relaunch.
@@ -412,7 +394,7 @@ rm "$PREFIX/bin/pkgs"
 rm -rf ~/.local/share/pkgs
 ```
 
-The first command removes the script. The second removes history logs stored at `~/.local/share/pkgs/history/`. No other config files or shell modifications exist.
+The first command removes the script. The second removes history logs, notes, and cache stored at `~/.local/share/pkgs/`. No other config files or shell modifications exist.
 
 ---
 
@@ -423,7 +405,7 @@ Contributions are welcome! Whether it's a bug fix, a new feature, or improved do
 1. Fork the repository.
 2. Create a feature branch (`git checkout -b feat/my-change`).
 3. Make your changes.
-4. Run `shellcheck install.sh` if you modified the installer. (Note: `shellcheck` does not support zsh syntax natively; test zsh scripts manually.)
+4. Run `zsh -n pkgs_core.zsh` to check for syntax errors.
 5. Commit with a descriptive message (e.g., `feat: add --dry-run flag`).
 6. Push and open a pull request.
 
@@ -461,13 +443,11 @@ This tool runs `pkg install` and `pkg remove` commands that modify your Termux e
 
 If Termux TUI Package Store makes your Termux life easier, consider:
 
-| | |
-|---|---|
-| ⭐ | **Star the repo** — it helps others discover the project |
-| 🐛 | **Report bugs** — open an [issue](https://github.com/Mark44928/Termux-TUI-Package-Store/issues) |
-| 🔧 | **Contribute** — submit a [pull request](https://github.com/Mark44928/Termux-TUI-Package-Store/pulls) |
-| 📢 | **Share it** — tell your Termux-using friends |
-| 💬 | **Give feedback** — ideas and suggestions are always welcome |
+- **Star the repo** — it helps others discover the project
+- **Report bugs** — open an [issue](https://github.com/Mark44928/Termux-TUI-Package-Store/issues)
+- **Contribute** — submit a [pull request](https://github.com/Mark44928/Termux-TUI-Package-Store/pulls)
+- **Share it** — tell your Termux-using friends
+- **Give feedback** — ideas and suggestions are always welcome
 
 Every star, issue, and PR makes this project better. Thank you!
 
