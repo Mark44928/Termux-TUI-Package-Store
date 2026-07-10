@@ -213,12 +213,18 @@ Type these directly in the search box:
 | `/info <pkg>` | Show full package details in a panel |
 | `/search <text>` | Search package descriptions (not just names) |
 | `/rdeps <pkg>` | Show reverse dependencies (what depends on this) |
+| `/compare <a> <b>` | Compare two packages side by side |
+| `/note <pkg> <text>` | Add or view a note for a package |
 | `/clean` | Remove orphaned packages and clean apt cache |
 | `/installed` | Filter: show only installed packages |
 | `/available` | Filter: show only available packages |
+| `/recent` | Filter: show only packages installed today |
+| `/usage` | Show disk usage breakdown by section |
 | `/all` | Reset filter: show all packages |
 | `/sort name` or `/sort size` | Sort packages by name or size |
 | `/history` | View today's operation log |
+| `/backup` | Export your full package list to a file |
+| `/restore <file>` | Install all packages from a backup file |
 | `/undo` | Reverse last install or remove |
 | `/help` | Show in-app help |
 
