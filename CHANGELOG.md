@@ -1,6 +1,12 @@
-# Changelog
+<p align="center">
+   <b>Changelog</b>
+</p>
 
-All notable changes to Termux TUI Package Store are documented here.
+<p align="center">
+   <em>All notable changes to Termux TUI Package Store are documented here.</em>
+</p>
+
+---
 
 ## [Unreleased]
 
@@ -29,6 +35,8 @@ All notable changes to Termux TUI Package Store are documented here.
 - Multi-select processing rewritten with batch confirmation
 - Post-processing flow: "Press Enter to exit" → "Press Enter to return" (continues loop)
 - README updated with all 21 slash commands documented
+
+---
 
 ## [1.1.0] - 2026-07-10
 
