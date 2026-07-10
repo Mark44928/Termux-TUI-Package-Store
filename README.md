@@ -143,7 +143,7 @@ The tool adapts to your terminal size, color-codes installed vs. available packa
 | **↩️ Undo Support** | Reverse last install or remove operation |
 | **⚡ Zero Config** | No config files needed — runs as a single script at `$PREFIX/bin/pkgs` |
 
-### Slash Commands (21 total)
+### Slash Commands (29 total)
 
 | Command | Description |
 |---|---|
@@ -151,11 +151,19 @@ The tool adapts to your terminal size, color-codes installed vs. available packa
 | `/install <query>` | Install all packages matching `<query>` |
 | `/remove <query>` | Remove all packages matching `<query>` |
 | `/export <query>` | Export matching packages to a runnable shell script |
+| `/export-all` | Export all installed packages to a shell script |
 | `/info <pkg>` | Show full package details in a panel |
 | `/search <text>` | Search package descriptions (not just names) |
 | `/rdeps <pkg>` | Show reverse dependencies (what depends on this) |
+| `/deps <pkg>` | Show what a package depends on |
+| `/tree <pkg>` | Show dependency tree |
 | `/compare <a> <b>` | Compare two packages side by side |
 | `/note <pkg> <text>` | Add or view a note for a package |
+| `/orphans` | Show orphaned packages |
+| `/top` | Top 10 largest installed packages |
+| `/size` | Total installed size |
+| `/count` | Count installed/available packages |
+| `/update` | Update apt cache |
 | `/clean` | Remove orphaned packages and clean apt cache |
 | `/installed` | Filter: show only installed packages |
 | `/available` | Filter: show only available packages |
