@@ -514,6 +514,12 @@ echo "$pkg" | sed -n "/^Description:/ { s/^Description: //p; :a; n; /^ / { s/^ /
                 query=""
                 continue
             fi
+            if ! _pkgs_validate_name "$deps_pkg"; then
+                printf "${C_MSG_REMOVE}Invalid package name: %s${C_RESET}\n" "$deps_pkg"
+                sleep 1
+                query=""
+                continue
+            fi
             clear
             if ! apt-cache show "$deps_pkg" >/dev/null 2>&1; then
                 printf "${C_MSG_REMOVE}Package not found: %s${C_RESET}\n" "$deps_pkg"
@@ -545,6 +551,12 @@ echo "$pkg" | sed -n "/^Description:/ { s/^Description: //p; :a; n; /^ / { s/^ /
             tree_pkg="$(print -r -- "$tree_pkg" | xargs)"
             if [[ -z "$tree_pkg" ]]; then
                 printf "${C_MSG_WARN}Usage: /tree <pkg>${C_RESET}\n"
+                sleep 1
+                query=""
+                continue
+            fi
+            if ! _pkgs_validate_name "$tree_pkg"; then
+                printf "${C_MSG_REMOVE}Invalid package name: %s${C_RESET}\n" "$tree_pkg"
                 sleep 1
                 query=""
                 continue
@@ -591,21 +603,21 @@ echo "$pkg" | sed -n "/^Description:/ { s/^Description: //p; :a; n; /^ / { s/^ /
             printf "\n${C_MSG_INFO}--- Top 10 Largest Installed Packages ---${C_RESET}\n\n"
             printf "  ${C_DIM}%-4s %-24s %-10s${C_RESET}\n" "#" "Package" "Size"
             printf "  ${C_DIM}%-4s %-24s %-10s${C_RESET}\n" "---" "-------" "----"
-            local rank=0
+            local shown=0
             while read -r line; do
-                ((rank++))
-                [[ $rank -gt 10 ]] && break
+                [[ $shown -ge 10 ]] && break
                 local pkg_name="${line%% *}"
                 local rest="${line#* }"
                 local pkg_size="${rest%% *}"
-                [[ -z "$pkg_size" || "$pkg_size" == "?" ]] && { ((rank--)); continue; }
+                [[ -z "$pkg_size" || "$pkg_size" == "?" ]] && continue
+                ((shown++))
                 local display_size
                 if (( _HAS_NUMFMT )); then
                     display_size=$(printf "%s" "$((pkg_size * 1024))" | numfmt --to=iec --suffix=B 2>/dev/null || echo "${pkg_size} KiB")
                 else
                     display_size="${pkg_size} KiB"
                 fi
-                printf "  ${C_WHITE}%-4s${C_RESET} ${C_TEAL}%-24s${C_RESET} ${C_AMBER}%-10s${C_RESET}\n" "$rank" "$pkg_name" "$display_size"
+                printf "  ${C_WHITE}%-4s${C_RESET} ${C_TEAL}%-24s${C_RESET} ${C_AMBER}%-10s${C_RESET}\n" "$shown" "$pkg_name" "$display_size"
             done < <(dpkg-query -W -f='${Package} ${Installed-Size}\n' 2>/dev/null | sort -k2 -rn)
             printf "\n${C_MSG_INFO}Press Enter to return.${C_RESET}"
             read -r
@@ -722,7 +734,9 @@ echo "$pkg" | sed -n "/^Description:/ { s/^Description: //p; :a; n; /^ / { s/^ /
                 if [[ -f "$_PKGS_NOTES_FILE" ]] && [[ -s "$_PKGS_NOTES_FILE" ]]; then
                     clear
                     printf "\n  ${C_GREEN}── Package Notes ──${C_RESET}\n\n"
-                    while IFS='|' read -r npkg nnote; do
+                    while IFS= read -r fullline; do
+                        local npkg="${fullline%%|*}"
+                        local nnote="${fullline#*|}"
                         printf "  ${C_WHITE}%-24s${C_RESET} %s\n" "$npkg" "$nnote"
                     done < "$_PKGS_NOTES_FILE"
                     printf "\n  ${C_MSG_INFO}Press Enter to return.${C_RESET}"
@@ -748,7 +762,7 @@ echo "$pkg" | sed -n "/^Description:/ { s/^Description: //p; :a; n; /^ / { s/^ /
                     continue
                 fi
                 mkdir -p "$(dirname "$_PKGS_NOTES_FILE")" 2>/dev/null
-                if [[ -f "$_PKGS_NOTES_FILE" ]] && grep -qF "${note_pkg}|" "$_PKGS_NOTES_FILE" 2>/dev/null; then
+                if [[ -f "$_PKGS_NOTES_FILE" ]] && grep -q "^${note_pkg}|" "$_PKGS_NOTES_FILE" 2>/dev/null; then
                     local tmp_notes
                     tmp_notes=$(mktemp)
                     chmod 600 "$tmp_notes" 2>/dev/null
@@ -773,9 +787,9 @@ echo "$pkg" | sed -n "/^Description:/ { s/^Description: //p; :a; n; /^ / { s/^ /
                     query=""
                     continue
                 fi
-                if [[ -f "$_PKGS_NOTES_FILE" ]] && grep -qF "${note_pkg}|" "$_PKGS_NOTES_FILE" 2>/dev/null; then
+                if [[ -f "$_PKGS_NOTES_FILE" ]] && grep -q "^${note_pkg}|" "$_PKGS_NOTES_FILE" 2>/dev/null; then
                     local existing
-                    existing=$(grep -F "${note_pkg}|" "$_PKGS_NOTES_FILE" | head -1 | cut -d'|' -f2-)
+                    existing=$(grep -m1 "^${note_pkg}|" "$_PKGS_NOTES_FILE" | cut -d'|' -f2-)
                     printf "  ${C_WHITE}%-24s${C_RESET} %s\n" "$note_pkg" "$existing"
                 else
                     printf "${C_DIM}No note for %s${C_RESET}\n" "$note_pkg"
@@ -1155,6 +1169,12 @@ echo "$pkg" | sed -n "/^Description:/ { s/^Description: //p; :a; n; /^ / { s/^ /
             local rdeps_pkg="${query#* }"
             rdeps_pkg="$(print -r -- "$rdeps_pkg" | xargs)"
             if [[ -z "$rdeps_pkg" ]]; then
+                query=""
+                continue
+            fi
+            if ! _pkgs_validate_name "$rdeps_pkg"; then
+                printf "${C_MSG_REMOVE}Invalid package name: %s${C_RESET}\n" "$rdeps_pkg"
+                sleep 1
                 query=""
                 continue
             fi
