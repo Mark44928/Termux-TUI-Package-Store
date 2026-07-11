@@ -51,6 +51,32 @@ pkgs() {
         [[ "$1" =~ ^[a-zA-Z0-9.+\-]+$ ]]
     }
 
+    _pkgs_validate_export_path() {
+        local path="$1"
+        [[ -z "$path" ]] && return 1
+        [[ "$path" =~ ^[[:space:]] ]] && return 1
+        local dir
+        dir=$(dirname "$path" 2>/dev/null)
+        [[ -z "$dir" || ! -d "$dir" ]] && return 1
+        local resolved
+        resolved=$(readlink -f "$path" 2>/dev/null || echo "$path")
+        local prefix_dir
+        prefix_dir=$(readlink -f "${PREFIX}" 2>/dev/null || echo "${PREFIX}")
+        [[ "$resolved" == "$prefix_dir/bin/pkgs" ]] && return 1
+        return 0
+    }
+
+    local _HAS_NUMFMT=0
+    command -v numfmt >/dev/null 2>&1 && _HAS_NUMFMT=1
+
+    local _PKGS_TMP_FILES=()
+    _pkgs_cleanup() {
+        local f
+        for f in "${_PKGS_TMP_FILES[@]}"; do
+            [[ -n "$f" && -f "$f" ]] && rm -f "$f" 2>/dev/null
+        done
+    }
+
     _pkgs_invalidate_cache() {
         _PKGS_CACHE_VALID=0
         [[ -n "$_PKGS_CACHE_FILE" && -f "$_PKGS_CACHE_FILE" ]] && rm -f "$_PKGS_CACHE_FILE"
@@ -79,7 +105,7 @@ pkgs() {
         printf "  ${C_GREEN}│${C_RESET}  ${C_DIM}Maintainer:%-32s${C_RESET} ${C_GREEN}│${C_RESET}\n" "$(echo "$info" | grep '^Maintainer:' | head -1 | sed 's/^Maintainer: //' | cut -c1-32)"
         local size
         size=$(echo "$info" | grep '^Installed-Size:' | head -1 | sed 's/^Installed-Size: //')
-        if [[ -n "$size" ]] && command -v numfmt >/dev/null 2>&1; then
+        if [[ -n "$size" && "$size" =~ ^[0-9]+$ ]] && (( _HAS_NUMFMT )); then
             size=$(printf "%s" "$((size * 1024))" | numfmt --to=iec --suffix=B 2>/dev/null || echo "${size} KiB")
         else
             size="${size:-?} KiB"
@@ -235,6 +261,7 @@ pkgs() {
             cat "$_PKGS_CACHE_FILE"
         else
             _PKGS_CACHE_FILE=$(mktemp "${TMPDIR:-/tmp}/pkgs_cache.XXXXXX")
+            chmod 600 "$_PKGS_CACHE_FILE" 2>/dev/null
             _pkgs_generate_list > "$_PKGS_CACHE_FILE"
             _PKGS_CACHE_VALID=1
             cat "$_PKGS_CACHE_FILE"
@@ -332,7 +359,7 @@ echo "$pkg" | sed -n "/^Description:/ { s/^Description: //p; :a; n; /^ / { s/^ /
 
     local query="$*"
 
-    trap '_pkgs_invalidate_cache' EXIT INT TERM
+    trap '_pkgs_invalidate_cache; _pkgs_cleanup' EXIT INT TERM
 
     while true; do
         local -a FZF_ARGS
@@ -374,7 +401,7 @@ echo "$pkg" | sed -n "/^Description:/ { s/^Description: //p; :a; n; /^ / { s/^ /
                 printf "${C_MSG_REMOVE}--- Upgrade encountered errors ---${C_RESET}\n"
             fi
             _pkgs_invalidate_cache
-            printf "\n${C_MSG_INFO}Press Enter to exit.${C_RESET}\n"
+            printf "\n${C_MSG_INFO}Press Enter to return.${C_RESET}\n"
             read -r
             clear
             continue
@@ -443,7 +470,7 @@ echo "$pkg" | sed -n "/^Description:/ { s/^Description: //p; :a; n; /^ / { s/^ /
                 local pct=0
                 (( total_size > 0 )) && pct=$(( ssize * 100 / total_size ))
                 local display_size
-                if command -v numfmt >/dev/null 2>&1; then
+                if (( _HAS_NUMFMT )); then
                     display_size=$(printf "%s" "$((ssize * 1024))" | numfmt --to=iec --suffix=B 2>/dev/null || echo "${ssize} KiB")
                 else
                     display_size="${ssize} KiB"
@@ -459,7 +486,7 @@ echo "$pkg" | sed -n "/^Description:/ { s/^Description: //p; :a; n; /^ / { s/^ /
             done
 
             local total_display
-            if command -v numfmt >/dev/null 2>&1; then
+            if (( _HAS_NUMFMT )); then
                 total_display=$(printf "%s" "$((total_size * 1024))" | numfmt --to=iec --suffix=B 2>/dev/null || echo "${total_size} KiB")
             else
                 total_display="${total_size} KiB"
@@ -573,7 +600,7 @@ echo "$pkg" | sed -n "/^Description:/ { s/^Description: //p; :a; n; /^ / { s/^ /
                 local pkg_size="${rest%% *}"
                 [[ -z "$pkg_size" || "$pkg_size" == "?" ]] && { ((rank--)); continue; }
                 local display_size
-                if command -v numfmt >/dev/null 2>&1; then
+                if (( _HAS_NUMFMT )); then
                     display_size=$(printf "%s" "$((pkg_size * 1024))" | numfmt --to=iec --suffix=B 2>/dev/null || echo "${pkg_size} KiB")
                 else
                     display_size="${pkg_size} KiB"
@@ -595,7 +622,7 @@ echo "$pkg" | sed -n "/^Description:/ { s/^Description: //p; :a; n; /^ / { s/^ /
             local total_pkgs
             total_pkgs=$(dpkg-query -W -f='${Package}\n' 2>/dev/null | wc -l | xargs)
             local display_total
-            if command -v numfmt >/dev/null 2>&1; then
+            if (( _HAS_NUMFMT )); then
                 display_total=$(printf "%s" "$((total_size_kb * 1024))" | numfmt --to=iec --suffix=B 2>/dev/null || echo "${total_size_kb} KiB")
             else
                 display_total="${total_size_kb} KiB"
@@ -605,7 +632,7 @@ echo "$pkg" | sed -n "/^Description:/ { s/^Description: //p; :a; n; /^ / { s/^ /
             local avg_kb=0
             (( total_pkgs > 0 )) && avg_kb=$(( total_size_kb / total_pkgs ))
             local avg_display
-            if command -v numfmt >/dev/null 2>&1; then
+            if (( _HAS_NUMFMT )); then
                 avg_display=$(printf "%s" "$((avg_kb * 1024))" | numfmt --to=iec --suffix=B 2>/dev/null || echo "${avg_kb} KiB")
             else
                 avg_display="${avg_kb} KiB"
@@ -658,6 +685,12 @@ echo "$pkg" | sed -n "/^Description:/ { s/^Description: //p; :a; n; /^ / { s/^ /
             local user_path
             read -r user_path
             [[ -n "$user_path" ]] && export_all_file="$user_path"
+            if ! _pkgs_validate_export_path "$export_all_file"; then
+                printf "${C_MSG_REMOVE}Invalid or unsafe file path${C_RESET}\n"
+                sleep 1
+                query=""
+                continue
+            fi
             {
                 printf "#!/data/data/com.termux/files/usr/bin/sh\n"
                 printf "# Exported all installed packages by pkgs on $(date)\n\n"
@@ -718,6 +751,8 @@ echo "$pkg" | sed -n "/^Description:/ { s/^Description: //p; :a; n; /^ / { s/^ /
                 if [[ -f "$_PKGS_NOTES_FILE" ]] && grep -qF "${note_pkg}|" "$_PKGS_NOTES_FILE" 2>/dev/null; then
                     local tmp_notes
                     tmp_notes=$(mktemp)
+                    chmod 600 "$tmp_notes" 2>/dev/null
+                    _PKGS_TMP_FILES+=("$tmp_notes")
                     while IFS='|' read -r _np _nt; do
                         if [[ "$_np" == "$note_pkg" ]]; then
                             printf "%s|%s\n" "$note_pkg" "$note_text"
@@ -814,6 +849,12 @@ echo "$pkg" | sed -n "/^Description:/ { s/^Description: //p; :a; n; /^ / { s/^ /
             local user_path
             read -r user_path
             [[ -n "$user_path" ]] && backup_file="$user_path"
+            if ! _pkgs_validate_export_path "$backup_file"; then
+                printf "\n  ${C_MSG_REMOVE}Invalid or unsafe file path${C_RESET}\n"
+                sleep 1
+                query=""
+                continue
+            fi
             dpkg-query -W -f='${Package}\n' 2>/dev/null | sort > "$backup_file"
             if [[ -f "$backup_file" ]] && [[ -s "$backup_file" ]]; then
                 local pkg_count
@@ -1034,8 +1075,7 @@ echo "$pkg" | sed -n "/^Description:/ { s/^Description: //p; :a; n; /^ / { s/^ /
             "${PKG_MGR}" clean 2>/dev/null
             printf "${C_MSG_INFO}--- Removing unused dependencies... ---${C_RESET}\n"
             local autoremove_out
-            autoremove_out=$("${PKG_MGR}" autoremove --dry-run 2>&1)
-            if [[ $? -ne 0 ]]; then
+            if ! autoremove_out=$("${PKG_MGR}" autoremove --dry-run 2>&1); then
                 printf "${C_MSG_WARN}Could not check dependencies: %s${C_RESET}\n" "$autoremove_out"
             elif echo "$autoremove_out" | grep -qE "^0 upgraded, 0 newly installed, 0 to remove"; then
                 printf "${C_MSG_DONE}Nothing to remove.${C_RESET}\n"
@@ -1079,15 +1119,13 @@ echo "$pkg" | sed -n "/^Description:/ { s/^Description: //p; :a; n; /^ / { s/^ /
             while IFS= read -r line; do
                 local dname="${line%% *}"
                 local ddesc="${line#* - }"
-                if [[ "$ddesc" == *"$search_text"* ]]; then
-                    _pkgs_validate_name "$dname" || continue
-                    desc_matches+=("$dname")
-                    desc_texts+=("$ddesc")
-                    if (( ${#desc_matches[@]} >= match_limit )); then
-                        break
-                    fi
+                _pkgs_validate_name "$dname" || continue
+                desc_matches+=("$dname")
+                desc_texts+=("$ddesc")
+                if (( ${#desc_matches[@]} >= match_limit )); then
+                    break
                 fi
-            done < <(apt-cache search "" 2>/dev/null)
+            done < <(apt-cache search "$search_text" 2>/dev/null)
             if [[ ${#desc_matches[@]} -eq 0 ]]; then
                 printf "${C_MSG_REMOVE}No packages found.${C_RESET}\n"
             else
@@ -1196,32 +1234,36 @@ echo "$pkg" | sed -n "/^Description:/ { s/^Description: //p; :a; n; /^ / { s/^ /
                     local user_path
                     read -r user_path
                     [[ -n "$user_path" ]] && export_file="$user_path"
-                    if [[ -n "$export_file" ]] && { [[ -d "$(dirname "$export_file")" ]] || [[ -d "." ]]; }; then
-                        {
-                            printf "#!/data/data/com.termux/files/usr/bin/sh\n"
-                            printf "${PKG_MGR} install \\\\\n"
-                            local i
-                            for i in {1..${#match_pkgs[@]}}; do
-                                if (( i < ${#match_pkgs[@]} )); then
-                                    printf "    %s \\\\\n" "${match_pkgs[$i]}"
-                                else
-                                    printf "    %s\n" "${match_pkgs[$i]}"
-                                fi
-                            done
-                        } > "$export_file"
-                        chmod +x "$export_file" 2>/dev/null
-                        if [[ -f "$export_file" ]]; then
-                            printf "\n${C_MSG_INFO}--- Saved: ${C_RESET}%s${C_MSG_INFO} ---${C_RESET}\n" "$export_file"
+                    if _pkgs_validate_export_path "$export_file"; then
+                        if [[ -n "$export_file" ]] && { [[ -d "$(dirname "$export_file")" ]] || [[ -d "." ]]; }; then
+                            {
+                                printf "#!/data/data/com.termux/files/usr/bin/sh\n"
+                                printf "${PKG_MGR} install \\\\\n"
+                                local i
+                                for i in {1..${#match_pkgs[@]}}; do
+                                    if (( i < ${#match_pkgs[@]} )); then
+                                        printf "    %s \\\\\n" "${match_pkgs[$i]}"
+                                    else
+                                        printf "    %s\n" "${match_pkgs[$i]}"
+                                    fi
+                                done
+                            } > "$export_file"
+                            chmod +x "$export_file" 2>/dev/null
+                            if [[ -f "$export_file" ]]; then
+                                printf "\n${C_MSG_INFO}--- Saved: ${C_RESET}%s${C_MSG_INFO} ---${C_RESET}\n" "$export_file"
+                            else
+                                printf "${C_MSG_REMOVE}--- Failed to create export file ---${C_RESET}\n"
+                            fi
                         else
-                            printf "${C_MSG_REMOVE}--- Failed to create export file ---${C_RESET}\n"
+                            printf "${C_MSG_REMOVE}--- Invalid file path ---${C_RESET}\n"
                         fi
                     else
-                        printf "${C_MSG_REMOVE}--- Invalid file path ---${C_RESET}\n"
+                        printf "${C_MSG_REMOVE}--- Invalid or unsafe file path ---${C_RESET}\n"
                     fi
                     printf "\n"
                     ;;
             esac
-            printf "${C_MSG_INFO}Press Enter to exit.${C_RESET}\n"
+            printf "${C_MSG_INFO}Press Enter to return.${C_RESET}\n"
             read -r
             clear
             continue
@@ -1305,6 +1347,13 @@ echo "$pkg" | sed -n "/^Description:/ { s/^Description: //p; :a; n; /^ / { s/^ /
             local user_path
             read -r user_path
             [[ -n "$user_path" ]] && export_file="$user_path"
+            if ! _pkgs_validate_export_path "$export_file"; then
+                printf "  ${C_MSG_REMOVE}Invalid or unsafe file path${C_RESET}\n"
+                printf "\n  ${C_MSG_INFO}Press Enter to return.${C_RESET}"
+                read -r
+                clear
+                continue
+            fi
             if [[ -n "$export_file" ]] && { [[ -d "$(dirname "$export_file")" ]] || [[ -d "." ]]; }; then
                 {
                     printf "#!/data/data/com.termux/files/usr/bin/sh\n"
@@ -1392,8 +1441,7 @@ echo "$pkg" | sed -n "/^Description:/ { s/^Description: //p; :a; n; /^ / { s/^ /
 
         if (( ${#to_remove[@]} > 0 )); then
             local auto_out
-            auto_out=$("${PKG_MGR}" autoremove --dry-run 2>&1)
-            if [[ $? -eq 0 ]] && ! echo "$auto_out" | grep -qE "^0 upgraded, 0 newly installed, 0 to remove"; then
+            if auto_out=$("${PKG_MGR}" autoremove --dry-run 2>&1) && ! echo "$auto_out" | grep -qE "^0 upgraded, 0 newly installed, 0 to remove"; then
                 printf "\n  ${C_MSG_WARN}Remove orphaned dependencies? (y/N) ${C_RESET}"
                 read -q auto_confirm; read -r
                 printf "\n"

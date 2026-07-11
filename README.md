@@ -277,7 +277,7 @@ Examples:
 
 | Key | Action |
 |---|---|
-| `Enter` | Install or remove the selected package (prompts `y/N` confirmation per package) |
+| `Enter` | Process selected packages (shows batch summary: `y`=process, `d`=dry-run, `e`=export, `Enter`=cancel) |
 | `Tab` | Select multiple packages |
 | `Ctrl-A` | Select all visible packages |
 | `Ctrl-D` | Deselect all packages |
@@ -302,7 +302,7 @@ Examples:
    Typing `/install <query>`, `/remove <query>`, `/export <query>`, or any of the 29 slash commands in the search box triggers bulk operations instead of package selection. Packages are validated against `apt-cache` before any action runs.
 
 5. **Action & Loop**  
-   Pressing Enter triggers a per-package `y/N` confirmation, then `pkg install` or `pkg remove`. When the command finishes, the store refreshes the package list and re-opens — no need to relaunch.
+   Pressing Enter shows a batch summary of selected packages with install/remove categorization. Choose `y` to process, `d` for a dry-run preview, `e` to export to a script, or press Enter to cancel. After processing, the store refreshes and re-opens — no need to relaunch.
 
 ---
 

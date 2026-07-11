@@ -14,7 +14,7 @@ If you discover a security vulnerability in Termux TUI Package Store, please rep
 
 **Do NOT open a public issue.**
 
-Instead, please email: [your-email@example.com] or open a private security advisory on GitHub.
+Instead, please email the maintainer or open a private security advisory on GitHub.
 
 Include:
 - Description of the vulnerability
@@ -55,6 +55,6 @@ This project runs `pkg install` and `pkg remove` commands that modify your Termu
 When using this tool:
 
 - Review package names before confirming installations
-- Use the dry-run option (`d`) in batch mode to preview changes
+- Use the dry-run option (`d`) in batch mode to preview changes before processing
 - Avoid running with elevated privileges
 - Keep the tool updated to the latest version
