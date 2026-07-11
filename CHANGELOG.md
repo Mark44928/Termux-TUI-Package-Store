@@ -8,7 +8,7 @@
 
 ---
 
-## [1.2.0] - 2026-07-10
+## [1.2.0] - 2026-07-11
 
 ### Added
 - `/deps <pkg>` — Show what a package depends on
