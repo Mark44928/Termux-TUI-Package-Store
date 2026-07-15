@@ -24,6 +24,7 @@ spinner() {
   else
     printf "\r${RED}  [✗]${RESET} %s failed\n" "$msg"
   fi
+  return "$exit_code"
 }
 
 cleanup() {
@@ -51,7 +52,10 @@ echo "  ────────────────────────
   pkg update -y >/dev/null 2>&1 && \
   pkg install -y zsh fzf coreutils gawk grep sed ncurses curl figlet >/dev/null 2>&1
 ) &
-spinner "$!" "Updating and installing packages"
+spinner "$!" "Updating and installing packages" || {
+  echo "${RED}  ✗ Dependency installation failed. Aborting.${RESET}"
+  exit 1
+}
 
 missing=''
 for cmd in fzf awk zsh curl tput figlet; do
@@ -62,6 +66,8 @@ done
 if [ -n "$missing" ]; then
   echo "${YELLOW}  ⚠  Missing:${RESET}$missing"
   echo "${YELLOW}     Run: pkg install$missing${RESET}"
+  echo "${RED}  ✗ Cannot continue without required dependencies.${RESET}"
+  exit 1
 else
   echo "  ${GREEN}✓${RESET} All core dependencies available"
 fi
@@ -78,10 +84,18 @@ echo "${CYAN}  ║${RESET}  fzf-powered interactive package browser ${CYAN}║${
 echo "${CYAN}  ╚══════════════════════════════════════════╝${RESET}"
 echo ""
 
+# ── Validate env vars ──────────────────────────────────────
+REPO="${REPO:-Mark44928/Termux-TUI-Package-Store}"
+BRANCH="${BRANCH:-main}"
+if [[ ! "$REPO" =~ ^[a-zA-Z0-9_./-]+$ ]] || [[ ! "$BRANCH" =~ ^[a-zA-Z0-9_./-]+$ ]]; then
+  echo "${RED}  ✗ Invalid REPO or BRANCH value.${RESET}"
+  exit 1
+fi
+
 # ── Download ────────────────────────────────────────────────
 echo "${BOLD}  ⬇️  Downloading pkgs${RESET}"
 echo "  ─────────────────────"
-URL="https://raw.githubusercontent.com/${REPO:-Mark44928/Termux-TUI-Package-Store}/${BRANCH:-main}/pkgs_core.zsh"
+URL="https://raw.githubusercontent.com/${REPO}/${BRANCH}/pkgs_core.zsh"
 INSTALL_PATH="$PREFIX/bin/pkgs"
 
 curl -#fSL "$URL" -o "${INSTALL_PATH}.tmp" 2>&1 || {
@@ -92,8 +106,18 @@ curl -#fSL "$URL" -o "${INSTALL_PATH}.tmp" 2>&1 || {
   exit 1
 }
 
+# Verify download is a valid zsh script (basic sanity check)
+if ! head -1 "${INSTALL_PATH}.tmp" | grep -q 'zsh'; then
+  echo "${RED}  ✗ Downloaded file does not look like the expected script.${RESET}"
+  rm -f "${INSTALL_PATH}.tmp"
+  exit 1
+fi
+
 mv "${INSTALL_PATH}.tmp" "$INSTALL_PATH"
-chmod +x "$INSTALL_PATH"
+chmod +x "$INSTALL_PATH" || {
+  echo "${RED}  ✗ Failed to set execute permission.${RESET}"
+  exit 1
+}
 
 echo "  ${GREEN}✓${RESET} Installed to ${BOLD}$INSTALL_PATH${RESET}"
 echo ""

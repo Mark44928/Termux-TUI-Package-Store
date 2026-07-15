@@ -7,3 +7,8 @@ Thumbs.db
 .idea/
 *.log
 *.tmp
+*.bak
+*.orig
+.env*
+*.pem
+*.key

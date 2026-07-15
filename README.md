@@ -13,7 +13,7 @@
    <a href="https://github.com/Mark44928/Termux-TUI-Package-Store/stargazers">
      <img src="https://img.shields.io/github/stars/Mark44928/Termux-TUI-Package-Store?style=for-the-badge&color=yellow" alt="Stars">
    </a>
-   <a href="https://github.com/Mark44928/Termux-TUI-Package-Store/network/members">
+   <a href="https://github.com/Mark44928/Termux-TUI-Package-Store/forks">
      <img src="https://img.shields.io/github/forks/Mark44928/Termux-TUI-Package-Store?style=for-the-badge&color=cyan" alt="Forks">
    </a>
    <a href="https://github.com/Mark44928/Termux-TUI-Package-Store/issues">
@@ -122,7 +122,7 @@
 
 Termux TUI Package Store is a terminal UI for managing packages on Termux. It wraps `pkg` with an interactive fuzzy-finder that lets you search, preview, install, and remove packages — all without leaving a single screen.
 
-The tool adapts to your terminal size, color-codes installed vs. available packages, and shows live metadata previews (version, size, dependencies, description) for every package you highlight. Type `/help` in the search box to see all 29 available slash commands.
+The tool adapts to your terminal size, color-codes installed vs. available packages, and shows live metadata previews (version, size, dependencies, description) for every package you highlight. Type `/help` in the search box to see all 47 available slash commands.
 
 ---
 
@@ -135,7 +135,7 @@ The tool adapts to your terminal size, color-codes installed vs. available packa
 | **🔄 Persistent Session** | Store stays open after install/remove — keep going until you press Esc |
 | **📐 Smart Layout** | Automatically switches between landscape (side-by-side) and portrait (stacked) preview |
 | **🎨 Color-Coded Status** | Installed packages tagged `[✓]`, available packages tagged `[ ]` |
-| **⚡ 29 Slash Commands** | Bulk install/remove/export, filters, sorting, notes, comparison, backup/restore, dependency analysis, and more |
+| **⚡ 47 Slash Commands** | Bulk install/remove/export, filters, sorting, notes, comparison, backup/restore, dependency analysis, hold/unhold, changelogs, file search, and more |
 | **📦 Batch Operations** | Multi-select with Tab, preview with dry-run, categorized summary with progress |
 | **🛡️ Prerequisite Checks** | Validates fzf, pkg, apt-cache, and dpkg-query on startup |
 | **📊 Disk Usage** | Visual breakdown by section with bar charts |
@@ -147,24 +147,34 @@ The tool adapts to your terminal size, color-codes installed vs. available packa
 | **↩️ Undo Support** | Reverse last install or remove operation |
 | **⚡ Zero Config** | No config files needed — runs as a single script at `$PREFIX/bin/pkgs` |
 
-### Slash Commands (29 total)
+### Slash Commands (47 total)
 
 | Command | Description |
 |---|---|
 | `/upgrade` | Upgrade all installed packages |
 | `/install <query>` | Install all packages matching `<query>` |
 | `/remove <query>` | Remove all packages matching `<query>` |
+| `/purge <pkg>` | Remove package + config files |
+| `/hold <pkg>` | Pin package (prevent upgrade) |
+| `/unhold <pkg>` | Unpin package (allow upgrade) |
 | `/export <query>` | Export matching packages to a runnable shell script |
 | `/export-all` | Export all installed packages to a shell script |
 | `/info <pkg>` | Show full package details in a panel |
 | `/search <text>` | Search package descriptions (not just names) |
+| `/search-file <text>` | Search installed files by name |
 | `/rdeps <pkg>` | Show reverse dependencies (what depends on this) |
 | `/deps <pkg>` | Show what a package depends on |
+| `/depends-on <pkg>` | Show installed packages that depend on this |
 | `/tree <pkg>` | Show dependency tree |
 | `/compare <a> <b>` | Compare two packages side by side |
 | `/note <pkg> <text>` | Add or view a note for a package |
 | `/orphans` | Show orphaned packages |
+| `/orphans-safe` | Show safe orphans (no essential dependents) |
+| `/orphans-remove` | Remove all orphaned packages |
+| `/outdated` | Show packages with available updates |
+| `/outdated-top <n>` | Top N packages with updates by size |
 | `/top` | Top 10 largest installed packages |
+| `/top <n>` | Top N largest installed packages |
 | `/size` | Total installed size |
 | `/count` | Count installed/available packages |
 | `/update` | Update apt cache |
@@ -173,9 +183,19 @@ The tool adapts to your terminal size, color-codes installed vs. available packa
 | `/available` | Filter: show only available packages |
 | `/recent` | Filter: show only packages installed today |
 | `/usage` | Show disk usage breakdown by section |
+| `/usage <pkg>` | Show installed files for a package |
+| `/usage-top` | Disk usage bar chart (top packages) |
+| `/group` | Group packages by section |
+| `/check` | Verify installed packages integrity |
+| `/changelog <pkg>` | Show package changelog |
+| `/reinstall <pkg>` | Reinstall a package |
+| `/download-size <pkg>` | Show download size |
+| `/version` | Show system version info |
+| `/review` | Today's activity summary |
+| `/stats` | Today's install/remove counts |
 | `/all` | Reset filter: show all packages |
 | `/sort name` or `/sort size` | Sort packages by name or size |
-| `/history` | View today's operation log |
+| `/history` | View last 7 days of operation log |
 | `/backup` | Export your full package list to a file |
 | `/restore <file>` | Install all packages from a backup file |
 | `/undo` | Reverse last install or remove |
@@ -299,7 +319,7 @@ Examples:
    When you highlight a package, `fzf` runs `apt-cache show` in the background and displays version, section, size, top dependencies, and the description.
 
 4. **Slash Commands**  
-   Typing `/install <query>`, `/remove <query>`, `/export <query>`, or any of the 29 slash commands in the search box triggers bulk operations instead of package selection. Packages are validated against `apt-cache` before any action runs.
+   Typing `/install <query>`, `/remove <query>`, `/export <query>`, or any of the 47 slash commands in the search box triggers bulk operations instead of package selection. Packages are validated against `apt-cache` before any action runs.
 
 5. **Action & Loop**  
    Pressing Enter shows a batch summary of selected packages with install/remove categorization. Choose `y` to process, `d` for a dry-run preview, `e` to export to a script, or press Enter to cancel. After processing, the store refreshes and re-opens — no need to relaunch.
@@ -404,9 +424,10 @@ A: Absolutely — see [Contributing](#contributing).
 ```sh
 rm "$PREFIX/bin/pkgs"
 rm -rf ~/.local/share/pkgs
+rm -rf ~/.config/pkgs
 ```
 
-The first command removes the script. The second removes history logs, notes, and cache stored at `~/.local/share/pkgs/`. No other config files or shell modifications exist.
+The first command removes the script. The second removes history logs, notes, and cache stored at `~/.local/share/pkgs/`. The third removes persistent filter/sort state stored at `~/.config/pkgs/`. No other config files or shell modifications exist.
 
 ---
 
