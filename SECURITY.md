@@ -39,6 +39,8 @@ This project runs `pkg install` and `pkg remove` commands that modify your Termu
 - Command injection through package names or file paths
 - Path traversal in backup/export file operations
 - Privilege escalation (though the tool runs as a regular Termux user)
+- Supply chain attacks via unverified downloads in `install.sh`
+- Environment variable injection (`REPO`/`BRANCH` in installer)
 
 ---
 
