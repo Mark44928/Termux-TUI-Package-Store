@@ -8,6 +8,78 @@
 
 ---
 
+## [1.3.0] - 2026-07-16
+
+### Added
+- `/mirror` — Switch apt mirror
+- `/fav <pkg>` — Toggle package favorite
+- `/fav-list` — Show all favorites
+- `/fav-remove` — Remove a favorite
+- `/import <file>` — Install from package list file
+- `/why <pkg>` — Show why a package is installed
+- `/suggest <pkg>` — Show recommended packages
+- `/nuke` — Interactive storage cleanup
+- `/whatsnew` — Show recent upgrade changelogs
+- `/tips` — Termux tips and tricks
+- `/self-update` — Update pkgs from GitHub
+- `/search-size <min> <max>` — Find packages by size range
+- `/pkg-history <pkg>` — Per-package install/upgrade/remove history
+- `/depends-chain <a> <b>` — Show dependency chain between two packages
+- `/broken` — Find broken/half-installed packages
+- `/conflicts-with <pkg>` — Show conflicting packages
+- `/provides <pkg>` — Show virtual packages provided
+- `/manually-installed` — Show only manually installed packages
+- `/auto-installed` — Show only auto-installed packages
+- `/upgrade-plan` — Simulate upgrade, show what would change
+- `/pkg-ages` — Show age of each installed package
+- `/unused-libs` — Find orphaned .so libraries
+- `/maintainer <name>` — Search packages by maintainer
+- `/log-search <text>` — Search dpkg/apt history logs
+- `/mirror-backup` — Backup/restore sources.list snapshots
+- `/size-histogram` — Visual package size distribution
+- `/deptree <pkg>` — Visual ASCII dependency tree with box drawing
+- `/reverse-tree <pkg>` — Reverse dependency tree
+- `/upgrade-size` — Total download size before upgrading
+- `/download <pkg>` — Download package without installing
+- `/verify <pkg>` — Verify package checksums/integrity
+- `/mirror-latency` — Ping-test all mirrors, rank by latency
+- `/mirror-bandwidth` — Bandwidth-test mirrors, rank by speed
+- `/pkg-changes` — Show what changed in last apt upgrade
+- `/pkg-recommendations <pkg>` — Show who recommends this package
+- `/pkg-suggests <pkg>` — Show who suggests this package
+- `/pkg-breaks <pkg>` — Show what breaks if this is installed
+- `/pkg-replaces <pkg>` — Show what this package replaces
+- `/owner <file>` — Which package owns this file (dpkg -S)
+- `/removed` — Packages removed in last upgrade
+- `/new-pkgs` — Packages installed this week
+- `/same-size` — Packages with identical installed size
+- `/depends-on-list <pkgs>` — Shared dependencies of multiple packages
+- `/upgradable` — Upgradable packages with version diff
+- `/whatprovides <file>` — Find which package provides a binary
+- `/snap-install <file>` — Install from local .deb file
+- `/simulate-remove <pkg>` — Simulate removal, show consequences
+- `/repo-stats` — Packages per repository breakdown
+- `/download-est <pkg>` — Download + installed size with expansion ratio
+- `/diff <pkg>` — Changelog diff of last upgrade
+- 7 theme color schemes: dark, light, minimal, neon, dracula, monokai, solarized
+- `/theme` — Switch color scheme (persisted across sessions)
+- `_PKGS_FAVORITES_FILE` — Persistent favorites storage
+- `_PKGS_THEME_FILE` — Theme persistence
+- `_PKGS_SELF_URL` — Configurable self-update URL
+
+### Fixed
+- Batch 2 features (14 commands) were outside main while loop — dead code that never executed. Moved inside loop.
+- All paths now use `$PREFIX` — no hardcoded `/var` paths (Termux compatibility)
+- Removed hardcoded box deco from `_pkgs_show_info()` (was `┌───┐│└───┘`)
+- `echo` with flag replaced by `printf` for portable output
+
+### Changed
+- Total slash commands: 47 → 85
+- Help text updated in both in-app (`/help`) and CLI (`pkgs -h`)
+- README updated with all 85 commands
+
+---
+
 ## [1.2.0] - 2026-07-15
 
 ### Added
