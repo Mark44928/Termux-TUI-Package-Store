@@ -122,7 +122,7 @@
 
 Termux TUI Package Store is a terminal UI for managing packages on Termux. It wraps `pkg` with an interactive fuzzy-finder that lets you search, preview, install, and remove packages — all without leaving a single screen.
 
-The tool adapts to your terminal size, color-codes installed vs. available packages, and shows live metadata previews (version, size, dependencies, description) for every package you highlight. Type `/help` in the search box to see all 47 available slash commands.
+The tool adapts to your terminal size, color-codes installed vs. available packages, and shows live metadata previews (version, size, dependencies, description) for every package you highlight. Type `/help` in the search box to see all 85 available slash commands.
 
 ---
 
@@ -135,7 +135,7 @@ The tool adapts to your terminal size, color-codes installed vs. available packa
 | **🔄 Persistent Session** | Store stays open after install/remove — keep going until you press Esc |
 | **📐 Smart Layout** | Automatically switches between landscape (side-by-side) and portrait (stacked) preview |
 | **🎨 Color-Coded Status** | Installed packages tagged `[✓]`, available packages tagged `[ ]` |
-| **⚡ 47 Slash Commands** | Bulk install/remove/export, filters, sorting, notes, comparison, backup/restore, dependency analysis, hold/unhold, changelogs, file search, and more |
+| **⚡ 85 Slash Commands** | Bulk install/remove/export, filters, sorting, notes, comparison, backup/restore, dependency analysis, hold/unhold, changelogs, file search, mirror management, themes, and more |
 | **📦 Batch Operations** | Multi-select with Tab, preview with dry-run, categorized summary with progress |
 | **🛡️ Prerequisite Checks** | Validates fzf, pkg, apt-cache, and dpkg-query on startup |
 | **📊 Disk Usage** | Visual breakdown by section with bar charts |
@@ -147,7 +147,7 @@ The tool adapts to your terminal size, color-codes installed vs. available packa
 | **↩️ Undo Support** | Reverse last install or remove operation |
 | **⚡ Zero Config** | No config files needed — runs as a single script at `$PREFIX/bin/pkgs` |
 
-### Slash Commands (47 total)
+### Slash Commands (85 total)
 
 | Command | Description |
 |---|---|
@@ -162,10 +162,14 @@ The tool adapts to your terminal size, color-codes installed vs. available packa
 | `/info <pkg>` | Show full package details in a panel |
 | `/search <text>` | Search package descriptions (not just names) |
 | `/search-file <text>` | Search installed files by name |
+| `/search-size <min> <max>` | Find packages by size range (KiB) |
 | `/rdeps <pkg>` | Show reverse dependencies (what depends on this) |
 | `/deps <pkg>` | Show what a package depends on |
 | `/depends-on <pkg>` | Show installed packages that depend on this |
+| `/depends-chain <a> <b>` | Show dependency chain between two packages |
 | `/tree <pkg>` | Show dependency tree |
+| `/deptree <pkg>` | Visual ASCII dependency tree with box drawing |
+| `/reverse-tree <pkg>` | Reverse dependency tree (what depends on me) |
 | `/compare <a> <b>` | Compare two packages side by side |
 | `/note <pkg> <text>` | Add or view a note for a package |
 | `/orphans` | Show orphaned packages |
@@ -188,8 +192,12 @@ The tool adapts to your terminal size, color-codes installed vs. available packa
 | `/group` | Group packages by section |
 | `/check` | Verify installed packages integrity |
 | `/changelog <pkg>` | Show package changelog |
+| `/diff <pkg>` | Changelog diff of last upgrade |
 | `/reinstall <pkg>` | Reinstall a package |
+| `/download <pkg>` | Download package without installing |
 | `/download-size <pkg>` | Show download size |
+| `/download-est <pkg>` | Download + installed size with expansion ratio |
+| `/verify <pkg>` | Verify package checksums/integrity |
 | `/version` | Show system version info |
 | `/review` | Today's activity summary |
 | `/stats` | Today's install/remove counts |
@@ -199,6 +207,49 @@ The tool adapts to your terminal size, color-codes installed vs. available packa
 | `/backup` | Export your full package list to a file |
 | `/restore <file>` | Install all packages from a backup file |
 | `/undo` | Reverse last install or remove |
+| `/mirror` | Switch apt mirror |
+| `/mirror-backup` | Backup/restore sources.list snapshots |
+| `/mirror-latency` | Ping-test all mirrors, rank by latency |
+| `/mirror-bandwidth` | Bandwidth-test mirrors, rank by speed |
+| `/fav <pkg>` | Toggle package favorite |
+| `/fav-list` | Show all favorites |
+| `/fav-remove` | Remove a favorite |
+| `/import <file>` | Install from package list file |
+| `/why <pkg>` | Show why a package is installed |
+| `/suggest <pkg>` | Show recommended packages |
+| `/nuke` | Interactive storage cleanup |
+| `/whatsnew` | Show recent upgrade changelogs |
+| `/tips` | Termux tips and tricks |
+| `/self-update` | Update pkgs from GitHub |
+| `/theme` | Switch color scheme (dark/light/minimal/neon/dracula/monokai/solarized) |
+| `/pkg-history <pkg>` | Per-package install/upgrade/remove history |
+| `/pkg-changes` | Show what changed in last apt upgrade |
+| `/pkg-ages` | Show age of each installed package |
+| `/pkg-recommendations <pkg>` | Show who recommends this package |
+| `/pkg-suggests <pkg>` | Show who suggests this package |
+| `/pkg-breaks <pkg>` | Show what breaks if this is installed |
+| `/pkg-replaces <pkg>` | Show what this package replaces |
+| `/broken` | Find broken/half-installed packages |
+| `/conflicts-with <pkg>` | Show conflicting packages |
+| `/provides <pkg>` | Show virtual packages provided |
+| `/manually-installed` | Show only manually installed packages |
+| `/auto-installed` | Show only auto-installed packages |
+| `/upgrade-plan` | Simulate upgrade, show what would change |
+| `/upgrade-size` | Total download size before upgrading |
+| `/unused-libs` | Find orphaned .so libraries |
+| `/maintainer <name>` | Search packages by maintainer |
+| `/log-search <text>` | Search dpkg/apt history logs |
+| `/size-histogram` | Visual package size distribution |
+| `/owner <file>` | Which package owns this file (dpkg -S) |
+| `/removed` | Packages removed in last upgrade |
+| `/new-pkgs` | Packages installed this week |
+| `/same-size` | Packages with identical installed size |
+| `/depends-on-list <pkgs>` | Shared dependencies of multiple packages |
+| `/upgradable` | Upgradable packages with version diff |
+| `/whatprovides <file>` | Find which package provides a binary |
+| `/snap-install <file>` | Install from local .deb file |
+| `/simulate-remove <pkg>` | Simulate removal, show consequences |
+| `/repo-stats` | Packages per repository breakdown |
 | `/help` | Show in-app help |
 
 ---
@@ -319,7 +370,7 @@ Examples:
    When you highlight a package, `fzf` runs `apt-cache show` in the background and displays version, section, size, top dependencies, and the description.
 
 4. **Slash Commands**  
-   Typing `/install <query>`, `/remove <query>`, `/export <query>`, or any of the 47 slash commands in the search box triggers bulk operations instead of package selection. Packages are validated against `apt-cache` before any action runs.
+   Typing `/install <query>`, `/remove <query>`, `/export <query>`, or any of the 85 slash commands in the search box triggers bulk operations instead of package selection. Packages are validated against `apt-cache` before any action runs.
 
 5. **Action & Loop**  
    Pressing Enter shows a batch summary of selected packages with install/remove categorization. Choose `y` to process, `d` for a dry-run preview, `e` to export to a script, or press Enter to cancel. After processing, the store refreshes and re-opens — no need to relaunch.
