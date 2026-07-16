@@ -49,6 +49,7 @@ pkgs() {
     local _PKGS_CONFIG_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/pkgs"
     local _PKGS_CONFIG_FILE="${_PKGS_CONFIG_DIR}/config"
     local _PKGS_HISTORY_KEEP_DAYS=30
+    local _PKGS_THEME=""
     local _PKGS_FAVORITES_FILE="${XDG_DATA_HOME:-$HOME/.local/share}/pkgs/favorites"
     local _PKGS_THEME_FILE="${_PKGS_CONFIG_DIR}/theme"
     local _PKGS_SELF_URL="https://raw.githubusercontent.com/Mark44928/Termux-TUI-Package-Store/refs/heads/main/pkgs_core.zsh"
@@ -394,7 +395,7 @@ pkgs() {
             local today
             today=$(date +%Y-%m-%d)
             local recent_pkgs=""
-            local dpkg_log="/data/data/com.termux/files/usr/var/log/dpkg.log"
+            local dpkg_log="${PREFIX}/var/log/dpkg.log"
             if [[ -f "$dpkg_log" ]]; then
                 recent_pkgs=$(grep "^$today.* install " "$dpkg_log" 2>/dev/null | awk '{print $3}' | sort -u)
             fi
@@ -1407,7 +1408,7 @@ PREVIEW_EOF
                 fi
                 _pkgs_log_history "CLEAN" "autoremove+cache"
             else
-                printf "${DIM}Cancelled.${C_RESET}\n"
+                printf "${C_DIM}Cancelled.${C_RESET}\n"
             fi
             _pkgs_invalidate_cache
             printf "\n  ${C_MSG_INFO}Press Enter to return.${C_RESET}"
@@ -1486,7 +1487,7 @@ PREVIEW_EOF
             continue
         fi
 
-        if [[ "$query" == /depends-on* ]]; then
+        if [[ "$query" == /depends-on* && "$query" != /depends-on-list* && "$query" != /depends-chain* ]]; then
             local depson_pkg; depson_pkg=$(_pkgs_parse_pkg_arg "depends-on" "$query") || { sleep 1; query=""; continue; }
             clear
             if ! apt-cache show -- "$depson_pkg" >/dev/null 2>&1; then
@@ -1685,8 +1686,8 @@ PREVIEW_EOF
                 printf "${C_MSG_REMOVE}Package not found: %s${C_RESET}\n" "$cl_pkg"
             else
                 printf "\n${C_MSG_INFO}── Changelog for %s ──${C_RESET}\n\n" "$cl_pkg"
-                local cl_file="/data/data/com.termux/files/usr/share/doc/${cl_pkg}/changelog.gz"
-                local cl_file2="/data/data/com.termux/files/usr/share/doc/${cl_pkg}/changelog"
+                local cl_file="${PREFIX}/share/doc/${cl_pkg}/changelog.gz"
+                local cl_file2="${PREFIX}/share/doc/${cl_pkg}/changelog"
                 if [[ -f "$cl_file" ]]; then
                     zcat "$cl_file" 2>/dev/null | head -60
                 elif [[ -f "$cl_file2" ]]; then
@@ -1792,11 +1793,12 @@ PREVIEW_EOF
             if [[ -z "$sf_text" ]]; then
                 printf "${C_MSG_WARN}Usage: /search-file <text>${C_RESET}\n"
                 sleep 1
+                clear
                 query=""
                 continue
             fi
             clear
-                printf "\n${C_MSG_INFO}── Searching installed files for \"%s\"... ──${C_RESET}\n\n" "$sf_text"
+            printf "\n${C_MSG_INFO}── Searching installed files for \"%s\"... ──${C_RESET}\n\n" "$sf_text"
             local sf_count=0
             local sf_line
             while IFS= read -r sf_line; do
@@ -2024,7 +2026,7 @@ PREVIEW_EOF
             continue
         fi
 
-        if [[ "$query" == /search* ]]; then
+        if [[ "$query" == /search* && "$query" != /search-file* && "$query" != /search-size* ]]; then
             if [[ "$query" == "/search" ]]; then
                 printf "${C_MSG_WARN}Usage: /search <text>${C_RESET}\n"
                 sleep 1
@@ -2252,196 +2254,6 @@ PREVIEW_EOF
             clear
             continue
         fi
-
-        [[ ${#lines[@]} -lt 2 ]] && continue
-
-        local -a selected_names=()
-        local line
-        for line in "${(@)lines[2,-1]}"; do
-            [[ -z "$line" ]] && continue
-            local pkg_name="${line%%|*}"
-            [[ -z "$pkg_name" ]] && continue
-            _pkgs_validate_name "$pkg_name" || continue
-            selected_names+=("$pkg_name")
-        done
-
-        [[ ${#selected_names[@]} -eq 0 ]] && continue
-
-        local -a to_install=()
-        local -a to_remove=()
-        for pkg_name in "${selected_names[@]}"; do
-            if dpkg -s -- "$pkg_name" 2>/dev/null | grep -q '^Status: install ok installed'; then
-                to_remove+=("$pkg_name")
-            else
-                to_install+=("$pkg_name")
-            fi
-        done
-
-        clear
-        printf "\n  ${C_GREEN}── Selected Packages (${C_WHITE}%d${C_GREEN}) ──${C_RESET}\n\n" "${#selected_names[@]}"
-        if (( ${#to_install[@]} > 0 )); then
-            printf "  ${C_MSG_INSTALL}Install (${C_WHITE}%d${C_MSG_INSTALL}):${C_RESET}\n" "${#to_install[@]}"
-            for pkg in "${to_install[@]}"; do
-                printf "    ${C_GREEN}+ %s${C_RESET}\n" "$pkg"
-            done
-            printf "\n"
-        fi
-        if (( ${#to_remove[@]} > 0 )); then
-            printf "  ${C_MSG_REMOVE}Remove (${C_WHITE}%d${C_MSG_REMOVE}):${C_RESET}\n" "${#to_remove[@]}"
-            for pkg in "${to_remove[@]}"; do
-                printf "    ${C_RED}- %s${C_RESET}\n" "$pkg"
-            done
-            printf "\n"
-        fi
-
-        printf "  ${C_MSG_INFO}Action: ${C_WHITE}y${C_MSG_INFO}=process  ${C_WHITE}d${C_MSG_INFO}=dry-run  ${C_WHITE}e${C_MSG_INFO}=export  ${C_WHITE}Enter${C_MSG_INFO}=cancel${C_RESET} "
-        read -q action; read -r
-        printf "\n"
-
-        if [[ "$action" == "d" ]]; then
-            clear
-            printf "\n  ${C_GREEN}── Dry Run ──${C_RESET}\n\n"
-            if (( ${#to_install[@]} > 0 )); then
-                printf "  ${C_MSG_INSTALL}Would install:${C_RESET}\n"
-                for rp in "${to_install[@]}"; do
-                    local dry_deps
-                    dry_deps=$(apt-cache depends --recurse --no-recommends --no-suggests --no-conflicts --no-breaks --no-replaces --no-enhances -- "$rp" 2>/dev/null | grep "^\w" | sort -u | wc -l | tr -d ' ')
-                    printf "    ${C_GREEN}+ %-20s${C_RESET} ${C_DIM}%s deps${C_RESET}\n" "$rp" "${dry_deps:-0}"
-                done
-                printf "\n"
-            fi
-            if (( ${#to_remove[@]} > 0 )); then
-                printf "  ${C_MSG_REMOVE}Would remove:${C_RESET}\n"
-                for rp in "${to_remove[@]}"; do
-                    local dry_rdeps
-                    dry_rdeps=$(apt-cache rdepends -- "$rp" 2>/dev/null | tail -n +3 | wc -l | tr -d ' ')
-                    printf "    ${C_RED}- %-20s${C_RESET} ${C_DIM}%s depend on it${C_RESET}\n" "$rp" "${dry_rdeps:-0}"
-                done
-                printf "\n"
-            fi
-            printf "\n  ${C_MSG_INFO}Press Enter to return.${C_RESET}"
-            read -r
-            clear
-            continue
-        fi
-
-        if [[ "$action" == "e" ]]; then
-            local export_file="pkg-install-$(date +%Y%m%d-%H%M%S).sh"
-            printf "  ${C_MSG_INFO}Export path [${C_RESET}%s${C_MSG_INFO}]: ${C_RESET}" "$export_file"
-            local user_path
-            read -r user_path
-            [[ -n "$user_path" ]] && export_file="$user_path"
-            if ! _pkgs_validate_export_path "$export_file"; then
-                printf "  ${C_MSG_REMOVE}Invalid or unsafe file path${C_RESET}\n"
-                printf "\n  ${C_MSG_INFO}Press Enter to return.${C_RESET}"
-                read -r
-                clear
-                continue
-            fi
-            if [[ -n "$export_file" ]] && { [[ -d "$(dirname "$export_file")" ]] || [[ -d "." ]]; }; then
-                {
-                    printf "#!/data/data/com.termux/files/usr/bin/sh\n"
-                    printf "# Exported by pkgs on $(date)\n\n"
-                    if (( ${#to_install[@]} > 0 )); then
-                        printf "# Packages to install\n"
-                        printf "${PKG_MGR} install \\\\\n"
-                        local i
-                        for i in {1..${#to_install[@]}}; do
-                            if (( i < ${#to_install[@]} )); then
-                                printf "    %s \\\\\n" "${to_install[$i]}"
-                            else
-                                printf "    %s\n" "${to_install[$i]}"
-                            fi
-                        done
-                    fi
-                    if (( ${#to_remove[@]} > 0 )); then
-                        printf "\n# Packages to remove\n"
-                        printf "${PKG_MGR} remove \\\\\n"
-                        local i
-                        for i in {1..${#to_remove[@]}}; do
-                            if (( i < ${#to_remove[@]} )); then
-                                printf "    %s \\\\\n" "${to_remove[$i]}"
-                            else
-                                printf "    %s\n" "${to_remove[$i]}"
-                            fi
-                        done
-                    fi
-                } > "$export_file"
-                chmod +x "$export_file" 2>/dev/null
-                if [[ -f "$export_file" ]]; then
-                    printf "  ${C_MSG_DONE}Saved: ${C_RESET}%s\n" "$export_file"
-                else
-                    printf "  ${C_MSG_REMOVE}Failed to create export file${C_RESET}\n"
-                fi
-            else
-                printf "  ${C_MSG_REMOVE}Invalid file path${C_RESET}\n"
-            fi
-            printf "\n  ${C_MSG_INFO}Press Enter to return.${C_RESET}"
-            read -r
-            clear
-            continue
-        fi
-
-        [[ "$action" == "y" ]] || {
-            printf "  ${C_DIM}Cancelled.${C_RESET}\n"
-            printf "\n  ${C_MSG_INFO}Press Enter to return.${C_RESET}"
-            read -r
-            clear
-            continue
-        }
-
-        clear
-        local ok=0 fail=0
-        local total=${#selected_names[@]}
-
-        for pkg_name in "${to_install[@]}"; do
-            if ! apt-cache show -- "$pkg_name" >/dev/null 2>&1; then
-                printf "${C_MSG_REMOVE}  [%d/${total}] %s not found in apt cache${C_RESET}\n" "$((ok+fail+1))" "$pkg_name"
-                ((fail++))
-                continue
-            fi
-            printf "${C_MSG_INFO}  [%d/${total}] install %s...${C_RESET}" "$((ok+fail+1))" "$pkg_name"
-            if "${PKG_MGR}" install -- "$pkg_name" 2>/dev/null; then
-                _pkgs_log_history "INSTALL" "$pkg_name"
-                printf "\r${C_MSG_DONE}  [%d/${total}] ✓ %s${C_RESET}\n" "$((ok+fail+1))" "$pkg_name"
-                ((ok++))
-            else
-                printf "\r${C_MSG_REMOVE}  [%d/${total}] ✗ %s failed${C_RESET}\n" "$((ok+fail+1))" "$pkg_name"
-                ((fail++))
-            fi
-        done
-
-        for pkg_name in "${to_remove[@]}"; do
-            printf "${C_MSG_INFO}  [%d/${total}] remove %s...${C_RESET}" "$((ok+fail+1))" "$pkg_name"
-            if "${PKG_MGR}" remove -- "$pkg_name" 2>/dev/null; then
-                _pkgs_log_history "REMOVE" "$pkg_name"
-                printf "\r${C_MSG_DONE}  [%d/${total}] ✓ %s${C_RESET}\n" "$((ok+fail+1))" "$pkg_name"
-                ((ok++))
-            else
-                printf "\r${C_MSG_REMOVE}  [%d/${total}] ✗ %s failed${C_RESET}\n" "$((ok+fail+1))" "$pkg_name"
-                ((fail++))
-            fi
-        done
-
-        if (( ${#to_remove[@]} > 0 )); then
-            local auto_out
-            if auto_out=$("${PKG_MGR}" autoremove --dry-run 2>&1) && ! echo "$auto_out" | grep -qE "^0 upgraded, 0 newly installed, 0 to remove"; then
-                printf "\n  ${C_MSG_WARN}Remove orphaned dependencies? (y/N) ${C_RESET}"
-                read -q auto_confirm; read -r
-                printf "\n"
-                if [[ "$auto_confirm" == "y" ]]; then
-                    printf "  ${C_MSG_INFO}Cleaning up...${C_RESET}\n"
-                    "${PKG_MGR}" autoremove -y 2>/dev/null
-                    _pkgs_log_history "CLEAN" "autoremove"
-                fi
-            fi
-        fi
-
-        _pkgs_invalidate_cache
-        printf "\n  ${C_MSG_DONE}Done:${C_RESET} %d ok, %d failed\n" "$ok" "$fail"
-        printf "\n  ${C_MSG_INFO}Press Enter to return.${C_RESET}"
-        read -r
-        clear
 
         # --- /mirror ---
         if [[ "$query" == /mirror ]]; then
@@ -2938,15 +2750,12 @@ PREVIEW_EOF
         if [[ "$query" == /whatsnew ]]; then
             clear
             printf "\n  ${C_WHITE}Recently Upgraded Packages${C_RESET}\n\n"
-            local dpkg_log="/data/data/com.termux/files/usr/var/lib/dpkg/status"
             local -a recent_upgraded=()
             if [[ -f "$_PKGS_HISTORY_FILE" ]]; then
                 while IFS='|' read -r ts action pkg; do
                     [[ "$action" == "UPGRADE" ]] && recent_upgraded+=("$pkg")
                 done < "$_PKGS_HISTORY_FILE"
             fi
-            local -a extra_logs
-            extra_logs=($(ls -t /data/data/com.termux/files/usr/var/cache/apt/archives/.. 2>/dev/null))
             for hist_file in $(find "$_PKGS_HISTORY_DIR" -name "*.log" -mtime -7 2>/dev/null | sort -r | head -7); do
                 while IFS='|' read -r ts action pkg; do
                     [[ "$action" == "UPGRADE" ]] && recent_upgraded+=("$pkg")
@@ -3087,7 +2896,7 @@ PREVIEW_EOF
             local ss_count=0
             printf "  ${C_DIM}%-30s %-12s %s${C_RESET}\n" "PACKAGE" "SIZE" "STATUS"
             printf "  ${C_DIM}%-30s %-12s %s${C_RESET}\n" "------------------------------" "------------" "------"
-            dpkg-query -W -f='${Package}\t${Installed-Size}\n' 2>/dev/null | while IFS=$'\t' read -r pkg size; do
+            while IFS=$'\t' read -r pkg size; do
                 [[ -z "$size" || "$size" == "*" ]] && continue
                 if (( size >= ss_min && size <= ss_max )); then
                     local status="${C_GREEN}installed${C_RESET}"
@@ -3096,7 +2905,7 @@ PREVIEW_EOF
                     printf "  %-30s %-12b %b\n" "$pkg" "$sz_display" "$status"
                     ((ss_count++))
                 fi
-            done
+            done < <(dpkg-query -W -f='${Package}\t${Installed-Size}\n' 2>/dev/null)
             printf "\n  ${C_MSG_INFO}Press Enter to return.${C_RESET}"
             read -r
             continue
@@ -3206,11 +3015,11 @@ PREVIEW_EOF
             clear
             printf "\n  ${C_MSG_INFO}Checking for broken packages...${C_RESET}\n\n"
             local broken_count=0
-            dpkg --audit 2>/dev/null | while IFS= read -r line; do
+            while IFS= read -r line; do
                 [[ -z "$line" ]] && continue
                 printf "  ${C_RED}✗ %s${C_RESET}\n" "$line"
                 ((broken_count++))
-            done
+            done < <(dpkg --audit 2>/dev/null)
             local -a held_pkgs
             held_pkgs=($(apt-mark showhold 2>/dev/null))
             if (( ${#held_pkgs[@]} > 0 )); then
@@ -3502,7 +3311,7 @@ PREVIEW_EOF
             printf "\n  ${C_WHITE}Package Size Distribution${C_RESET}\n\n"
             local -a buckets=(0 0 0 0 0 0 0 0 0 0)
             local -a labels=("0-10K" "10-50K" "50-100K" "100-500K" "500K-1M" "1-5M" "5-10M" "10-50M" "50-100M" "100M+")
-            dpkg-query -W -f='${Installed-Size}\n' 2>/dev/null | while IFS= read -r size; do
+            while IFS= read -r size; do
                 [[ -z "$size" || "$size" == "*" || ! "$size" =~ ^[0-9]+$ ]] && continue
                 if (( size < 10 )); then ((buckets[1]++))
                 elif (( size < 50 )); then ((buckets[2]++))
@@ -3515,7 +3324,7 @@ PREVIEW_EOF
                 elif (( size < 102400 )); then ((buckets[9]++))
                 else ((buckets[10]++))
                 fi
-            done
+            done < <(dpkg-query -W -f='${Installed-Size}\n' 2>/dev/null)
             local max_bucket=0
             for b in "${buckets[@]}"; do
                 (( b > max_bucket )) && max_bucket=$b
@@ -3556,7 +3365,7 @@ PREVIEW_EOF
                     local first=1
                     for d in $deps; do
                         if (( first )); then
-                            printf "%s├── ${C_TEAL}%s${C_RESET}\n" "$prefix" "$d"
+                            printf "%s└── ${C_TEAL}%s${C_RESET}\n" "$prefix" "$d"
                             first=0
                         else
                             printf "%s├── ${C_TEAL}%s${C_RESET}\n" "$prefix" "$d"
@@ -3631,7 +3440,7 @@ PREVIEW_EOF
         fi
 
         # --- /download ---
-        if [[ "$query" == /download* ]]; then
+        if [[ "$query" == /download* && "$query" != /download-size* && "$query" != /download-est* ]]; then
             local dl_pkg="${query#/download }"
             [[ "$dl_pkg" == "/download" ]] && dl_pkg=""
             clear
@@ -3743,7 +3552,7 @@ PREVIEW_EOF
             printf "  ${C_DIM}%-25s %-12s %s${C_RESET}\n" "-------------------------" "------------" "------"
             for entry in "${mirrors_bw[@]}"; do
                 IFS='|' read -r murl mname <<< "$entry"
-                local tmp_bw="/tmp/pkgs_bw_$$"
+                local tmp_bw="${TMPDIR:-$PREFIX/tmp}/pkgs_bw_$$"
                 local start_t end_t elapsed_s speed_bps
                 start_t=$(date +%s%N)
                 curl -sL --connect-timeout 5 --max-time 10 "https://${murl}/dists/stable/Release" -o "$tmp_bw" 2>/dev/null
@@ -4115,13 +3924,13 @@ PREVIEW_EOF
             fi
             if [[ -n "$si_file" && -f "$si_file" ]]; then
                 printf "\n  ${C_MSG_INFO}Installing from: %s${C_RESET}\n\n" "$si_file"
-                dpkg -i "$si_file" 2>&1 | sed 's/^/  /'
+                dpkg -i -- "$si_file" 2>&1 | sed 's/^/  /'
                 local si_status=$?
                 if (( si_status == 0 )); then
                     printf "\n  ${C_MSG_DONE}Installation successful.${C_RESET}\n"
                 else
-                    printf "\n  ${C_MSG_REMOVE}Installation had errors. Running apt -f install...${C_RESET}\n"
-                    apt -f install -y 2>&1 | sed 's/^/  /'
+                    printf "\n  ${C_MSG_REMOVE}Installation had errors. Running ${PKG_MGR} --fix-broken install...${C_RESET}\n"
+                    ${PKG_MGR} --fix-broken install -y 2>&1 | sed 's/^/  /'
                 fi
             elif [[ -n "$si_file" ]]; then
                 printf "  ${C_MSG_REMOVE}File not found: %s${C_RESET}\n" "$si_file"
@@ -4261,6 +4070,196 @@ PREVIEW_EOF
             read -r
             continue
         fi
+        [[ ${#lines[@]} -lt 2 ]] && continue
+
+        local -a selected_names=()
+        local line
+        for line in "${(@)lines[2,-1]}"; do
+            [[ -z "$line" ]] && continue
+            local pkg_name="${line%%|*}"
+            [[ -z "$pkg_name" ]] && continue
+            _pkgs_validate_name "$pkg_name" || continue
+            selected_names+=("$pkg_name")
+        done
+
+        [[ ${#selected_names[@]} -eq 0 ]] && continue
+
+        local -a to_install=()
+        local -a to_remove=()
+        for pkg_name in "${selected_names[@]}"; do
+            if dpkg -s -- "$pkg_name" 2>/dev/null | grep -q '^Status: install ok installed'; then
+                to_remove+=("$pkg_name")
+            else
+                to_install+=("$pkg_name")
+            fi
+        done
+
+        clear
+        printf "\n  ${C_GREEN}── Selected Packages (${C_WHITE}%d${C_GREEN}) ──${C_RESET}\n\n" "${#selected_names[@]}"
+        if (( ${#to_install[@]} > 0 )); then
+            printf "  ${C_MSG_INSTALL}Install (${C_WHITE}%d${C_MSG_INSTALL}):${C_RESET}\n" "${#to_install[@]}"
+            for pkg in "${to_install[@]}"; do
+                printf "    ${C_GREEN}+ %s${C_RESET}\n" "$pkg"
+            done
+            printf "\n"
+        fi
+        if (( ${#to_remove[@]} > 0 )); then
+            printf "  ${C_MSG_REMOVE}Remove (${C_WHITE}%d${C_MSG_REMOVE}):${C_RESET}\n" "${#to_remove[@]}"
+            for pkg in "${to_remove[@]}"; do
+                printf "    ${C_RED}- %s${C_RESET}\n" "$pkg"
+            done
+            printf "\n"
+        fi
+
+        printf "  ${C_MSG_INFO}Action: ${C_WHITE}y${C_MSG_INFO}=process  ${C_WHITE}d${C_MSG_INFO}=dry-run  ${C_WHITE}e${C_MSG_INFO}=export  ${C_WHITE}Enter${C_MSG_INFO}=cancel${C_RESET} "
+        read -q action; read -r
+        printf "\n"
+
+        if [[ "$action" == "d" ]]; then
+            clear
+            printf "\n  ${C_GREEN}── Dry Run ──${C_RESET}\n\n"
+            if (( ${#to_install[@]} > 0 )); then
+                printf "  ${C_MSG_INSTALL}Would install:${C_RESET}\n"
+                for rp in "${to_install[@]}"; do
+                    local dry_deps
+                    dry_deps=$(apt-cache depends --recurse --no-recommends --no-suggests --no-conflicts --no-breaks --no-replaces --no-enhances -- "$rp" 2>/dev/null | grep "^\w" | sort -u | wc -l | tr -d ' ')
+                    printf "    ${C_GREEN}+ %-20s${C_RESET} ${C_DIM}%s deps${C_RESET}\n" "$rp" "${dry_deps:-0}"
+                done
+                printf "\n"
+            fi
+            if (( ${#to_remove[@]} > 0 )); then
+                printf "  ${C_MSG_REMOVE}Would remove:${C_RESET}\n"
+                for rp in "${to_remove[@]}"; do
+                    local dry_rdeps
+                    dry_rdeps=$(apt-cache rdepends -- "$rp" 2>/dev/null | tail -n +3 | wc -l | tr -d ' ')
+                    printf "    ${C_RED}- %-20s${C_RESET} ${C_DIM}%s depend on it${C_RESET}\n" "$rp" "${dry_rdeps:-0}"
+                done
+                printf "\n"
+            fi
+            printf "\n  ${C_MSG_INFO}Press Enter to return.${C_RESET}"
+            read -r
+            clear
+            continue
+        fi
+
+        if [[ "$action" == "e" ]]; then
+            local export_file="pkg-install-$(date +%Y%m%d-%H%M%S).sh"
+            printf "  ${C_MSG_INFO}Export path [${C_RESET}%s${C_MSG_INFO}]: ${C_RESET}" "$export_file"
+            local user_path
+            read -r user_path
+            [[ -n "$user_path" ]] && export_file="$user_path"
+            if ! _pkgs_validate_export_path "$export_file"; then
+                printf "  ${C_MSG_REMOVE}Invalid or unsafe file path${C_RESET}\n"
+                printf "\n  ${C_MSG_INFO}Press Enter to return.${C_RESET}"
+                read -r
+                clear
+                continue
+            fi
+            if [[ -n "$export_file" ]] && { [[ -d "$(dirname "$export_file")" ]] || [[ -d "." ]]; }; then
+                {
+                    printf "#!/data/data/com.termux/files/usr/bin/sh\n"
+                    printf "# Exported by pkgs on $(date)\n\n"
+                    if (( ${#to_install[@]} > 0 )); then
+                        printf "# Packages to install\n"
+                        printf "${PKG_MGR} install \\\\\n"
+                        local i
+                        for i in {1..${#to_install[@]}}; do
+                            if (( i < ${#to_install[@]} )); then
+                                printf "    %s \\\\\n" "${to_install[$i]}"
+                            else
+                                printf "    %s\n" "${to_install[$i]}"
+                            fi
+                        done
+                    fi
+                    if (( ${#to_remove[@]} > 0 )); then
+                        printf "\n# Packages to remove\n"
+                        printf "${PKG_MGR} remove \\\\\n"
+                        local i
+                        for i in {1..${#to_remove[@]}}; do
+                            if (( i < ${#to_remove[@]} )); then
+                                printf "    %s \\\\\n" "${to_remove[$i]}"
+                            else
+                                printf "    %s\n" "${to_remove[$i]}"
+                            fi
+                        done
+                    fi
+                } > "$export_file"
+                chmod +x "$export_file" 2>/dev/null
+                if [[ -f "$export_file" ]]; then
+                    printf "  ${C_MSG_DONE}Saved: ${C_RESET}%s\n" "$export_file"
+                else
+                    printf "  ${C_MSG_REMOVE}Failed to create export file${C_RESET}\n"
+                fi
+            else
+                printf "  ${C_MSG_REMOVE}Invalid file path${C_RESET}\n"
+            fi
+            printf "\n  ${C_MSG_INFO}Press Enter to return.${C_RESET}"
+            read -r
+            clear
+            continue
+        fi
+
+        [[ "$action" == "y" ]] || {
+            printf "  ${C_DIM}Cancelled.${C_RESET}\n"
+            printf "\n  ${C_MSG_INFO}Press Enter to return.${C_RESET}"
+            read -r
+            clear
+            continue
+        }
+
+        clear
+        local ok=0 fail=0
+        local total=${#selected_names[@]}
+
+        for pkg_name in "${to_install[@]}"; do
+            if ! apt-cache show -- "$pkg_name" >/dev/null 2>&1; then
+                printf "${C_MSG_REMOVE}  [%d/${total}] %s not found in apt cache${C_RESET}\n" "$((ok+fail+1))" "$pkg_name"
+                ((fail++))
+                continue
+            fi
+            printf "${C_MSG_INFO}  [%d/${total}] install %s...${C_RESET}" "$((ok+fail+1))" "$pkg_name"
+            if "${PKG_MGR}" install -- "$pkg_name" 2>/dev/null; then
+                _pkgs_log_history "INSTALL" "$pkg_name"
+                printf "\r${C_MSG_DONE}  [%d/${total}] ✓ %s${C_RESET}\n" "$((ok+fail+1))" "$pkg_name"
+                ((ok++))
+            else
+                printf "\r${C_MSG_REMOVE}  [%d/${total}] ✗ %s failed${C_RESET}\n" "$((ok+fail+1))" "$pkg_name"
+                ((fail++))
+            fi
+        done
+
+        for pkg_name in "${to_remove[@]}"; do
+            printf "${C_MSG_INFO}  [%d/${total}] remove %s...${C_RESET}" "$((ok+fail+1))" "$pkg_name"
+            if "${PKG_MGR}" remove -- "$pkg_name" 2>/dev/null; then
+                _pkgs_log_history "REMOVE" "$pkg_name"
+                printf "\r${C_MSG_DONE}  [%d/${total}] ✓ %s${C_RESET}\n" "$((ok+fail+1))" "$pkg_name"
+                ((ok++))
+            else
+                printf "\r${C_MSG_REMOVE}  [%d/${total}] ✗ %s failed${C_RESET}\n" "$((ok+fail+1))" "$pkg_name"
+                ((fail++))
+            fi
+        done
+
+        if (( ${#to_remove[@]} > 0 )); then
+            local auto_out
+            if auto_out=$("${PKG_MGR}" autoremove --dry-run 2>&1) && ! echo "$auto_out" | grep -qE "^0 upgraded, 0 newly installed, 0 to remove"; then
+                printf "\n  ${C_MSG_WARN}Remove orphaned dependencies? (y/N) ${C_RESET}"
+                read -q auto_confirm; read -r
+                printf "\n"
+                if [[ "$auto_confirm" == "y" ]]; then
+                    printf "  ${C_MSG_INFO}Cleaning up...${C_RESET}\n"
+                    "${PKG_MGR}" autoremove -y 2>/dev/null
+                    _pkgs_log_history "CLEAN" "autoremove"
+                fi
+            fi
+        fi
+
+        _pkgs_invalidate_cache
+        printf "\n  ${C_MSG_DONE}Done:${C_RESET} %d ok, %d failed\n" "$ok" "$fail"
+        printf "\n  ${C_MSG_INFO}Press Enter to return.${C_RESET}"
+        read -r
+        clear
+
     done
     _pkgs_invalidate_cache
     clear
