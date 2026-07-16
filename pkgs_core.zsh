@@ -1744,7 +1744,7 @@ PREVIEW_EOF
         if [[ "$query" == /version ]]; then
             clear
             printf "\n  ${C_GREEN}── System Info ──${C_RESET}\n\n"
-            printf "  ${C_WHITE}pkgs:${C_RESET}          1.2.0\n"
+            printf "  ${C_WHITE}pkgs:${C_RESET}          1.3.0\n"
             printf "  ${C_WHITE}Termux:${C_RESET}        %s\n" "$(termux-info 2>/dev/null | grep 'Termux version' | cut -d: -f2 | xargs || echo 'unknown')"
             printf "  ${C_WHITE}fzf:${C_RESET}           %s\n" "$(fzf --version 2>/dev/null | awk '{print $1}' || echo 'unknown')"
             printf "  ${C_WHITE}zsh:${C_RESET}           %s\n" "${ZSH_VERSION:-$(zsh --version 2>/dev/null | awk '{print $2}' || echo 'unknown')}"
@@ -3028,7 +3028,7 @@ PREVIEW_EOF
         if [[ "$query" == /self-update ]]; then
             clear
             printf "\n  ${C_MSG_INFO}Checking for updates...${C_RESET}\n"
-            local current_ver="1.2.0"
+            local current_ver="1.3.0"
             local latest_ver
             latest_ver=$(curl -sL "$_PKGS_SELF_URL" 2>/dev/null | grep -oP 'pkgs \K[0-9]+\.[0-9]+\.[0-9]+' | head -1)
             if [[ -z "$latest_ver" ]]; then
