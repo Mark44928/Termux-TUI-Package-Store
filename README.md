@@ -54,7 +54,7 @@
 </p>
 
 <p align="center">
-   <b>v1.2.0</b>
+   <b>v1.3.0</b>
 </p>
 
 <p align="center">

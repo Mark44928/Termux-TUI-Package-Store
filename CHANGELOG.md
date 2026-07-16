@@ -143,7 +143,7 @@
 - `/restore` now parses both plain lists and shell scripts from `/export`
 - `/clean` now uses single confirmation for both autoremove and cache clean
 - Signal trap includes HUP
-- Help updated with all 47 commands
+- Help updated with all 85 commands
 - install.sh: aborts on dependency failure, validates REPO/BRANCH env vars, verifies download integrity
 - Cache generation separated from fzf subshell (fixes resource leak)
 
