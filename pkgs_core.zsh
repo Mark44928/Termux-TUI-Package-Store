@@ -766,7 +766,7 @@ PREVIEW_EOF
                     usage_size=$(dpkg-query -W -f='${Installed-Size}' -- "$usage_pkg" 2>/dev/null)
                     local usage_display
                     usage_display=$(_pkgs_format_size "$usage_size")
-                    printf "\n  ${C_GREEN}── Files installed by %s (%s) ──${C_RESET}\n\n" "$usage_pkg" "$usage_display"
+                    printf "\n  ${C_GREEN}Files installed by %s (%s)${C_RESET}\n\n" "$usage_pkg" "$usage_display"
                     local usage_count=0
                     local usage_line
                     while IFS= read -r usage_line; do
@@ -778,7 +778,7 @@ PREVIEW_EOF
                 fi
             else
                 clear
-                printf "\n  ${C_GREEN}── Disk Usage by Section ──${C_RESET}\n\n"
+                printf "\n  ${C_GREEN}Disk Usage by Section${C_RESET}\n\n"
                 local total_size=0
                 local -A section_sizes
                 local -A _pkgs_sec_cache
@@ -921,7 +921,7 @@ PREVIEW_EOF
                     fi
             fi
             clear
-            printf "\n${C_MSG_INFO}── Top %d Largest Installed Packages ──${C_RESET}\n\n" "$top_n"
+            printf "\n${C_MSG_INFO}Top %d Largest Installed Packages${C_RESET}\n\n" "$top_n"
             printf "  ${C_DIM}%-4s %-24s %-10s${C_RESET}\n" "#" "Package" "Size"
             printf "  ${C_DIM}%-4s %-24s %-10s${C_RESET}\n" "---" "-------" "----"
             local shown=0
@@ -1044,7 +1044,7 @@ PREVIEW_EOF
             if [[ "$query" == "/note" ]]; then
                 if [[ -f "$_PKGS_NOTES_FILE" ]] && [[ -s "$_PKGS_NOTES_FILE" ]]; then
                     clear
-                    printf "\n  ${C_GREEN}── Package Notes ──${C_RESET}\n\n"
+                    printf "\n  ${C_GREEN}Package Notes${C_RESET}\n\n"
                     while IFS= read -r fullline; do
                         local npkg="${fullline%%|*}"
                         local nnote="${fullline#*|}"
@@ -1152,7 +1152,7 @@ PREVIEW_EOF
                 continue
             fi
             clear
-            printf "\n  ${C_GREEN}── Compare Packages ──${C_RESET}\n\n"
+            printf "\n  ${C_GREEN}Compare Packages${C_RESET}\n\n"
             local v1 s1 d1 sz1
             v1=$(_pkgs_apt_field "$info1" Version)
             s1=$(_pkgs_apt_field "$info1" Section)
@@ -1262,7 +1262,7 @@ PREVIEW_EOF
             for rp in "${restore_pkgs[@]}"; do
                 dpkg -s -- "$rp" 2>/dev/null | grep -q '^Status: install ok installed' || to_install_r+=("$rp")
             done
-            printf "\n  ${C_GREEN}── Restore from ${C_WHITE}%s${C_GREEN} ──${C_RESET}\n\n" "$restore_file"
+            printf "\n  ${C_GREEN}Restore from ${C_WHITE}%s${C_GREEN}${C_RESET}\n\n" "$restore_file"
             printf "  ${C_DIM}Total in file:${C_RESET} %d\n" "${#restore_pkgs[@]}"
             printf "  ${C_MSG_INSTALL}To install:${C_RESET} %d\n\n" "${#to_install_r[@]}"
             if (( ${#to_install_r[@]} == 0 )); then
@@ -1579,7 +1579,7 @@ PREVIEW_EOF
 
         if [[ "$query" == /review ]]; then
             clear
-            printf "\n  ${C_GREEN}── Review ($(date +%Y-%m-%d)) ──${C_RESET}\n\n"
+            printf "\n  ${C_GREEN}Review ($(date +%Y-%m-%d))${C_RESET}\n\n"
             if [[ ! -f "$_PKGS_HISTORY_FILE" ]]; then
                 printf "  ${C_DIM}No activity today.${C_RESET}\n"
             else
@@ -1610,7 +1610,7 @@ PREVIEW_EOF
 
         if [[ "$query" == /stats ]]; then
             clear
-            printf "\n  ${C_GREEN}── Stats ($(date +%Y-%m-%d)) ──${C_RESET}\n\n"
+            printf "\n  ${C_GREEN}Stats ($(date +%Y-%m-%d))${C_RESET}\n\n"
             local st_install=0 st_remove=0 st_upgrade=0 st_total=0
             if [[ -f "$_PKGS_HISTORY_FILE" ]]; then
                 local hline
@@ -1642,7 +1642,7 @@ PREVIEW_EOF
 
         if [[ "$query" == /history ]]; then
             clear
-            printf "\n  ${C_GREEN}── Command History (last 7 days) ──${C_RESET}\n\n"
+            printf "\n  ${C_GREEN}Command History (last 7 days)${C_RESET}\n\n"
             local hist_found=0
             local hist_day
             for i in {0..6}; do
@@ -1685,7 +1685,7 @@ PREVIEW_EOF
             if ! apt-cache show -- "$cl_pkg" >/dev/null 2>&1; then
                 printf "${C_MSG_REMOVE}Package not found: %s${C_RESET}\n" "$cl_pkg"
             else
-                printf "\n${C_MSG_INFO}── Changelog for %s ──${C_RESET}\n\n" "$cl_pkg"
+                printf "\n${C_MSG_INFO}Changelog for %s${C_RESET}\n\n" "$cl_pkg"
                 local cl_file="${PREFIX}/share/doc/${cl_pkg}/changelog.gz"
                 local cl_file2="${PREFIX}/share/doc/${cl_pkg}/changelog"
                 if [[ -f "$cl_file" ]]; then
@@ -1709,7 +1709,7 @@ PREVIEW_EOF
 
         if [[ "$query" == /orphans-remove ]]; then
             clear
-            printf "\n${C_MSG_INFO}── Removing Orphaned Packages ──${C_RESET}\n\n"
+            printf "\n${C_MSG_INFO}Removing Orphaned Packages${C_RESET}\n\n"
             local or_df_out
             or_df_out=$(apt-get -s autoremove 2>/dev/null | grep "^Remv" | awk '{print $2}')
             if [[ -z "$or_df_out" ]]; then
@@ -1744,7 +1744,7 @@ PREVIEW_EOF
 
         if [[ "$query" == /version ]]; then
             clear
-            printf "\n  ${C_GREEN}── System Info ──${C_RESET}\n\n"
+            printf "\n  ${C_GREEN}System Info${C_RESET}\n\n"
             printf "  ${C_WHITE}pkgs:${C_RESET}          1.3.0\n"
             printf "  ${C_WHITE}Termux:${C_RESET}        %s\n" "$(termux-info 2>/dev/null | grep 'Termux version' | cut -d: -f2 | xargs || echo 'unknown')"
             printf "  ${C_WHITE}fzf:${C_RESET}           %s\n" "$(fzf --version 2>/dev/null | awk '{print $1}' || echo 'unknown')"
@@ -1798,7 +1798,7 @@ PREVIEW_EOF
                 continue
             fi
             clear
-            printf "\n${C_MSG_INFO}── Searching installed files for \"%s\"... ──${C_RESET}\n\n" "$sf_text"
+            printf "\n${C_MSG_INFO}Searching installed files for \"%s\"...${C_RESET}\n\n" "$sf_text"
             local sf_count=0
             local sf_line
             while IFS= read -r sf_line; do
@@ -1833,7 +1833,7 @@ PREVIEW_EOF
                 ds_dl=$(_pkgs_apt_field "$ds_info" Size)
                 ds_inst=$(_pkgs_apt_field "$ds_info" Installed-Size)
                 ds_ver=$(_pkgs_apt_field "$ds_info" Version)
-                printf "\n  ${C_GREEN}── Download Size: %s ──${C_RESET}\n\n" "$ds_pkg"
+                printf "\n  ${C_GREEN}Download Size: %s${C_RESET}\n\n" "$ds_pkg"
                 printf "  ${C_WHITE}Version:${C_RESET}      %s\n" "${ds_ver:-unknown}"
                 if (( _HAS_NUMFMT )); then
                     printf "  ${C_WHITE}Download:${C_RESET}     %s\n" "$(printf "%s" "$((ds_dl * 1))" | numfmt --to=iec --suffix=B 2>/dev/null || echo "${ds_dl} B")"
@@ -1852,7 +1852,7 @@ PREVIEW_EOF
 
         if [[ "$query" == /check ]]; then
             clear
-            printf "\n${C_MSG_INFO}── Checking installed packages... ──${C_RESET}\n\n"
+            printf "\n${C_MSG_INFO}Checking installed packages...${C_RESET}\n\n"
             local ck_ok=0 ck_bad=0
             local ck_line
             while IFS= read -r ck_line; do
@@ -1881,7 +1881,7 @@ PREVIEW_EOF
 
         if [[ "$query" == /group ]]; then
             clear
-            printf "\n${C_MSG_INFO}── Packages by Section ──${C_RESET}\n\n"
+            printf "\n${C_MSG_INFO}Packages by Section${C_RESET}\n\n"
             local -A group_sections
             local -A _pkgs_grp_cache
             local _grp_key _grp_val _grp_pkg=""
@@ -1939,7 +1939,7 @@ PREVIEW_EOF
                 fi
             fi
             clear
-            printf "\n${C_MSG_INFO}── Top %d Outdated Packages ──${C_RESET}\n\n" "$ot_n"
+            printf "\n${C_MSG_INFO}Top %d Outdated Packages${C_RESET}\n\n" "$ot_n"
             local ot_count=0
             while read -r ot_line; do
                 [[ -z "$ot_line" ]] && continue
@@ -1986,7 +1986,7 @@ PREVIEW_EOF
                 fi
             fi
             clear
-            printf "\n${C_MSG_INFO}── Top %d Packages by Disk Usage ──${C_RESET}\n\n" "$ut_n"
+            printf "\n${C_MSG_INFO}Top %d Packages by Disk Usage${C_RESET}\n\n" "$ut_n"
             local ut_shown=0
             local ut_max_size=0
             local -a ut_sizes=()
@@ -2132,7 +2132,7 @@ PREVIEW_EOF
             case "$cmd" in
                 install|remove)
                     clear
-                    printf "\n  ${C_MSG_INFO}── %s: %d package(s) matched ──${C_RESET}\n" "${cmd:u}" "${#match_pkgs[@]}"
+                    printf "\n  ${C_MSG_INFO}%s: %d package(s) matched${C_RESET}\n" "${cmd:u}" "${#match_pkgs[@]}"
                     local _i
                     for _i in {1..${#match_pkgs[@]}}; do
                         printf "    ${C_WHITE}%s${C_RESET}\n" "${match_pkgs[$_i]}"
@@ -2770,7 +2770,7 @@ PREVIEW_EOF
                 printf "  ${C_DIM}No recent upgrades found in history.${C_RESET}\n"
             else
                 for cl_pkg in "${unique_pkgs[@]}"; do
-                    printf "  ${C_WHITE}── %s ──${C_RESET}\n" "$cl_pkg"
+                    printf "  ${C_WHITE}%s${C_RESET}\n" "$cl_pkg"
                     local cl_file="${PREFIX}/share/doc/${cl_pkg}/changelog"
                     local cl_gz="${cl_file}.gz"
                     if [[ -f "$cl_gz" ]]; then
@@ -4095,7 +4095,7 @@ PREVIEW_EOF
         done
 
         clear
-        printf "\n  ${C_GREEN}── Selected Packages (${C_WHITE}%d${C_GREEN}) ──${C_RESET}\n\n" "${#selected_names[@]}"
+        printf "\n  ${C_GREEN}Selected Packages (${C_WHITE}%d${C_GREEN})${C_RESET}\n\n" "${#selected_names[@]}"
         if (( ${#to_install[@]} > 0 )); then
             printf "  ${C_MSG_INSTALL}Install (${C_WHITE}%d${C_MSG_INSTALL}):${C_RESET}\n" "${#to_install[@]}"
             for pkg in "${to_install[@]}"; do
@@ -4117,7 +4117,7 @@ PREVIEW_EOF
 
         if [[ "$action" == "d" ]]; then
             clear
-            printf "\n  ${C_GREEN}── Dry Run ──${C_RESET}\n\n"
+            printf "\n  ${C_GREEN}Dry Run${C_RESET}\n\n"
             if (( ${#to_install[@]} > 0 )); then
                 printf "  ${C_MSG_INSTALL}Would install:${C_RESET}\n"
                 for rp in "${to_install[@]}"; do
