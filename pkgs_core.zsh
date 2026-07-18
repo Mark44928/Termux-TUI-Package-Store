@@ -574,8 +574,8 @@ else
     [ "$shown" -lt "$rdep_total" ] && printf "  \033[38;5;59m...and %d more\033[0m\n" "$((rdep_total - shown))"
 fi
 
-if dpkg -s "$pkg_name" 2>/dev/null | grep -q "^Status: install ok installed"; then
-    pkg_files=$(dpkg -L "$pkg_name" 2>/dev/null | grep "^/")
+if dpkg -s -- "$pkg_name" 2>/dev/null | grep -q "^Status: install ok installed"; then
+    pkg_files=$(dpkg -L -- "$pkg_name" 2>/dev/null | grep "^/")
     file_count=$(echo "$pkg_files" | grep -c "^/" 2>/dev/null)
     printf "\n--- INSTALLED FILES (%s) ---\n" "$file_count"
     echo "$pkg_files" | grep -v "^/\\." | grep -v "^/etc/" | tail -n 12 | while read -r f; do printf "  %s\n" "$f"; done
@@ -2362,7 +2362,7 @@ PREVIEW_EOF
             printf "\n  ${C_MSG_WARN}Apply mirror to sources.list? (y/N) ${C_RESET}"
             read -q confirm; read -r
             if [[ "$confirm" == "y" ]]; then
-                local safe_url=$(printf '%s' "$new_url" | sed 's/&/\\&/g')
+                local safe_url=$(printf '%s' "$new_url" | sed 's/[\|&]/\\&/g')
                 local src_list="${PREFIX}/etc/apt/sources.list"
                 if [[ -f "$src_list" ]]; then
                     cp "$src_list" "${src_list}.bak" 2>/dev/null
@@ -2426,7 +2426,7 @@ PREVIEW_EOF
             if [[ -n "$fav_rm_pkg" ]]; then
                 mkdir -p "$(dirname "$_PKGS_FAVORITES_FILE")" 2>/dev/null
                 if grep -qx "$fav_rm_pkg" "$_PKGS_FAVORITES_FILE" 2>/dev/null; then
-                    sed -i "/^${fav_rm_pkg}$/d" "$_PKGS_FAVORITES_FILE"
+                    grep -vxF "$fav_rm_pkg" "$_PKGS_FAVORITES_FILE" > "${_PKGS_FAVORITES_FILE}.tmp" && mv "${_PKGS_FAVORITES_FILE}.tmp" "$_PKGS_FAVORITES_FILE"
                     printf "\n  ${C_MSG_DONE}Removed %s from favorites.${C_RESET}\n" "$fav_rm_pkg"
                 else
                     printf "\n  ${C_MSG_WARN}%s not in favorites.${C_RESET}\n" "$fav_rm_pkg"
@@ -2450,7 +2450,7 @@ PREVIEW_EOF
                 mkdir -p "$(dirname "$_PKGS_FAVORITES_FILE")" 2>/dev/null
                 touch "$_PKGS_FAVORITES_FILE"
                 if grep -qx "$fav_pkg" "$_PKGS_FAVORITES_FILE" 2>/dev/null; then
-                    sed -i "/^${fav_pkg}$/d" "$_PKGS_FAVORITES_FILE"
+                    grep -vxF "$fav_pkg" "$_PKGS_FAVORITES_FILE" > "${_PKGS_FAVORITES_FILE}.tmp" && mv "${_PKGS_FAVORITES_FILE}.tmp" "$_PKGS_FAVORITES_FILE"
                     printf "\n  ${C_MSG_DONE}Removed %s from favorites.${C_RESET}\n" "$fav_pkg"
                 else
                     echo "$fav_pkg" >> "$_PKGS_FAVORITES_FILE"
@@ -2981,7 +2981,7 @@ PREVIEW_EOF
             fi
             if [[ -n "$dc_a" && -n "$dc_b" ]]; then
                 printf "\n  ${C_WHITE}Dependency chain: %s -> %s${C_RESET}\n\n" "$dc_a" "$dc_b"
-                if apt-cache depends "$dc_a" 2>/dev/null | grep -q "$dc_b"; then
+                if apt-cache depends "$dc_a" 2>/dev/null | grep -qF -- "$dc_b"; then
                     printf "  ${C_GREEN}%s directly depends on %s${C_RESET}\n" "$dc_a" "$dc_b"
                 else
                     local -a queue=("$dc_a")
@@ -3511,14 +3511,14 @@ PREVIEW_EOF
                 local vr_ok=0 vr_fail=0
                 while IFS= read -r f; do
                     [[ -z "$f" ]] && continue
-                    if dpkg --verify "$vr_pkg" 2>/dev/null | grep -q "$f"; then
+                    if dpkg --verify "$vr_pkg" 2>/dev/null | grep -qF -- "$f"; then
                         printf "  ${C_RED}✗ %s${C_RESET}\n" "$f"
                         ((vr_fail++))
                     else
                         printf "  ${C_GREEN}✓ %s${C_RESET}\n" "$f"
                         ((vr_ok++))
                     fi
-                done < <(dpkg -L "$vr_pkg" 2>/dev/null | grep -E "^/" | head -50)
+                done < <(dpkg -L -- "$vr_pkg" 2>/dev/null | grep -E "^/" | head -50)
                 printf "\n  ${C_MSG_DONE}%d OK, %d failed${C_RESET}\n" "$vr_ok" "$vr_fail"
             fi
             printf "\n  ${C_MSG_INFO}Press Enter to return.${C_RESET}"
@@ -3649,7 +3649,7 @@ PREVIEW_EOF
                 apt-cache rdepends "$pr_pkg" 2>/dev/null | tail -n +2 | while IFS= read -r rdep; do
                     [[ -z "$rdep" ]] && continue
                     local recommends
-                    recommends=$(apt-cache depends "$rdep" 2>/dev/null | grep -A1 "Recommends:" | grep "$pr_pkg")
+                    recommends=$(apt-cache depends "$rdep" 2>/dev/null | grep -A1 "Recommends:" | grep -F -- "$pr_pkg")
                     if [[ -n "$recommends" ]]; then
                         printf "  ${C_GREEN}%s${C_RESET}\n" "$rdep"
                     fi
@@ -3675,7 +3675,7 @@ PREVIEW_EOF
                 apt-cache rdepends "$ps_pkg" 2>/dev/null | tail -n +2 | while IFS= read -r rdep; do
                     [[ -z "$rdep" ]] && continue
                     local suggests
-                    suggests=$(apt-cache depends "$rdep" 2>/dev/null | grep -A1 "Suggests:" | grep "$ps_pkg")
+                    suggests=$(apt-cache depends "$rdep" 2>/dev/null | grep -A1 "Suggests:" | grep -F -- "$ps_pkg")
                     if [[ -n "$suggests" ]]; then
                         printf "  ${C_AMBER}%s${C_RESET}\n" "$rdep"
                     fi
@@ -3754,7 +3754,7 @@ PREVIEW_EOF
             if [[ -n "$ow_file" ]]; then
                 printf "\n  ${C_WHITE}Who owns %s?${C_RESET}\n\n" "$ow_file"
                 local ow_result
-                ow_result=$(dpkg -S "$ow_file" 2>&1)
+                ow_result=$(dpkg -S -- "$ow_file" 2>&1)
                 if [[ $? -eq 0 ]]; then
                     echo "$ow_result" | while IFS=: read -r owner files; do
                         printf "  ${C_GREEN}%s${C_RESET}\n" "$owner"
@@ -3922,7 +3922,7 @@ PREVIEW_EOF
             if [[ -n "$wp_file" ]]; then
                 printf "\n  ${C_WHITE}Packages providing '%s':${C_RESET}\n\n" "$wp_file"
                 local wp_result
-                wp_result=$(apt-file search "$wp_file" 2>/dev/null || dpkg -S "$wp_file" 2>/dev/null)
+                wp_result=$(apt-file search "$wp_file" 2>/dev/null || dpkg -S -- "$wp_file" 2>/dev/null)
                 if [[ -n "$wp_result" ]]; then
                     echo "$wp_result" | head -30 | while IFS= read -r line; do
                         local wpkg wpath
@@ -4084,7 +4084,7 @@ PREVIEW_EOF
                 if [[ -f "$cl_file" ]]; then
                     local cl_cur cl_prev
                     cl_cur=$(apt-cache policy "$df_pkg" 2>/dev/null | grep "Installed:" | awk '{print $2}')
-                    cl_prev=$(dpkg -s "$df_pkg" 2>/dev/null | grep "^Version:" | awk '{print $2}')
+                    cl_prev=$(dpkg -s -- "$df_pkg" 2>/dev/null | grep "^Version:" | awk '{print $2}')
                     if [[ -n "$cl_cur" && -n "$cl_prev" ]]; then
                         printf "  ${C_DIM}Comparing %s -> %s${C_RESET}\n\n" "$cl_prev" "$cl_cur"
                     fi
