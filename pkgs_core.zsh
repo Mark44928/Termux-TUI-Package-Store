@@ -66,9 +66,10 @@ pkgs() {
     local _PKGS_FAVORITES_FILE="${XDG_DATA_HOME:-$HOME/.local/share}/pkgs/favorites"
     local _PKGS_THEME_FILE="${_PKGS_CONFIG_DIR}/theme"
     local _PKGS_SELF_URL="https://raw.githubusercontent.com/Mark44928/Termux-TUI-Package-Store/refs/heads/main/pkgs_core.zsh"
+    local _PKGS_SELF_SHA_URL="https://raw.githubusercontent.com/Mark44928/Termux-TUI-Package-Store/refs/heads/main/pkgs_core.zsh.sha256"
 
     _pkgs_validate_name() {
-        [[ "$1" =~ ^[a-zA-Z][a-zA-Z0-9.+\-]*$ ]]
+        [[ "$1" =~ ^[a-zA-Z][a-zA-Z0-9.+\-~]*$ ]]
     }
 
     _pkgs_validate_export_path() {
@@ -286,7 +287,7 @@ pkgs() {
         printf "    ${C_TEAL}/unhold <pkg>${C_RESET}       Unpin package\n"
         printf "    ${C_TEAL}/export <pkg>${C_RESET}       Export install script\n"
         printf "    ${C_TEAL}/info <pkg>${C_RESET}         Full package info\n"
-        printf "    ${C_TEAL}/search <text>${C_RESET}      Search descriptions\n"
+        printf "    ${C_TEAL}/search <text>${C_RESET}      Search packages\n"
         printf "    ${C_TEAL}/rdeps <pkg>${C_RESET}        Reverse dependencies\n"
         printf "    ${C_TEAL}/depends-on <pkg>${C_RESET}   Installed dependents\n"
         printf "    ${C_TEAL}/compare <a> <b>${C_RESET}   Compare packages\n"
@@ -495,20 +496,20 @@ if dpkg -s -- "$pkg_name" 2>/dev/null | grep -q "^Status: install ok installed";
     fi
 fi
 essential=$(echo "$pkg" | grep "^Essential:" | head -1 | cut -d" " -f2)
-version=$(echo "$pkg" | grep "^Version:" | head -1 | sed "s/^Version: //")
+version=$(echo "$pkg" | grep "^Version:" | head -1 | sed 's/^Version: //')
 
 printf "  \033[38;5;114m%s\033[0m%s  \033[38;5;59m(%s)\033[0m\n" "$pkg_name" "$hold_status" "$pkg_status"
 printf "  \033[38;5;109mv%s\033[0m" "$version"
 [ -n "$essential" ] && printf "  \033[38;5;180messential\033[0m"
 printf "\n"
 
-maintainer=$(echo "$pkg" | grep "^Maintainer:" | head -1 | sed "s/^Maintainer: //")
-homepage=$(echo "$pkg" | grep "^Homepage:" | head -1 | sed "s/^Homepage: //")
+maintainer=$(echo "$pkg" | grep "^Maintainer:" | head -1 | sed 's/^Maintainer: //')
+homepage=$(echo "$pkg" | grep "^Homepage:" | head -1 | sed 's/^Homepage: //')
 [ -n "$maintainer" ] && printf "\n  \033[38;5;59mBy:\033[0m %s\n" "$(echo "$maintainer" | cut -c1-48)"
 [ -n "$homepage" ] && printf "  \033[38;5;59mWeb:\033[0m %s\n" "$(echo "$homepage" | cut -c1-48)"
 
 dl_size=$(echo "$pkg" | grep "^Size:" | head -1 | cut -d" " -f2)
-inst_size=$(echo "$pkg" | grep "^Installed-Size:" | head -1 | sed "s/^Installed-Size: //")
+inst_size=$(echo "$pkg" | grep "^Installed-Size:" | head -1 | sed 's/^Installed-Size: //')
 printf "\n  \033[38;5;59mDownload:\033[0m "
 if [ -n "$dl_size" ]; then
     if command -v numfmt >/dev/null 2>&1; then
@@ -863,7 +864,7 @@ PREVIEW_EOF
             else
                 printf "\n${C_MSG_INFO}--- Dependencies of %s ---${C_RESET}\n\n" "$deps_pkg"
                 local deps_out
-                deps_out=$(apt-cache depends --no-recommends --no-suggests --no-conflicts --no-breaks --no-replaces --no-enhances -- "$deps_pkg" 2>/dev/null | grep "^\w" | sort -u)
+                deps_out=$(apt-cache depends --no-recommends --no-suggests --no-conflicts --no-breaks --no-replaces --no-enhances -- "$deps_pkg" 2>/dev/null | grep "Depends:" | sed 's/.*Depends: //' | tr -d '<>' | awk '{print $1}' | sort -u)
                 if [[ -z "$deps_out" ]]; then
                     printf "${C_DIM}No dependencies.${C_RESET}\n"
                 else
@@ -888,7 +889,7 @@ PREVIEW_EOF
                 tree_output=$(apt-cache depends --recurse --no-recommends --no-suggests --no-conflicts --no-breaks --no-replaces --no-enhances -- "$tree_pkg" 2>/dev/null)
                 print -r -- "$tree_output" | head -50
                 local total_deps
-                total_deps=$(print -r -- "$tree_output" | grep "^\w" | sort -u | wc -l | tr -d ' ')
+                total_deps=$(print -r -- "$tree_output" | grep "Depends:" | sed 's/.*Depends: //' | tr -d '<>' | awk '{print $1}' | sort -u | wc -l | tr -d ' ')
                 printf "\n  ${C_DIM}Total unique dependencies: %s${C_RESET}\n" "$total_deps"
             fi
             printf "\n  ${C_MSG_INFO}Press Enter to return.${C_RESET}"
@@ -1014,7 +1015,7 @@ PREVIEW_EOF
 
         if [[ "$query" == /export-all ]]; then
             clear
-            local export_all_file="pkg-export-all-$(date +%Y%m%d-%H%M%S).sh"
+            local export_all_file="pkg-export-all-$(date +%Y%m%d-%H%M%S%N).sh"
             printf "${C_MSG_INFO}Export path [${C_RESET}%s${C_MSG_INFO}]: ${C_RESET}" "$export_all_file"
             local user_path
             read -r user_path
@@ -1199,7 +1200,7 @@ PREVIEW_EOF
 
         if [[ "$query" == /backup ]]; then
             clear
-            local backup_file="pkg-backup-$(date +%Y%m%d-%H%M%S).txt"
+            local backup_file="pkg-backup-$(date +%Y%m%d-%H%M%S%N).txt"
             printf "  ${C_MSG_INFO}Export path [${C_RESET}%s${C_MSG_INFO}]: ${C_RESET}" "$backup_file"
             local user_path
             read -r user_path
@@ -1259,9 +1260,8 @@ PREVIEW_EOF
                 rline="${rline%%\\}"
                 rline="${rline##[[:space:]]}"
                 [[ -z "$rline" ]] && continue
-                [[ "$rline" == "#"* ]] && continue
-                [[ "$rline" == "#!"* ]] && continue
-                [[ "$rline" == *"install"* ]] && continue
+                [[ "$rline" == \#* ]] && continue
+                [[ "$rline" == "install "* || "$rline" == "pkg install "* ]] && continue
                 _pkgs_validate_name "$rline" || continue
                 apt-cache show -- "$rline" >/dev/null 2>&1 && restore_pkgs+=("$rline")
             done < "$restore_file"
@@ -2425,7 +2425,7 @@ PREVIEW_EOF
             fi
             if [[ -n "$fav_rm_pkg" ]]; then
                 mkdir -p "$(dirname "$_PKGS_FAVORITES_FILE")" 2>/dev/null
-                if grep -qx "$fav_rm_pkg" "$_PKGS_FAVORITES_FILE" 2>/dev/null; then
+                if grep -Fqx "$fav_rm_pkg" "$_PKGS_FAVORITES_FILE" 2>/dev/null; then
                     grep -vxF "$fav_rm_pkg" "$_PKGS_FAVORITES_FILE" > "${_PKGS_FAVORITES_FILE}.tmp" && mv "${_PKGS_FAVORITES_FILE}.tmp" "$_PKGS_FAVORITES_FILE"
                     printf "\n  ${C_MSG_DONE}Removed %s from favorites.${C_RESET}\n" "$fav_rm_pkg"
                 else
@@ -2866,19 +2866,35 @@ PREVIEW_EOF
                 read -q update_confirm; read -r
                 if [[ "$update_confirm" == "y" ]]; then
                     local target="${PREFIX}/bin/pkgs"
-                    if curl -fsSL "$_PKGS_SELF_URL" -o "${target}.new" 2>/dev/null; then
-                        if head -1 "${target}.new" | grep -q '^#!/'; then
-                            chmod +x "${target}.new"
-                            mv "${target}" "${target}.bak" 2>/dev/null
-                            mv "${target}.new" "${target}"
+                    local tmp_file="${target}.new"
+                    local expected_sha
+                    expected_sha=$(curl -fsSL "$_PKGS_SELF_SHA_URL" 2>/dev/null | awk '{print $1}')
+                    if ! curl -fsSL "$_PKGS_SELF_URL" -o "$tmp_file" 2>/dev/null; then
+                        printf "\n  ${C_MSG_REMOVE}Download failed.${C_RESET}\n"
+                        rm -f "$tmp_file" 2>/dev/null
+                    elif [[ -n "$expected_sha" ]] && command -v sha256sum &>/dev/null; then
+                        local actual_sha
+                        actual_sha=$(sha256sum "$tmp_file" 2>/dev/null | awk '{print $1}')
+                        if [[ "$actual_sha" != "$expected_sha" ]]; then
+                            printf "\n  ${C_MSG_REMOVE}Checksum mismatch. Aborting.${C_RESET}\n"
+                            rm -f "$tmp_file" 2>/dev/null
+                        elif head -1 "$tmp_file" | grep -q '^#!/'; then
+                            chmod +x "$tmp_file"
+                            mv "$target" "${target}.bak" 2>/dev/null
+                            mv "$tmp_file" "$target"
                             printf "\n  ${C_MSG_DONE}Updated to v%s! Restart pkgs to use.${C_RESET}\n" "$latest_ver"
                         else
-                            rm -f "${target}.new"
+                            rm -f "$tmp_file"
                             printf "\n  ${C_MSG_REMOVE}Downloaded file invalid. Aborting.${C_RESET}\n"
                         fi
+                    elif head -1 "$tmp_file" | grep -q '^#!/'; then
+                        chmod +x "$tmp_file"
+                        mv "$target" "${target}.bak" 2>/dev/null
+                        mv "$tmp_file" "$target"
+                        printf "\n  ${C_MSG_DONE}Updated to v%s! Restart pkgs to use.${C_RESET}\n" "$latest_ver"
                     else
-                        rm -f "${target}.new" 2>/dev/null
-                        printf "\n  ${C_MSG_REMOVE}Download failed.${C_RESET}\n"
+                        rm -f "$tmp_file"
+                        printf "\n  ${C_MSG_REMOVE}Downloaded file invalid. Aborting.${C_RESET}\n"
                     fi
                 fi
             fi
@@ -2993,7 +3009,7 @@ PREVIEW_EOF
                         queue=("${queue[@]:1}")
                         local deps
                         deps=$(apt-cache depends --no-recommends --no-suggests --no-conflicts --no-breaks --no-replaces --no-enhances "$cur" 2>/dev/null | grep "Depends:" | sed 's/.*Depends: //' | tr -d '<>' | awk '{print $1}')
-                        for d in $deps; do
+                        for d in ${(f)deps}; do
                             [[ -n "${parent_map[$d]}" ]] && continue
                             parent_map["$d"]="$cur"
                             if [[ "$d" == "$dc_b" ]]; then
@@ -3239,13 +3255,17 @@ PREVIEW_EOF
                 printf "\n  ${C_MSG_INFO}Searching for maintainer: %s...${C_RESET}\n\n" "$mt_query"
                 printf "  ${C_DIM}%-30s %s${C_RESET}\n" "PACKAGE" "MAINTAINER"
                 printf "  ${C_DIM}%-30s %s${C_RESET}\n" "------------------------------" "----------------------------------------"
-                apt-cache search "" 2>/dev/null | awk '{print $1}' | while read -r pkg; do
-                    local maint
-                    maint=$(apt-cache show "$pkg" 2>/dev/null | sed -n 's/^Maintainer: //p' | head -1)
-                    if echo "$maint" | grep -qF -- "$mt_query"; then
-                        printf "  ${C_GREEN}%-30s${C_RESET} %s\n" "$pkg" "${maint:0:50}"
-                    fi
-                done | head -100
+                apt-cache dump 2>/dev/null | awk -v query="$mt_query" '
+                    /^Package:/ { pkg=$2 }
+                    /^Maintainer:/ {
+                        maint=substr($0, index($0,$2))
+                        if (maint ~ query) {
+                            printf "  %-30s %s\n", pkg, substr(maint,1,50)
+                            count++
+                            if (count >= 100) exit
+                        }
+                    }
+                '
             fi
             printf "\n  ${C_MSG_INFO}Press Enter to return.${C_RESET}"
             read -r
@@ -3292,7 +3312,7 @@ PREVIEW_EOF
                     fi
                     ;;
                 restore)
-                    local -a backups=($(ls -t "${backup_dir}"/sources.list.* 2>/dev/null))
+                    local -a backups=($(find "${backup_dir}" -name "sources.list.*" -type f -printf '%T@ %p\n' 2>/dev/null | sort -rn | awk '{print $2}'))
                     if (( ${#backups[@]} == 0 )); then
                         printf "\n  ${C_MSG_WARN}No backups found.${C_RESET}\n"
                     else
@@ -3305,7 +3325,7 @@ PREVIEW_EOF
                     fi
                     ;;
                 list)
-                    local -a backups=($(ls -t "${backup_dir}"/sources.list.* 2>/dev/null))
+                    local -a backups=($(find "${backup_dir}" -name "sources.list.*" -type f -printf '%T@ %p\n' 2>/dev/null | sort -rn | awk '{print $2}'))
                     if (( ${#backups[@]} == 0 )); then
                         printf "\n  ${C_MSG_WARN}No backups found.${C_RESET}\n"
                     else
@@ -3384,7 +3404,7 @@ PREVIEW_EOF
                         local deps
                         deps=$(apt-cache depends --no-recommends --no-suggests --no-conflicts --no-breaks --no-replaces --no-enhances "$pkg" 2>/dev/null | grep "Depends:" | sed 's/.*Depends: //' | tr -d '<>' | awk '{print $1}')
                         local first=1
-                        for d in $deps; do
+                        for d in ${(f)deps}; do
                             if (( first )); then
                                 printf "%s└── ${C_TEAL}%s${C_RESET}\n" "$prefix" "$d"
                                 first=0
@@ -3427,7 +3447,7 @@ PREVIEW_EOF
                         local rdeps
                         rdeps=$(apt-cache rdepends --installed "$pkg" 2>/dev/null | tail -n +2 | grep -v "^$")
                         local first=1
-                        for d in $rdeps; do
+                        for d in ${(f)rdeps}; do
                             [[ -z "$d" ]] && continue
                             local marker=""
                             dpkg -s -- "$d" 2>/dev/null | grep -q '^Status: install ok installed' && marker="${C_GREEN}*" || marker="${C_DIM}-"
@@ -3450,7 +3470,7 @@ PREVIEW_EOF
             clear
             printf "\n  ${C_MSG_INFO}Calculating upgrade download size...${C_RESET}\n\n"
             local us_out
-            us_out=$(${PKG_MGR} upgrade --dry-run 2>&1)
+            us_out=$("${PKG_MGR}" upgrade --dry-run 2>&1)
             local us_total
             us_total=$(echo "$us_out" | grep -oP 'Need to get \K[0-9.]+[KMGT]?B' | head -1)
             local us_new us_upgrade us_remove
@@ -3483,7 +3503,7 @@ PREVIEW_EOF
                 printf "\n  ${C_MSG_INFO}Downloading %s...${C_RESET}\n\n" "$dl_pkg"
                 local dl_dir="${PREFIX}/tmp/pkgs-dl"
                 mkdir -p "$dl_dir" 2>/dev/null
-                ${PKG_MGR} download --target-dir="$dl_dir" "$dl_pkg" 2>&1 | sed 's/^/  /'
+                "${PKG_MGR}" download --target-dir="$dl_dir" "$dl_pkg" 2>&1 | sed 's/^/  /'
                 if ls "$dl_dir"/${dl_pkg}*.deb 2>/dev/null | head -1 > /dev/null; then
                     printf "\n  ${C_MSG_DONE}Downloaded to:${C_RESET} %s\n" "$dl_dir"
                     ls -lh "$dl_dir"/${dl_pkg}*.deb 2>/dev/null | sed 's/^/  /'
@@ -3511,7 +3531,7 @@ PREVIEW_EOF
                 local vr_ok=0 vr_fail=0
                 while IFS= read -r f; do
                     [[ -z "$f" ]] && continue
-                    if dpkg --verify "$vr_pkg" 2>/dev/null | grep -qF -- "$f"; then
+                    if dpkg --verify "$vr_pkg" 2>/dev/null | grep -qFx -- "$f"; then
                         printf "  ${C_RED}✗ %s${C_RESET}\n" "$f"
                         ((vr_fail++))
                     else
@@ -3649,7 +3669,7 @@ PREVIEW_EOF
                 apt-cache rdepends "$pr_pkg" 2>/dev/null | tail -n +2 | while IFS= read -r rdep; do
                     [[ -z "$rdep" ]] && continue
                     local recommends
-                    recommends=$(apt-cache depends "$rdep" 2>/dev/null | grep -A1 "Recommends:" | grep -F -- "$pr_pkg")
+                    recommends=$(apt-cache depends "$rdep" 2>/dev/null | grep "Recommends:" | grep -F -- "$pr_pkg")
                     if [[ -n "$recommends" ]]; then
                         printf "  ${C_GREEN}%s${C_RESET}\n" "$rdep"
                     fi
@@ -3675,7 +3695,7 @@ PREVIEW_EOF
                 apt-cache rdepends "$ps_pkg" 2>/dev/null | tail -n +2 | while IFS= read -r rdep; do
                     [[ -z "$rdep" ]] && continue
                     local suggests
-                    suggests=$(apt-cache depends "$rdep" 2>/dev/null | grep -A1 "Suggests:" | grep -F -- "$ps_pkg")
+                    suggests=$(apt-cache depends "$rdep" 2>/dev/null | grep "Suggests:" | grep -F -- "$ps_pkg")
                     if [[ -n "$suggests" ]]; then
                         printf "  ${C_AMBER}%s${C_RESET}\n" "$rdep"
                     fi
@@ -3852,13 +3872,13 @@ PREVIEW_EOF
             if [[ -n "$dol_list" ]]; then
                 printf "\n  ${C_WHITE}Shared dependencies of: %s${C_RESET}\n\n" "$dol_list"
                 local all_deps=""
-                for p in $dol_list; do
+                for p in ${(f)dol_list}; do
                     local pdeps
                     pdeps=$(apt-cache depends --no-recommends --no-suggests --no-conflicts --no-breaks --no-replaces --no-enhances "$p" 2>/dev/null | grep "Depends:" | sed 's/.*Depends: //' | tr -d '<>' | awk '{print $1}')
                     if [[ -z "$all_deps" ]]; then
                         all_deps="$pdeps"
                     else
-                        all_deps=$(echo -e "${all_deps}\n${pdeps}" | sort | uniq -d)
+                        all_deps=$(printf '%s\n' "${all_deps}" "${pdeps}" | sort | uniq -d)
                     fi
                 done
                 if [[ -n "$all_deps" ]]; then
@@ -3951,14 +3971,20 @@ PREVIEW_EOF
                 read -r si_file
             fi
             if [[ -n "$si_file" && -f "$si_file" ]]; then
-                printf "\n  ${C_MSG_INFO}Installing from: %s${C_RESET}\n\n" "$si_file"
-                dpkg -i -- "$si_file" 2>&1 | sed 's/^/  /'
-                local si_status=${pipestatus[1]}
-                if (( si_status == 0 )); then
-                    printf "\n  ${C_MSG_DONE}Installation successful.${C_RESET}\n"
+                if [[ "${si_file##*.}" != "deb" ]]; then
+                    printf "\n  ${C_MSG_WARN}File does not have .deb extension.${C_RESET}\n"
+                elif [[ "$si_file" != "$HOME"* && "$si_file" != "$PREFIX"* && "$si_file" != /tmp/* ]]; then
+                    printf "\n  ${C_MSG_WARN}File must be in $HOME, $PREFIX, or /tmp.${C_RESET}\n"
                 else
-                    printf "\n  ${C_MSG_REMOVE}Installation had errors. Running ${PKG_MGR} --fix-broken install...${C_RESET}\n"
-                    ${PKG_MGR} --fix-broken install -y 2>&1 | sed 's/^/  /'
+                    printf "\n  ${C_MSG_INFO}Installing from: %s${C_RESET}\n\n" "$si_file"
+                    dpkg -i -- "$si_file" 2>&1 | sed 's/^/  /'
+                    local si_status=${pipestatus[1]}
+                    if (( si_status == 0 )); then
+                        printf "\n  ${C_MSG_DONE}Installation successful.${C_RESET}\n"
+                    else
+                        printf "\n  ${C_MSG_REMOVE}Installation had errors. Running ${PKG_MGR} --fix-broken install...${C_RESET}\n"
+                        "${PKG_MGR}" --fix-broken install -y 2>&1 | sed 's/^/  /'
+                    fi
                 fi
             elif [[ -n "$si_file" ]]; then
                 printf "  ${C_MSG_REMOVE}File not found: %s${C_RESET}\n" "$si_file"
