@@ -4391,3 +4391,5 @@ Examples:
   pkgs -h               Show this help
 USAGE
 }
+
+pkgs "$@"
