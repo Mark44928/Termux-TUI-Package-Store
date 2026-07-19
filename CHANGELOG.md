@@ -64,7 +64,7 @@
 - 7 theme color schemes: dark, light, minimal, neon, dracula, monokai, solarized
 - `/theme` — Switch color scheme (persisted across sessions)
 - `_PKGS_FAVORITES_FILE` — Persistent favorites storage
-- `_PKGS_THEME_FILE` — Theme persistence
+- `_PKGS_CONFIG_FILE` — Theme and filter persistence
 - `_PKGS_SELF_URL` — Configurable self-update URL
 
 ### Fixed
@@ -74,9 +74,9 @@
 - `echo` with flag replaced by `printf` for portable output
 
 ### Changed
-- Total slash commands: 47 → 85
+- Total slash commands: 47 → 100
 - Help text updated in both in-app (`/help`) and CLI (`pkgs -h`)
-- README updated with all 85 commands
+- README updated with all 100 commands
 
 ---
 
@@ -99,7 +99,7 @@
 - `/changelog <pkg>` — Show package changelog
 - `/reinstall <pkg>` — Reinstall a package
 - `/search-file <text>` — Search installed files by name
-- `/download-size <pkg>` — Show download size
+- `/download-size <pkg>` — Show download + installed size
 - `/check` — Verify installed package integrity
 - `/group` — Group packages by section
 - `/version` — Show system version info
@@ -143,7 +143,7 @@
 - `/restore` now parses both plain lists and shell scripts from `/export`
 - `/clean` now uses single confirmation for both autoremove and cache clean
 - Signal trap includes HUP
-- Help updated with all 85 commands
+- Help updated with all 100 commands
 - install.sh: aborts on dependency failure, validates REPO/BRANCH env vars, verifies download integrity
 - Cache generation separated from fzf subshell (fixes resource leak)
 

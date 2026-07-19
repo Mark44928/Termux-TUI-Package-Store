@@ -58,7 +58,7 @@ spinner "$!" "Updating and installing packages" || {
 }
 
 missing=''
-for cmd in fzf awk zsh curl tput figlet; do
+for cmd in fzf awk zsh curl tput; do
   if ! command -v "$cmd" >/dev/null 2>&1; then
     missing="$missing $cmd"
   fi
@@ -97,6 +97,7 @@ echo "${BOLD}  ⬇️  Downloading pkgs${RESET}"
 echo "  ─────────────────────"
 URL="https://raw.githubusercontent.com/${REPO}/${BRANCH}/pkgs_core.zsh"
 INSTALL_PATH="$PREFIX/bin/pkgs"
+mkdir -p "$PREFIX/bin" 2>/dev/null
 
 curl -#fSL "$URL" -o "${INSTALL_PATH}.tmp" 2>&1 || {
   echo ""
