@@ -115,7 +115,7 @@
 - `/restore` path validation via `_pkgs_validate_export_path`
 - All `xargs` trimming replaced with `_pkgs_trim()` helper
 - All `dpkg`/`apt-cache` calls use `--` argument separator (13+ call sites)
-- `/tree` captures `apt-cache depends --recurserve` once (was called twice)
+- `/tree` captures `apt-cache depends --recurse` once (was called twice)
 - `/undo` returns on non-undoable actions
 - Layout re-detected every loop iteration
 - `/export-all` zero packages edge case handled

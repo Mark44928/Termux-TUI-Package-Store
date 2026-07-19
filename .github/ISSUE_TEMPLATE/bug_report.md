@@ -24,7 +24,7 @@ If applicable, add screenshots.
 **Environment:**
 - OS: [e.g. Termux on Android 14]
 - Termux version: [e.g. v0.118.x]
-- pkgs version: [e.g. 1.2.0]
+- pkgs version: [e.g. 1.3.0]
 
 **Additional context**
 Add any other context about the problem here.
