@@ -14,7 +14,7 @@ If you discover a security vulnerability in Termux TUI Package Store, please rep
 
 **Do NOT open a public issue.**
 
-Instead, please email the maintainer or open a private security advisory on GitHub.
+Instead, please email [Mark44928@users.noreply.github.com](mailto:Mark44928@users.noreply.github.com) or open a [private security advisory](https://github.com/Mark44928/Termux-TUI-Package-Store/security/advisories/new) on GitHub.
 
 Include:
 - Description of the vulnerability

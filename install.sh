@@ -2,6 +2,14 @@
 
 set -e
 
+# Prevent concurrent runs
+LOCKFILE="${TMPDIR:-/tmp}/pkgs-install.lock"
+exec 200>"$LOCKFILE"
+if ! flock -n 200; then
+  echo "  ✗ Another installation is already running."
+  exit 1
+fi
+
 BOLD=$(tput bold 2>/dev/null || printf '')
 RESET=$(tput sgr0 2>/dev/null || printf '')
 GREEN=$(tput setaf 2 2>/dev/null || printf '')
@@ -18,7 +26,7 @@ spinner() {
     sleep 0.12
   done
   local exit_code=0
-  wait "$pid" 2>/dev/null || exit_code=$?
+  wait "$pid" || exit_code=$?
   if [ "$exit_code" -eq 0 ]; then
     printf "\r${GREEN}  [✓]${RESET} %s    \n" "$msg"
   else
@@ -50,7 +58,7 @@ echo "${BOLD}  🔧 Installing dependencies${RESET}"
 echo "  ─────────────────────────"
 (
   pkg update -y >/dev/null 2>&1 && \
-  pkg install -y zsh fzf coreutils gawk grep sed ncurses curl figlet >/dev/null 2>&1
+  pkg install -y zsh fzf coreutils gawk grep sed ncurses curl figlet -- >/dev/null 2>&1
 ) &
 spinner "$!" "Updating and installing packages" || {
   echo "${RED}  ✗ Dependency installation failed. Aborting.${RESET}"
@@ -112,6 +120,20 @@ if ! head -1 "${INSTALL_PATH}.tmp" | grep -q 'zsh'; then
   echo "${RED}  ✗ Downloaded file does not look like the expected script.${RESET}"
   rm -f "${INSTALL_PATH}.tmp"
   exit 1
+fi
+
+# Verify SHA256 checksum
+SHA_URL="https://raw.githubusercontent.com/${REPO}/${BRANCH}/pkgs_core.zsh.sha256"
+EXPECTED_SHA=$(curl -fsSL "$SHA_URL" 2>/dev/null | awk '{print $1}')
+if [[ -n "$EXPECTED_SHA" ]]; then
+  ACTUAL_SHA=$(sha256sum "${INSTALL_PATH}.tmp" 2>/dev/null | awk '{print $1}')
+  if [[ "$EXPECTED_SHA" != "$ACTUAL_SHA" ]]; then
+    echo "${RED}  ✗ Checksum mismatch — download may be corrupted or tampered.${RESET}"
+    echo "${YELLOW}  Expected: $EXPECTED_SHA${RESET}"
+    echo "${YELLOW}  Got:      $ACTUAL_SHA${RESET}"
+    rm -f "${INSTALL_PATH}.tmp"
+    exit 1
+  fi
 fi
 
 mv "${INSTALL_PATH}.tmp" "$INSTALL_PATH"
