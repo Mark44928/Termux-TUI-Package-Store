@@ -64,12 +64,28 @@ pkgs() {
     local _PKGS_HISTORY_KEEP_DAYS=30
     local _PKGS_THEME=""
     local _PKGS_FAVORITES_FILE="${XDG_DATA_HOME:-$HOME/.local/share}/pkgs/favorites"
-    local _PKGS_THEME_FILE="${_PKGS_CONFIG_DIR}/theme"
     local _PKGS_SELF_URL="https://raw.githubusercontent.com/Mark44928/Termux-TUI-Package-Store/refs/heads/main/pkgs_core.zsh"
     local _PKGS_SELF_SHA_URL="https://raw.githubusercontent.com/Mark44928/Termux-TUI-Package-Store/refs/heads/main/pkgs_core.zsh.sha256"
 
     _pkgs_validate_name() {
-        [[ "$1" =~ ^[a-zA-Z][a-zA-Z0-9.+\-~]*$ ]]
+        [[ "$1" =~ ^[a-zA-Z0-9][a-zA-Z0-9.+\-~]*$ ]]
+    }
+
+    _pkgs_resolve_path() {
+        local path="$1"
+        local resolved
+        resolved=$(readlink -f "$path" 2>/dev/null) \
+            || resolved=$(realpath "$path" 2>/dev/null) \
+            || { local dir; dir=$(cd "$(dirname "$path")" 2>/dev/null && pwd -P); resolved="${dir:+${dir}/$(basename "$path")}"; }
+        print -r -- "$resolved"
+    }
+
+    _pkgs_date_ago() {
+        local days="$1" fmt="${2:-%Y-%m-%d}"
+        local ts=$(( $(date +%s) - days * 86400 ))
+        date -d "@$ts" +"$fmt" 2>/dev/null \
+            || TZ=UTC date -r "$ts" +"$fmt" 2>/dev/null \
+            || printf "%s" "$(date +"$fmt")"
     }
 
     _pkgs_validate_export_path() {
@@ -80,7 +96,7 @@ pkgs() {
         dir=$(dirname "$path" 2>/dev/null)
         [[ -z "$dir" || ! -d "$dir" ]] && return 1
         local resolved
-        resolved=$(readlink -f "$path" 2>/dev/null) || return 1
+        resolved=$(_pkgs_resolve_path "$path") || return 1
         local prefix_dir
         prefix_dir=$(readlink -f "${PREFIX}" 2>/dev/null || echo "${PREFIX}")
         [[ -z "$prefix_dir" ]] && return 1
@@ -138,11 +154,16 @@ pkgs() {
 
     _pkgs_save_state() {
         mkdir -p "$_PKGS_CONFIG_DIR" 2>/dev/null
+        chmod 700 "$_PKGS_CONFIG_DIR" 2>/dev/null
+        local tmp_config
+        tmp_config=$(mktemp "${_PKGS_CONFIG_DIR}/config.XXXXXX") || return 1
+        chmod 600 "$tmp_config" 2>/dev/null
         {
             printf "FILTER=%s\n" "$_PKGS_FILTER"
             printf "SORT=%s\n" "$_PKGS_SORT"
             printf "THEME=%s\n" "$_PKGS_THEME"
-        } > "$_PKGS_CONFIG_FILE" 2>/dev/null
+        } > "$tmp_config" 2>/dev/null
+        mv "$tmp_config" "$_PKGS_CONFIG_FILE" 2>/dev/null
     }
 
     _pkgs_load_state() {
@@ -162,6 +183,10 @@ pkgs() {
             case "$_PKGS_SORT" in
                 name|size) ;;
                 *) _PKGS_SORT="name" ;;
+            esac
+            case "$_PKGS_THEME" in
+                dark|light|minimal|neon|dracula|monokai|solarized|"") ;;
+                *) _PKGS_THEME="" ;;
             esac
         fi
     }
@@ -208,7 +233,7 @@ pkgs() {
     _pkgs_rotate_history() {
         [[ ! -d "$_PKGS_HISTORY_DIR" ]] && return
         local cutoff_date
-        cutoff_date=$(date -d "-${_PKGS_HISTORY_KEEP_DAYS} days" +%Y-%m-%d 2>/dev/null) || return
+        cutoff_date=$(_pkgs_date_ago "$_PKGS_HISTORY_KEEP_DAYS") || return
         setopt localoptions nullglob
         local f
         for f in "$_PKGS_HISTORY_DIR"/*.log; do
@@ -235,6 +260,7 @@ pkgs() {
     _pkgs_log_history() {
         local action="$1" pkg_name="$2"
         mkdir -p "$_PKGS_HISTORY_DIR" 2>/dev/null
+        chmod 700 "$_PKGS_HISTORY_DIR" 2>/dev/null
         if [[ ! -f "$_PKGS_HISTORY_FILE" ]]; then
             touch "$_PKGS_HISTORY_FILE" 2>/dev/null
             chmod 600 "$_PKGS_HISTORY_FILE" 2>/dev/null
@@ -327,7 +353,7 @@ pkgs() {
         printf "    ${C_TEAL}/backup${C_RESET}            Export full package list\n"
         printf "    ${C_TEAL}/restore <file>${C_RESET}    Install from list file\n"
         printf "    ${C_TEAL}/undo${C_RESET}              Undo last operation\n"
-        printf "    ${C_TEAL}/mirror${C_RESET}           Switch apt mirror\n"
+        printf "    ${C_TEAL}/mirror${C_RESET}           Switch apt mirror (termux-tools)\n"
         printf "    ${C_TEAL}/fav <pkg>${C_RESET}        Toggle package favorite\n"
         printf "    ${C_TEAL}/fav-list${C_RESET}         Show all favorites\n"
         printf "    ${C_TEAL}/fav-remove${C_RESET}      Remove a favorite\n"
@@ -474,7 +500,7 @@ pkgs() {
         if (( _PKGS_CACHE_VALID )) && [[ -n "$_PKGS_CACHE_FILE" && -f "$_PKGS_CACHE_FILE" ]]; then
             cat "$_PKGS_CACHE_FILE"
         else
-            _PKGS_CACHE_FILE=$(mktemp "${TMPDIR:-/tmp}/pkgs_cache.XXXXXX")
+            _PKGS_CACHE_FILE=$(mktemp "${TMPDIR:-${PREFIX}/tmp}/pkgs_cache.XXXXXX")
             chmod 600 "$_PKGS_CACHE_FILE" 2>/dev/null
             _pkgs_generate_list > "$_PKGS_CACHE_FILE"
             _PKGS_CACHE_VALID=1
@@ -485,13 +511,15 @@ pkgs() {
     _pkgs_preview_command() {
         cat <<'PREVIEW_EOF'
 pkg_name={1}
+pkg_name="${pkg_name%%[[:space:]]*}"
+pkg_name="${pkg_name//[^a-zA-Z0-9.+\-~]/_}"
 pkg=$(apt-cache show "$pkg_name" 2>/dev/null) || { echo "  Package not found"; exit 0; }
 
 pkg_status="not installed"
 hold_status=""
 if dpkg -s -- "$pkg_name" 2>/dev/null | grep -q "^Status: install ok installed"; then
     pkg_status="installed"
-    if dpkg -s -- "$pkg_name" 2>/dev/null | grep -q "^Hold:"; then
+    if dpkg -s -- "$pkg_name" 2>/dev/null | grep -q "^Status: hold"; then
         hold_status=" [PINNED]"
     fi
 fi
@@ -640,7 +668,7 @@ PREVIEW_EOF
     _pkgs_apply_theme "$_PKGS_THEME"
     _pkgs_rotate_history
 
-    trap '_pkgs_invalidate_cache; _pkgs_cleanup' EXIT INT TERM HUP
+    trap '_pkgs_invalidate_cache; _pkgs_cleanup' EXIT INT TERM HUP QUIT
 
     while true; do
         local -a FZF_ARGS
@@ -668,6 +696,11 @@ PREVIEW_EOF
 
         local query="${lines[1]}"
         query="$(_pkgs_trim "$query")"
+
+        if [[ "$query" == -* ]]; then
+            query=""
+            continue
+        fi
 
         if [[ "$query" == /help ]]; then
             _pkgs_show_help
@@ -710,6 +743,15 @@ PREVIEW_EOF
 
         if [[ "$query" == /upgrade ]]; then
             clear
+            printf "\n${C_MSG_WARN}Upgrade all installed packages? (y/N) ${C_RESET}"
+            read -q upgrade_confirm; read -r
+            if [[ "$upgrade_confirm" != "y" ]]; then
+                printf "${C_DIM}Cancelled.${C_RESET}\n"
+                printf "\n  ${C_MSG_INFO}Press Enter to return.${C_RESET}"
+                read -r
+                clear
+                continue
+            fi
             printf "\n${C_MSG_INFO}--- Upgrading all packages... ---${C_RESET}\n"
             if "${PKG_MGR}" upgrade --; then
                 _pkgs_log_history "UPGRADE" "all"
@@ -1045,7 +1087,7 @@ PREVIEW_EOF
                     done
                 fi
             } > "$export_all_file"
-            chmod +x "$export_all_file" 2>/dev/null
+            chmod 700 "$export_all_file" 2>/dev/null
             printf "\n${C_MSG_DONE}Exported %s packages to: %s${C_RESET}\n" "${#all_pkgs[@]}" "$export_all_file"
             printf "\n  ${C_MSG_INFO}Press Enter to return.${C_RESET}"
             read -r
@@ -1080,6 +1122,8 @@ PREVIEW_EOF
                 local note_text="${note_action#* }"
                 note_pkg="$(_pkgs_trim "$note_pkg")"
                 note_text="$(_pkgs_trim "$note_text")"
+                note_text="${note_text//$'\n'/ }"
+                note_text="${note_text//\|/\\|}"
                 if [[ -z "$note_pkg" || -z "$note_text" ]]; then
                     printf "${C_MSG_WARN}Usage: /note <pkg> <text>${C_RESET}\n"
                     sleep 1
@@ -1095,7 +1139,7 @@ PREVIEW_EOF
                 mkdir -p "$(dirname "$_PKGS_NOTES_FILE")" 2>/dev/null
                 if [[ -f "$_PKGS_NOTES_FILE" ]] && grep -qF "${note_pkg}|" "$_PKGS_NOTES_FILE" 2>/dev/null; then
                     local tmp_notes
-                    tmp_notes=$(mktemp)
+                    tmp_notes=$(mktemp "${TMPDIR:-${PREFIX}/tmp}/pkgs_notes.XXXXXX") 2>/dev/null
                     chmod 600 "$tmp_notes" 2>/dev/null
                     _PKGS_TMP_FILES+=("$tmp_notes")
                     while IFS='|' read -r _np _nt; do
@@ -1350,6 +1394,7 @@ PREVIEW_EOF
             local lrest="${last_line#* }"
             local laction="${lrest%% *}"
             local lpkg="${lrest#* }"
+            _pkgs_validate_name "$lpkg" || { printf "\n  ${C_MSG_REMOVE}Invalid package in history.${C_RESET}\n"; printf "\n  ${C_MSG_INFO}Press Enter to return.${C_RESET}\n"; read -r; continue; }
             case "$laction" in
                 INSTALL|REMOVE) ;;
                 *)
@@ -1411,12 +1456,12 @@ PREVIEW_EOF
                 "${PKG_MGR}" clean 2>/dev/null
                 printf "${C_MSG_DONE}Cache cleaned.${C_RESET}\n"
                 local autoremove_out
-                if ! autoremove_out=$("${PKG_MGR}" autoremove --dry-run 2>&1); then
+                if ! autoremove_out=$(apt-get autoremove --dry-run 2>&1); then
                     printf "${C_MSG_WARN}Could not check dependencies: %s${C_RESET}\n" "$autoremove_out"
                 elif echo "$autoremove_out" | grep -qE "^0 upgraded, 0 newly installed, 0 to remove"; then
                     printf "${C_MSG_DONE}Nothing to remove.${C_RESET}\n"
                 else
-                    "${PKG_MGR}" autoremove -y 2>/dev/null
+                    apt-get autoremove -y 2>/dev/null
                     printf "${C_MSG_DONE}Unused dependencies removed.${C_RESET}\n"
                 fi
                 _pkgs_log_history "CLEAN" "autoremove+cache"
@@ -1442,7 +1487,7 @@ PREVIEW_EOF
                 read -q purge_confirm; read -r
                 printf "\n"
                 if [[ "$purge_confirm" == "y" ]]; then
-                    if "${PKG_MGR}" purge -- "$purge_pkg" 2>/dev/null; then
+                    if apt-get purge -- "$purge_pkg" 2>/dev/null; then
                         _pkgs_log_history "PURGE" "$purge_pkg"
                         printf "${C_MSG_DONE}Purged %s${C_RESET}\n" "$purge_pkg"
                     else
@@ -1466,7 +1511,7 @@ PREVIEW_EOF
             if ! dpkg -s -- "$hold_pkg" 2>/dev/null | grep -q '^Status: install ok installed'; then
                 printf "${C_MSG_REMOVE}Package not installed: %s${C_RESET}\n" "$hold_pkg"
             else
-                if "${PKG_MGR}" hold -- "$hold_pkg" 2>/dev/null; then
+                if apt-mark hold "$hold_pkg" 2>/dev/null; then
                     _pkgs_log_history "HOLD" "$hold_pkg"
                     printf "${C_MSG_DONE}Pinned %s (will not be upgraded)${C_RESET}\n" "$hold_pkg"
                 else
@@ -1486,7 +1531,7 @@ PREVIEW_EOF
             if ! dpkg -s -- "$unhold_pkg" 2>/dev/null | grep -q '^Status: install ok installed'; then
                 printf "${C_MSG_REMOVE}Package not installed: %s${C_RESET}\n" "$unhold_pkg"
             else
-                if "${PKG_MGR}" unhold -- "$unhold_pkg" 2>/dev/null; then
+                if apt-mark unhold "$unhold_pkg" 2>/dev/null; then
                     _pkgs_log_history "UNHOLD" "$unhold_pkg"
                     printf "${C_MSG_DONE}Unpinned %s (upgrades enabled)${C_RESET}\n" "$unhold_pkg"
                 else
@@ -1659,7 +1704,7 @@ PREVIEW_EOF
             local hist_found=0
             local hist_day
             for i in {0..6}; do
-                hist_day=$(date -d "${i} days ago" +%Y-%m-%d 2>/dev/null || date -v-"${i}"d +%Y-%m-%d 2>/dev/null)
+                hist_day=$(_pkgs_date_ago "$i")
                 [[ -z "$hist_day" ]] && continue
                 local hist_file="${_PKGS_HISTORY_DIR}/${hist_day}.log"
                 [[ -f "$hist_file" ]] || continue
@@ -1701,7 +1746,7 @@ PREVIEW_EOF
                 printf "\n${C_MSG_INFO}Changelog for %s${C_RESET}\n\n" "$cl_pkg"
                 local cl_file="${PREFIX}/share/doc/${cl_pkg}/changelog.gz"
                 local cl_file2="${PREFIX}/share/doc/${cl_pkg}/changelog"
-                if [[ -f "$cl_file" ]]; then
+                if [[ -f "$cl_file" ]] && command -v zcat &>/dev/null; then
                     zcat "$cl_file" 2>/dev/null | head -60
                 elif [[ -f "$cl_file2" ]]; then
                     head -60 "$cl_file2"
@@ -1737,7 +1782,7 @@ PREVIEW_EOF
                 read -q or_confirm; read -r
                 if [[ "$or_confirm" == "y" ]]; then
                     printf "\n${C_MSG_INFO}Removing orphans...${C_RESET}\n"
-                    if "${PKG_MGR}" autoremove -y 2>/dev/null; then
+                    if apt-get autoremove -y 2>/dev/null; then
                         _pkgs_log_history "CLEAN" "autoremove"
                         _pkgs_invalidate_cache
                         printf "${C_MSG_DONE}Done.${C_RESET}\n"
@@ -1759,7 +1804,7 @@ PREVIEW_EOF
             clear
             printf "\n  ${C_GREEN}System Info${C_RESET}\n\n"
             printf "  ${C_WHITE}pkgs:${C_RESET}          1.3.0\n"
-            printf "  ${C_WHITE}Termux:${C_RESET}        %s\n" "$(termux-info 2>/dev/null | grep 'Termux version' | cut -d: -f2 | xargs || echo 'unknown')"
+            printf "  ${C_WHITE}Termux:${C_RESET}        %s\n" "${TERMUX_VERSION:-unknown}"
             printf "  ${C_WHITE}fzf:${C_RESET}           %s\n" "$(fzf --version 2>/dev/null | awk '{print $1}' || echo 'unknown')"
             printf "  ${C_WHITE}zsh:${C_RESET}           %s\n" "${ZSH_VERSION:-$(zsh --version 2>/dev/null | awk '{print $2}' || echo 'unknown')}"
             printf "  ${C_WHITE}dpkg:${C_RESET}          %s\n" "$(dpkg --version 2>/dev/null | head -1 | awk '{print $2}' || echo 'unknown')"
@@ -1952,25 +1997,25 @@ PREVIEW_EOF
                 fi
             fi
             clear
-            printf "\n${C_MSG_INFO}Top %d Outdated Packages${C_RESET}\n\n" "$ot_n"
-            local ot_count=0
-            while read -r ot_line; do
-                [[ -z "$ot_line" ]] && continue
-                [[ $ot_count -ge $ot_n ]] && break
-                local opkg="${ot_line%% *}"
-                local orest="${ot_line#* }"
-                local oinst_ver="${orest%% *}"
-                local ocand_ver="${orest#* }"
-                [[ "$oinst_ver" == "$ocand_ver" ]] && continue
-                ((ot_count++))
-                printf "  ${C_WHITE}%-4s${C_RESET} ${C_TEAL}%-24s${C_RESET} ${C_DIM}%-16s${C_RESET} ${C_GREEN}%s${C_RESET}\n" \
-                    "$ot_count" "$opkg" "$oinst_ver" "$ocand_ver"
-            done < <(
-                dpkg-query -W -f='${Package} ${Version}\n' 2>/dev/null | while read -r pname pver; do
+            printf "\n${C_MSG_INFO}Top %d Outdated Packages (by installed size)${C_RESET}\n\n" "$ot_n"
+            local ot_tmp
+            ot_tmp=$(mktemp "${TMPDIR:-${PREFIX}/tmp}/pkgs_ot.XXXXXX") 2>/dev/null
+            if [[ -n "$ot_tmp" ]]; then
+                dpkg-query -W -f='${Package}\t${Version}\t${Installed-Size}\n' 2>/dev/null | while IFS=$'\t' read -r pname pver psiz; do
+                    [[ -z "$pname" || -z "$psiz" || "$psiz" == "*" ]] && continue
                     cver=$(apt-cache policy -- "$pname" 2>/dev/null | grep 'Candidate:' | head -1 | sed 's/^.*Candidate: //')
-                    [[ -n "$cver" && "$pver" != "$cver" ]] && printf "%s %s %s\n" "$pname" "$pver" "$cver"
-                done
-            )
+                    [[ -n "$cver" && "$pver" != "$cver" ]] && printf "%s\t%s\t%s\t%s\n" "$pname" "$pver" "$cver" "$psiz"
+                done | sort -t$'\t' -k4 -rn > "$ot_tmp"
+                local ot_count=0
+                while IFS=$'\t' read -r opkg oinst_ver ocand_ver _osiz; do
+                    [[ -z "$opkg" ]] && continue
+                    [[ $ot_count -ge $ot_n ]] && break
+                    ((ot_count++))
+                    printf "  ${C_WHITE}%-4s${C_RESET} ${C_TEAL}%-24s${C_RESET} ${C_DIM}%-16s${C_RESET} ${C_GREEN}%s${C_RESET}\n" \
+                        "$ot_count" "$opkg" "$oinst_ver" "$ocand_ver"
+                done < "$ot_tmp"
+                rm -f "$ot_tmp" 2>/dev/null
+            fi
             if (( ot_count == 0 )); then
                 printf "  ${C_MSG_DONE}All packages are up to date.${C_RESET}\n"
             else
@@ -2015,7 +2060,12 @@ PREVIEW_EOF
                 ut_names+=("$ut_pkg")
                 (( ut_size > ut_max_size )) && ut_max_size="$ut_size"
             done < <(dpkg-query -W -f='${Package} ${Installed-Size}\n' 2>/dev/null | sort -k2 -rn)
-            local ut_max_bar=30
+            local ut_cols
+            ut_cols=$(tput cols 2>/dev/null) || ut_cols=80
+            local ut_overhead=38
+            local ut_max_bar=$(( ut_cols - ut_overhead ))
+            (( ut_max_bar < 5 )) && ut_max_bar=5
+            (( ut_max_bar > 50 )) && ut_max_bar=50
             local ut_i
             for ut_i in {1..${#ut_names[@]}}; do
                 local ut_sz="${ut_sizes[$ut_i]}"
@@ -2190,7 +2240,7 @@ PREVIEW_EOF
                                     fi
                                 done
                             } > "$export_file"
-                            chmod +x "$export_file" 2>/dev/null
+                            chmod 700 "$export_file" 2>/dev/null
                             printf "\n${C_MSG_DONE}Exported %d packages to: %s${C_RESET}\n" "${#match_pkgs[@]}" "$export_file"
                         else
                             printf "${C_MSG_REMOVE}--- Invalid or unsafe file path ---${C_RESET}\n"
@@ -2247,7 +2297,7 @@ PREVIEW_EOF
                                     fi
                                 done
                             } > "$export_file"
-                            chmod +x "$export_file" 2>/dev/null
+                            chmod 700 "$export_file" 2>/dev/null
                             if [[ -f "$export_file" ]]; then
                                 printf "\n${C_MSG_INFO}--- Saved: ${C_RESET}%s${C_MSG_INFO} ---${C_RESET}\n" "$export_file"
                             else
@@ -2271,118 +2321,66 @@ PREVIEW_EOF
         # --- /mirror ---
         if [[ "$query" == /mirror ]]; then
             clear
-            local -a mirrors=(
-                "packages.termux.dev|Official (packages.termux.dev)|Default"
-                "packages-cf.termux.dev|CloudFlare CDN|packages-cf.termux.dev"
-                "mirrors.tuna.tsinghua.edu.cn|Tsinghua TUNA|China"
-                "mirror.iscas.ac.cn|CAS ISC|China"
-                "mirrors.ustc.edu.cn|USTC|China"
-                "mirrors.aliyun.com|Alibaba|China"
-                "mirrors.nju.edu.cn|Nanjing Univ|China"
-                "mirrors.sjtu.edu.cn|SJTU|China"
-                "mirrors.zju.edu.cn|Zhejiang Univ|China"
-                "mirrors.hust.edu.cn|HUST|China"
-                "mirror.sjtu.edu.cn|SJTU mirror|China"
-                "linux.domainesia.com|DomaiNesia|Indonesia"
-                "mirror.freedif.org|karibu|Singapore"
-                "mirror.jeonnam.school|Jeonnam HS|South Korea"
-                "mirror.meowsmp.net|MeowIce|Vietnam"
-                "mirror.nag.albony.in|Albonycal|India"
-                "mirror.nevacloud.com|Nevacloud|Indonesia"
-                "mirror.rinarin.dev|Bombyeol|South Korea"
-                "mirror.twds.com.tw|Taiwan DSC|Taiwan"
-                "mirrors.cbrx.io|CyberRex0|Japan"
-                "mirrors.in.sahilister.net|sahilister|India"
-                "mirrors.krnk.org|KuronekoServer|Japan"
-                "mirrors.nguyenhoang.cloud|Nguyen Hoang|Vietnam"
-                "mirrors.ravidwivedi.in|Ravi|India"
-                "mirrors.saswata.cc|Saswata|India"
-                "termux.niranjan.co|Niranjan F|India"
-                "tmx.xvx.my.id|MyDapitt|Indonesia"
-                "ftp.agdsn.de|AG DSN|Germany"
-                "ftp.fau.de|FAU|Germany"
-                "ftp.icm.edu.pl|ICM Warsaw|Poland"
-                "grimler.se|grimler|Finland"
-                "is.mirror.flokinet.net|FlokiNET IS|Iceland"
-                "md.mirrors.hacktegic.com|amocrenco|Moldova"
-                "mirror.accum.se|ACCUM|Sweden"
-                "mirror.autkin.net|Andriy Utkin|UK"
-                "mirror.bouwhuis.network|bouwhuis|Netherlands"
-                "mirror.cutie.dating|CutiesDomain|Germany"
-                "mirror.leitecastro.com|T. Leite|Portugal"
-                "mirror.sunred.org|SunRed|Germany"
-                "mirrors.de.sahilister.net|sahilister DE|Germany"
-                "mirrors.medzik.dev|M3DZIK|Germany"
-                "nl.mirror.flokinet.net|FlokiNET NL|Netherlands"
-                "ro.mirror.flokinet.net|FlokiNET RO|Romania"
-                "termux.3san.dev|Exosunandnet|Spain"
-                "termux.cdn.lumito.net|LumitoLuma|Germany"
-                "termux.librehat.com|Librehat|Germany"
-                "gnlug.org|GNLUG|USA"
-                "mirror.csclub.uwaterloo.ca|UWaterloo|Canada"
-                "mirror.fcix.net|FCIX|USA"
-                "mirror.mwt.me|mwt|USA/CDN"
-                "mirror.quantum5.ca|quantum5|Canada"
-                "mirror.vern.cc|vern.cc|USA"
-                "mirrors.utermux.dev|Utermux|USA"
-                "plug-mirror.rcac.purdue.edu|Purdue PLUG|USA"
-                "termux.danyael.xyz|Dan Yael|USA"
-                "mirrors.middlendian.com|DiffieHellman|Australia"
-                "mirror.mephi.ru|MEPhI|Russia"
-                "repository.su|Dmitry|Russia"
-            )
+            local mirror_base="/data/data/com.termux/files/usr/etc/termux/mirrors"
+            if [[ ! -d "$mirror_base" ]]; then
+                printf "\n  ${C_MSG_REMOVE}Mirror directory not found.${C_RESET}\n"
+                printf "  ${C_MSG_WARN}Install termux-tools: pkg install termux-tools${C_RESET}\n"
+                printf "\n  ${C_MSG_INFO}Press Enter to return.${C_RESET}"
+                read -r
+                continue
+            fi
+            local -a mirror_files=()
             local -a mirror_display=()
-            local -A mirror_map
-            for entry in "${mirrors[@]}"; do
-                IFS='|' read -r url desc region <<< "$entry"
-                mirror_display+=("${desc} [${region}] (${url})")
-                mirror_map["${desc} [${region}] (${url})"]="$url"
+            local -A mirror_desc_map
+            local -A mirror_region_map
+            local region_dir
+            for region_dir in "$mirror_base"/*/; do
+                [[ ! -d "$region_dir" ]] && continue
+                local region_name
+                region_name=$(basename "$region_dir")
+                local mf
+                for mf in "$region_dir"/*; do
+                    [[ ! -f "$mf" ]] && continue
+                    [[ "$mf" == *.dpkg-old || "$mf" == *.dpkg-new || "$mf" == *~ ]] && continue
+                    local murl mdesc
+                    murl=$(basename "$mf")
+                    mdesc=$(sed -n '2s/^# *//p' "$mf" 2>/dev/null)
+                    [[ -z "$mdesc" ]] && mdesc="$murl"
+                    local display_line="${mdesc} [${region_name}] (${murl})"
+                    mirror_files+=("$mf")
+                    mirror_display+=("$display_line")
+                    mirror_desc_map["$display_line"]="$mf"
+                    mirror_region_map["$display_line"]="$region_name"
+                done
             done
+            if [[ ${#mirror_files[@]} -eq 0 ]]; then
+                printf "\n  ${C_MSG_REMOVE}No mirror definitions found.${C_RESET}\n"
+                printf "\n  ${C_MSG_INFO}Press Enter to return.${C_RESET}"
+                read -r
+                continue
+            fi
+            local current_target
+            current_target=$(readlink -f "$mirror_base/../chosen_mirrors" 2>/dev/null || echo "")
             local chosen
-            chosen=$(printf '%s\n' "${mirror_display[@]}" | fzf --prompt=" Mirror> " --preview='echo "Mirror: {2}"' --height=80% --reverse | sed 's/\o033\[[0-9;]*m//g')
+            chosen=$(printf '%s\n' "${mirror_display[@]}" | fzf --prompt=" Mirror> " --height=80% --reverse | sed 's/\o033\[[0-9;]*m//g')
             if [[ -z "$chosen" ]]; then
                 printf "\n  ${C_MSG_INFO}Press Enter to return.${C_RESET}"
                 read -r
                 continue
             fi
-            local new_url="${mirror_map[$chosen]}"
-            printf "\n  ${C_MSG_INFO}Testing mirror speed...${C_RESET}\n"
-            local start_ms end_ms elapsed_ms
-            start_ms=$(($(date +%s%N)/1000000))
-            if curl -sI --connect-timeout 5 "https://${new_url}/dists/stable/Release" >/dev/null 2>&1; then
-                end_ms=$(($(date +%s%N)/1000000))
-                elapsed_ms=$((end_ms - start_ms))
-                printf "  ${C_MSG_DONE}Response: %dms${C_RESET}\n" "$elapsed_ms"
-            else
-                printf "  ${C_MSG_REMOVE}Mirror unreachable${C_RESET}\n"
-                printf "\n  ${C_MSG_INFO}Press Enter to return.${C_RESET}"
-                read -r
-                continue
-            fi
-            printf "\n  ${C_MSG_WARN}Apply mirror to sources.list? (y/N) ${C_RESET}"
+            local selected_file="${mirror_desc_map[$chosen]}"
+            local selected_region="${mirror_region_map[$chosen]}"
+            printf "\n  ${C_WHITE}Selected:${C_RESET} %s\n" "$chosen"
+            printf "\n  ${C_MSG_WARN}Apply this mirror? (y/N) ${C_RESET}"
             read -q confirm; read -r
             if [[ "$confirm" == "y" ]]; then
-                local safe_url=$(printf '%s' "$new_url" | sed 's/[\|&]/\\&/g')
-                local src_list="${PREFIX}/etc/apt/sources.list"
-                if [[ -f "$src_list" ]]; then
-                    cp "$src_list" "${src_list}.bak" 2>/dev/null
-                    sed -i "s|^deb https://[^ ]* /apt/termux-main |deb https://${safe_url}/apt/termux-main |" "$src_list"
-                    sed -i "s|^deb https://[^ ]* /termux-main |deb https://${safe_url}/termux-main |" "$src_list"
+                if ln -sf "$selected_file" "/data/data/com.termux/files/usr/etc/termux/chosen_mirrors" 2>/dev/null; then
+                    printf "\n  ${C_MSG_DONE}Mirror set to: %s${C_RESET}\n" "$(basename "$selected_file")"
+                    _pkgs_log_history "MIRROR" "$(basename "$selected_file")"
+                else
+                    printf "\n  ${C_MSG_REMOVE}Failed to update mirror symlink.${C_RESET}\n"
+                    printf "  ${C_MSG_WARN}Run: termux-change-repo${C_RESET}\n"
                 fi
-                local x11_list="${PREFIX}/etc/apt/sources.list.d/x11.list"
-                if [[ -f "$x11_list" ]]; then
-                    cp "$x11_list" "${x11_list}.bak" 2>/dev/null
-                    sed -i "s|^deb https://[^ ]* /apt/termux-x11 |deb https://${safe_url}/apt/termux-x11 |" "$x11_list"
-                    sed -i "s|^deb https://[^ ]* /termux-x11 |deb https://${safe_url}/termux-x11 |" "$x11_list"
-                fi
-                local root_list="${PREFIX}/etc/apt/sources.list.d/root.list"
-                if [[ -f "$root_list" ]]; then
-                    cp "$root_list" "${root_list}.bak" 2>/dev/null
-                    sed -i "s|^deb https://[^ ]* /apt/termux-root |deb https://${safe_url}/apt/termux-root |" "$root_list"
-                    sed -i "s|^deb https://[^ ]* /termux-root |deb https://${safe_url}/termux-root |" "$root_list"
-                fi
-                printf "\n  ${C_MSG_DONE}Mirror applied. Run /update to refresh.${C_RESET}\n"
-                _pkgs_log_history "MIRROR" "$new_url"
             fi
             printf "\n  ${C_MSG_INFO}Press Enter to return.${C_RESET}"
             read -r
@@ -2422,11 +2420,17 @@ PREVIEW_EOF
                     chosen_fav=$(cat "$_PKGS_FAVORITES_FILE" | fzf --prompt=" Remove favorite> " --height=50% --reverse | sed 's/\o033\[[0-9;]*m//g')
                     [[ -n "$chosen_fav" ]] && fav_rm_pkg="$chosen_fav"
                 fi
+            else
+                _pkgs_validate_name "$fav_rm_pkg" || { printf "  ${C_MSG_REMOVE}Invalid package name.${C_RESET}\n"; printf "\n  ${C_MSG_INFO}Press Enter to return.${C_RESET}\n"; read -r; continue; }
             fi
             if [[ -n "$fav_rm_pkg" ]]; then
                 mkdir -p "$(dirname "$_PKGS_FAVORITES_FILE")" 2>/dev/null
                 if grep -Fqx "$fav_rm_pkg" "$_PKGS_FAVORITES_FILE" 2>/dev/null; then
-                    grep -vxF "$fav_rm_pkg" "$_PKGS_FAVORITES_FILE" > "${_PKGS_FAVORITES_FILE}.tmp" && mv "${_PKGS_FAVORITES_FILE}.tmp" "$_PKGS_FAVORITES_FILE"
+                    local fav_tmp
+                    fav_tmp=$(mktemp "${_PKGS_FAVORITES_FILE}.XXXXXX") 2>/dev/null
+                    if [[ -n "$fav_tmp" ]]; then
+                        grep -vxF "$fav_rm_pkg" "$_PKGS_FAVORITES_FILE" > "$fav_tmp" && mv "$fav_tmp" "$_PKGS_FAVORITES_FILE"
+                    fi
                     printf "\n  ${C_MSG_DONE}Removed %s from favorites.${C_RESET}\n" "$fav_rm_pkg"
                 else
                     printf "\n  ${C_MSG_WARN}%s not in favorites.${C_RESET}\n" "$fav_rm_pkg"
@@ -2445,12 +2449,18 @@ PREVIEW_EOF
                 _pkgs_get_cached_list > /dev/null 2>&1
                 fav_pkg=$(fzf < "$_PKGS_CACHE_FILE" --prompt=" Add favorite> " --height=50% --reverse | sed 's/\o033\[[0-9;]*m//g')
                 fav_pkg=$(echo "$fav_pkg" | awk -F'|' '{print $2}' | xargs)
+            else
+                _pkgs_validate_name "$fav_pkg" || { printf "  ${C_MSG_REMOVE}Invalid package name.${C_RESET}\n"; printf "\n  ${C_MSG_INFO}Press Enter to return.${C_RESET}\n"; read -r; continue; }
             fi
             if [[ -n "$fav_pkg" ]]; then
                 mkdir -p "$(dirname "$_PKGS_FAVORITES_FILE")" 2>/dev/null
                 touch "$_PKGS_FAVORITES_FILE"
-                if grep -qx "$fav_pkg" "$_PKGS_FAVORITES_FILE" 2>/dev/null; then
-                    grep -vxF "$fav_pkg" "$_PKGS_FAVORITES_FILE" > "${_PKGS_FAVORITES_FILE}.tmp" && mv "${_PKGS_FAVORITES_FILE}.tmp" "$_PKGS_FAVORITES_FILE"
+                if grep -Fqx "$fav_pkg" "$_PKGS_FAVORITES_FILE" 2>/dev/null; then
+                    local fav_toggle_tmp
+                    fav_toggle_tmp=$(mktemp "${_PKGS_FAVORITES_FILE}.XXXXXX") 2>/dev/null
+                    if [[ -n "$fav_toggle_tmp" ]]; then
+                        grep -vxF "$fav_pkg" "$_PKGS_FAVORITES_FILE" > "$fav_toggle_tmp" && mv "$fav_toggle_tmp" "$_PKGS_FAVORITES_FILE"
+                    fi
                     printf "\n  ${C_MSG_DONE}Removed %s from favorites.${C_RESET}\n" "$fav_pkg"
                 else
                     echo "$fav_pkg" >> "$_PKGS_FAVORITES_FILE"
@@ -2474,8 +2484,10 @@ PREVIEW_EOF
                 local -a import_pkgs=()
                 while IFS= read -r line; do
                     line="${line%%#*}"
-                    line="${line// /}"
+                    line="${line##[[:space:]]}"
+                    line="${line%%[[:space:]]}"
                     [[ -z "$line" ]] && continue
+                    _pkgs_validate_name "$line" || continue
                     import_pkgs+=("$line")
                 done < "$import_file"
                 if (( ${#import_pkgs[@]} == 0 )); then
@@ -2522,6 +2534,8 @@ PREVIEW_EOF
                 _pkgs_get_cached_list > /dev/null 2>&1
                 why_pkg=$(fzf < "$_PKGS_CACHE_FILE" --prompt=" Why installed> " --height=50% --reverse | sed 's/\o033\[[0-9;]*m//g')
                 why_pkg=$(echo "$why_pkg" | awk -F'|' '{print $2}' | xargs)
+            else
+                _pkgs_validate_name "$why_pkg" || { printf "  ${C_MSG_REMOVE}Invalid package name.${C_RESET}\n"; printf "\n  ${C_MSG_INFO}Press Enter to return.${C_RESET}\n"; read -r; continue; }
             fi
             if [[ -n "$why_pkg" ]]; then
                 printf "\n  ${C_WHITE}Why is %s installed?${C_RESET}\n\n" "$why_pkg"
@@ -2590,6 +2604,8 @@ PREVIEW_EOF
                 _pkgs_get_cached_list > /dev/null 2>&1
                 sug_pkg=$(fzf < "$_PKGS_CACHE_FILE" --prompt=" Suggest for> " --height=50% --reverse | sed 's/\o033\[[0-9;]*m//g')
                 sug_pkg=$(echo "$sug_pkg" | awk -F'|' '{print $2}' | xargs)
+            else
+                _pkgs_validate_name "$sug_pkg" || { printf "  ${C_MSG_REMOVE}Invalid package name.${C_RESET}\n"; printf "\n  ${C_MSG_INFO}Press Enter to return.${C_RESET}\n"; read -r; continue; }
             fi
             if [[ -n "$sug_pkg" ]]; then
                 printf "\n  ${C_WHITE}Suggested packages for %s:${C_RESET}\n\n" "$sug_pkg"
@@ -2655,10 +2671,10 @@ PREVIEW_EOF
                 fi
             fi
             local cache_size=0
-            if [[ -d "$HOME/.cache" ]]; then
-                cache_size=$(du -sk "$HOME/.cache" 2>/dev/null | awk '{print $1}')
+            if [[ -d "$HOME/.cache/termux" ]]; then
+                cache_size=$(du -sk "$HOME/.cache/termux" 2>/dev/null | awk '{print $1}')
                 if (( cache_size > 0 )); then
-                    printf "  ${C_TEAL}[C]${C_RESET} ~/.cache:               %s\n" "$(_pkgs_format_size "$cache_size")"
+                    printf "  ${C_TEAL}[C]${C_RESET} ~/.cache/termux:         %s\n" "$(_pkgs_format_size "$cache_size")"
                     nuke_items+=("cache:$cache_size")
                 fi
             fi
@@ -2676,26 +2692,30 @@ PREVIEW_EOF
                 [[ -z "$pkg" ]] && continue
                 local ps
                 ps=$(dpkg-query -W -f='${Installed-Size}' -- "$pkg" 2>/dev/null)
-                [[ -n "$ps" ]] && orphan_size=$((orphan_size + ps))
+                [[ "$ps" =~ ^[0-9]+$ ]] && orphan_size=$((orphan_size + ps))
                 orphans+=("$pkg")
-            done < <("${PKG_MGR}" autoremove --dry-run 2>&1 | grep -oP '(?<=\s)[a-z][a-z0-9.+\-]+' | sort -u)
+            done < <(apt-get autoremove --dry-run 2>&1 | sed -n 's/.*[^a-zA-Z0-9.+-]\([a-z][a-z0-9.+-]*\).*/\1/p' | sort -u)
             if (( orphan_size > 0 )); then
                 printf "  ${C_TEAL}[E]${C_RESET} orphaned packages:     %s (%d pkgs)\n" "$(_pkgs_format_size "$orphan_size")" "${#orphans[@]}"
                 nuke_items+=("orphans:$orphan_size")
             fi
             local pyc_size=0
+            local pyc_count=0
             if [[ -d "$HOME" ]]; then
-                pyc_size=$(find "$HOME" -name "*.pyc" -type f -exec du -sk {} + 2>/dev/null | awk '{s+=$1}END{print s+0}')
-                if (( pyc_size > 0 )); then
-                    printf "  ${C_TEAL}[F]${C_RESET} .pyc files:             %s\n" "$(_pkgs_format_size "$pyc_size")"
+                pyc_count=$(find "$HOME" -maxdepth 6 -name "*.pyc" -type f 2>/dev/null | wc -l | tr -d ' ')
+                if (( pyc_count > 0 )); then
+                    pyc_size=$(find "$HOME" -maxdepth 6 -name "*.pyc" -type f -exec du -sk {} + 2>/dev/null | awk '{s+=$1}END{print s+0}')
+                    printf "  ${C_TEAL}[F]${C_RESET} .pyc files:             %s (%d files)\n" "$(_pkgs_format_size "$pyc_size")" "$pyc_count"
                     nuke_items+=("pyc:$pyc_size")
                 fi
             fi
             local o_size=0
+            local o_count=0
             if [[ -d "$HOME" ]]; then
-                o_size=$(find "$HOME" -name "*.o" -type f -exec du -sk {} + 2>/dev/null | awk '{s+=$1}END{print s+0}')
-                if (( o_size > 0 )); then
-                    printf "  ${C_TEAL}[G]${C_RESET} .o files:               %s\n" "$(_pkgs_format_size "$o_size")"
+                o_count=$(find "$HOME" -maxdepth 6 -name "*.o" -type f 2>/dev/null | wc -l | tr -d ' ')
+                if (( o_count > 0 )); then
+                    o_size=$(find "$HOME" -maxdepth 6 -name "*.o" -type f -exec du -sk {} + 2>/dev/null | awk '{s+=$1}END{print s+0}')
+                    printf "  ${C_TEAL}[G]${C_RESET} .o files:               %s (%d files)\n" "$(_pkgs_format_size "$o_size")" "$o_count"
                     nuke_items+=("obj:$o_size")
                 fi
             fi
@@ -2725,23 +2745,23 @@ PREVIEW_EOF
                                 printf "  ${C_MSG_DONE}✓ tmp cleaned${C_RESET}\n"
                                 ;;
                             cache)
-                                rm -rf "$HOME/.cache" 2>/dev/null
-                                printf "  ${C_MSG_DONE}✓ ~/.cache cleaned${C_RESET}\n"
+                                rm -rf "$HOME/.cache/termux" 2>/dev/null
+                                printf "  ${C_MSG_DONE}✓ ~/.cache/termux cleaned${C_RESET}\n"
                                 ;;
                             history)
                                 find "$_PKGS_HISTORY_DIR" -name "*.log" -mtime +7 -delete 2>/dev/null
                                 printf "  ${C_MSG_DONE}✓ old history logs removed${C_RESET}\n"
                                 ;;
                             orphans)
-                                "${PKG_MGR}" autoremove -y 2>/dev/null
+                                apt-get autoremove -y 2>/dev/null
                                 printf "  ${C_MSG_DONE}✓ orphans removed${C_RESET}\n"
                                 ;;
                             pyc)
-                                find "$HOME" -name "*.pyc" -type f -delete 2>/dev/null
+                                find "$HOME" -maxdepth 6 -name "*.pyc" -type f -delete 2>/dev/null
                                 printf "  ${C_MSG_DONE}✓ .pyc files removed${C_RESET}\n"
                                 ;;
                             obj)
-                                find "$HOME" -name "*.o" -type f -delete 2>/dev/null
+                                find "$HOME" -maxdepth 6 -name "*.o" -type f -delete 2>/dev/null
                                 printf "  ${C_MSG_DONE}✓ .o files removed${C_RESET}\n"
                                 ;;
                             trash)
@@ -2768,12 +2788,12 @@ PREVIEW_EOF
             printf "\n  ${C_WHITE}Recently Upgraded Packages${C_RESET}\n\n"
             local -a recent_upgraded=()
             if [[ -f "$_PKGS_HISTORY_FILE" ]]; then
-                while IFS='|' read -r ts action pkg; do
+                while IFS=' ' read -r ts action pkg; do
                     [[ "$action" == "UPGRADE" ]] && recent_upgraded+=("$pkg")
                 done < "$_PKGS_HISTORY_FILE"
             fi
             for hist_file in $(find "$_PKGS_HISTORY_DIR" -name "*.log" -mtime -7 2>/dev/null | sort -r | head -7); do
-                while IFS='|' read -r ts action pkg; do
+                while IFS=' ' read -r ts action pkg; do
                     [[ "$action" == "UPGRADE" ]] && recent_upgraded+=("$pkg")
                 done < "$hist_file"
             done
@@ -2787,9 +2807,10 @@ PREVIEW_EOF
             else
                 for cl_pkg in "${unique_pkgs[@]}"; do
                     printf "  ${C_WHITE}%s${C_RESET}\n" "$cl_pkg"
+                    _pkgs_validate_name "$cl_pkg" || continue
                     local cl_file="${PREFIX}/share/doc/${cl_pkg}/changelog"
                     local cl_gz="${cl_file}.gz"
-                    if [[ -f "$cl_gz" ]]; then
+                    if [[ -f "$cl_gz" ]] && command -v gunzip &>/dev/null; then
                         gunzip -c "$cl_gz" 2>/dev/null | head -15 | sed 's/^/    /'
                     elif [[ -f "$cl_file" ]]; then
                         head -15 "$cl_file" 2>/dev/null | sed 's/^/    /'
@@ -2852,10 +2873,17 @@ PREVIEW_EOF
         # --- /self-update ---
         if [[ "$query" == /self-update ]]; then
             clear
+            if ! command -v sha256sum &>/dev/null; then
+                printf "\n  ${C_MSG_REMOVE}sha256sum is required for safe updates.${C_RESET}\n"
+                printf "  ${C_MSG_WARN}Install coreutils: pkg install coreutils${C_RESET}\n"
+                printf "\n  ${C_MSG_INFO}Press Enter to return.${C_RESET}"
+                read -r
+                continue
+            fi
             printf "\n  ${C_MSG_INFO}Checking for updates...${C_RESET}\n"
             local current_ver="1.3.0"
             local latest_ver
-            latest_ver=$(curl -sL "$_PKGS_SELF_URL" 2>/dev/null | grep -oP 'pkgs \K[0-9]+\.[0-9]+\.[0-9]+' | head -1)
+            latest_ver=$(curl -sL "$_PKGS_SELF_URL" 2>/dev/null | sed -n 's/.*pkgs \([0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*\).*/\1/p' | head -1)
             if [[ -z "$latest_ver" ]]; then
                 printf "\n  ${C_MSG_REMOVE}Failed to check for updates.${C_RESET}\n"
             elif [[ "$latest_ver" == "$current_ver" ]]; then
@@ -2866,13 +2894,14 @@ PREVIEW_EOF
                 read -q update_confirm; read -r
                 if [[ "$update_confirm" == "y" ]]; then
                     local target="${PREFIX}/bin/pkgs"
-                    local tmp_file="${target}.new"
+                    local tmp_file
+                    tmp_file=$(mktemp "${target}.XXXXXX") || { printf "\n  ${C_MSG_REMOVE}Failed to create temp file.${C_RESET}\n"; query=""; continue; }
                     local expected_sha
                     expected_sha=$(curl -fsSL "$_PKGS_SELF_SHA_URL" 2>/dev/null | awk '{print $1}')
                     if ! curl -fsSL "$_PKGS_SELF_URL" -o "$tmp_file" 2>/dev/null; then
                         printf "\n  ${C_MSG_REMOVE}Download failed.${C_RESET}\n"
                         rm -f "$tmp_file" 2>/dev/null
-                    elif [[ -n "$expected_sha" ]] && command -v sha256sum &>/dev/null; then
+                    elif [[ -n "$expected_sha" ]]; then
                         local actual_sha
                         actual_sha=$(sha256sum "$tmp_file" 2>/dev/null | awk '{print $1}')
                         if [[ "$actual_sha" != "$expected_sha" ]]; then
@@ -2880,21 +2909,18 @@ PREVIEW_EOF
                             rm -f "$tmp_file" 2>/dev/null
                         elif head -1 "$tmp_file" | grep -q '^#!/'; then
                             chmod +x "$tmp_file"
-                            mv "$target" "${target}.bak" 2>/dev/null
+                            local bak_file="${target}.bak"
+                            [[ -f "$bak_file" ]] && rm -f "$bak_file" 2>/dev/null
+                            mv "$target" "$bak_file" 2>/dev/null
                             mv "$tmp_file" "$target"
                             printf "\n  ${C_MSG_DONE}Updated to v%s! Restart pkgs to use.${C_RESET}\n" "$latest_ver"
                         else
                             rm -f "$tmp_file"
                             printf "\n  ${C_MSG_REMOVE}Downloaded file invalid. Aborting.${C_RESET}\n"
                         fi
-                    elif head -1 "$tmp_file" | grep -q '^#!/'; then
-                        chmod +x "$tmp_file"
-                        mv "$target" "${target}.bak" 2>/dev/null
-                        mv "$tmp_file" "$target"
-                        printf "\n  ${C_MSG_DONE}Updated to v%s! Restart pkgs to use.${C_RESET}\n" "$latest_ver"
                     else
                         rm -f "$tmp_file"
-                        printf "\n  ${C_MSG_REMOVE}Downloaded file invalid. Aborting.${C_RESET}\n"
+                        printf "\n  ${C_MSG_REMOVE}Checksum file not available. Aborting.${C_RESET}\n"
                     fi
                 fi
             fi
@@ -2952,12 +2978,14 @@ PREVIEW_EOF
                 _pkgs_get_cached_list > /dev/null 2>&1
                 ph_pkg=$(fzf < "$_PKGS_CACHE_FILE" --prompt=" History for> " --height=50% --reverse | sed 's/\o033\[[0-9;]*m//g')
                 ph_pkg=$(echo "$ph_pkg" | awk -F'|' '{print $2}' | xargs)
+            else
+                _pkgs_validate_name "$ph_pkg" || { printf "  ${C_MSG_REMOVE}Invalid package name.${C_RESET}\n"; printf "\n  ${C_MSG_INFO}Press Enter to return.${C_RESET}\n"; read -r; continue; }
             fi
             if [[ -n "$ph_pkg" ]]; then
                 printf "\n  ${C_WHITE}History for %s:${C_RESET}\n\n" "$ph_pkg"
                 local found=0
                 for hist_file in $(find "$_PKGS_HISTORY_DIR" -name "*.log" 2>/dev/null | sort -r); do
-                    while IFS='|' read -r ts action pkg; do
+                    while IFS=' ' read -r ts action pkg; do
                         if [[ "$pkg" == "$ph_pkg" ]]; then
                             printf "  ${C_DIM}%s${C_RESET}  %b%s%b\n" "$ts" "$C_MSG_DONE" "$action" "$C_RESET"
                             ((found++))
@@ -2994,6 +3022,9 @@ PREVIEW_EOF
                 printf "\n  ${C_MSG_INFO}Select second package:${C_RESET}\n"
                 dc_b=$(fzf < "$_PKGS_CACHE_FILE" --prompt=" Package B> " --height=50% --reverse | sed 's/\o033\[[0-9;]*m//g')
                 dc_b=$(echo "$dc_b" | awk -F'|' '{print $2}' | xargs)
+            else
+                _pkgs_validate_name "$dc_a" || { printf "  ${C_MSG_REMOVE}Invalid package name: %s${C_RESET}\n" "$dc_a"; printf "\n  ${C_MSG_INFO}Press Enter to return.${C_RESET}\n"; read -r; continue; }
+                _pkgs_validate_name "$dc_b" || { printf "  ${C_MSG_REMOVE}Invalid package name: %s${C_RESET}\n" "$dc_b"; printf "\n  ${C_MSG_INFO}Press Enter to return.${C_RESET}\n"; read -r; continue; }
             fi
             if [[ -n "$dc_a" && -n "$dc_b" ]]; then
                 printf "\n  ${C_WHITE}Dependency chain: %s -> %s${C_RESET}\n\n" "$dc_a" "$dc_b"
@@ -3074,6 +3105,8 @@ PREVIEW_EOF
                 _pkgs_get_cached_list > /dev/null 2>&1
                 cw_pkg=$(fzf < "$_PKGS_CACHE_FILE" --prompt=" Conflicts for> " --height=50% --reverse | sed 's/\o033\[[0-9;]*m//g')
                 cw_pkg=$(echo "$cw_pkg" | awk -F'|' '{print $2}' | xargs)
+            else
+                _pkgs_validate_name "$cw_pkg" || { printf "  ${C_MSG_REMOVE}Invalid package name.${C_RESET}\n"; printf "\n  ${C_MSG_INFO}Press Enter to return.${C_RESET}\n"; read -r; continue; }
             fi
             if [[ -n "$cw_pkg" ]]; then
                 printf "\n  ${C_WHITE}Conflicts for %s:${C_RESET}\n\n" "$cw_pkg"
@@ -3109,6 +3142,8 @@ PREVIEW_EOF
                 _pkgs_get_cached_list > /dev/null 2>&1
                 pv_pkg=$(fzf < "$_PKGS_CACHE_FILE" --prompt=" Provides for> " --height=50% --reverse | sed 's/\o033\[[0-9;]*m//g')
                 pv_pkg=$(echo "$pv_pkg" | awk -F'|' '{print $2}' | xargs)
+            else
+                _pkgs_validate_name "$pv_pkg" || { printf "  ${C_MSG_REMOVE}Invalid package name.${C_RESET}\n"; printf "\n  ${C_MSG_INFO}Press Enter to return.${C_RESET}\n"; read -r; continue; }
             fi
             if [[ -n "$pv_pkg" ]]; then
                 printf "\n  ${C_WHITE}Virtual packages provided by %s:${C_RESET}\n\n" "$pv_pkg"
@@ -3259,7 +3294,7 @@ PREVIEW_EOF
                     /^Package:/ { pkg=$2 }
                     /^Maintainer:/ {
                         maint=substr($0, index($0,$2))
-                        if (maint ~ query) {
+                        if (index(maint, query) > 0) {
                             printf "  %-30s %s\n", pkg, substr(maint,1,50)
                             count++
                             if (count >= 100) exit
@@ -3312,7 +3347,7 @@ PREVIEW_EOF
                     fi
                     ;;
                 restore)
-                    local -a backups=($(find "${backup_dir}" -name "sources.list.*" -type f -printf '%T@ %p\n' 2>/dev/null | sort -rn | awk '{print $2}'))
+                    local -a backups=($(ls -t "${backup_dir}"/sources.list.* 2>/dev/null))
                     if (( ${#backups[@]} == 0 )); then
                         printf "\n  ${C_MSG_WARN}No backups found.${C_RESET}\n"
                     else
@@ -3325,7 +3360,7 @@ PREVIEW_EOF
                     fi
                     ;;
                 list)
-                    local -a backups=($(find "${backup_dir}" -name "sources.list.*" -type f -printf '%T@ %p\n' 2>/dev/null | sort -rn | awk '{print $2}'))
+                    local -a backups=($(ls -t "${backup_dir}"/sources.list.* 2>/dev/null))
                     if (( ${#backups[@]} == 0 )); then
                         printf "\n  ${C_MSG_WARN}No backups found.${C_RESET}\n"
                     else
@@ -3390,34 +3425,32 @@ PREVIEW_EOF
                 _pkgs_get_cached_list > /dev/null 2>&1
                 dt_pkg=$(fzf < "$_PKGS_CACHE_FILE" --prompt=" Dep tree for> " --height=50% --reverse | sed 's/\o033\[[0-9;]*m//g')
                 dt_pkg=$(echo "$dt_pkg" | awk -F'|' '{print $2}' | xargs)
+            else
+                _pkgs_validate_name "$dt_pkg" || { printf "  ${C_MSG_REMOVE}Invalid package name.${C_RESET}\n"; printf "\n  ${C_MSG_INFO}Press Enter to return.${C_RESET}\n"; read -r; continue; }
             fi
             if [[ -n "$dt_pkg" ]]; then
                 printf "\n  ${C_WHITE}Dependency tree: %s${C_RESET}\n\n" "$dt_pkg"
-                _pkgs_draw_tree() {
+                local -A _pkgs_tree_seen=()
+                _pkgs_tree_draw() {
                     local pkg="$1" prefix="$2" depth="$3"
-                    local -A _tree_seen=()
-                    _pkgs_draw_tree_inner() {
-                        local pkg="$1" prefix="$2" depth="$3"
-                        (( depth > 8 )) && { printf "%s${C_DIM}... (max depth)${C_RESET}\n" "$prefix"; return; }
-                        [[ -n "${_tree_seen[$pkg]+x}" ]] && { printf "%s${C_DIM}... (cycle: %s)${C_RESET}\n" "$prefix" "$pkg"; return; }
-                        _tree_seen[$pkg]=1
-                        local deps
-                        deps=$(apt-cache depends --no-recommends --no-suggests --no-conflicts --no-breaks --no-replaces --no-enhances "$pkg" 2>/dev/null | grep "Depends:" | sed 's/.*Depends: //' | tr -d '<>' | awk '{print $1}')
-                        local first=1
-                        for d in ${(f)deps}; do
-                            if (( first )); then
-                                printf "%s└── ${C_TEAL}%s${C_RESET}\n" "$prefix" "$d"
-                                first=0
-                            else
-                                printf "%s├── ${C_TEAL}%s${C_RESET}\n" "$prefix" "$d"
-                            fi
-                            _pkgs_draw_tree_inner "$d" "${prefix}│   " $((depth+1))
-                        done
-                    }
-                    printf "  ${C_GREEN}%s${C_RESET}\n" "$pkg"
-                    _pkgs_draw_tree_inner "$pkg" "  " 0
+                    (( depth > 8 )) && { printf "%s${C_DIM}... (max depth)${C_RESET}\n" "$prefix"; return; }
+                    [[ -n "${_pkgs_tree_seen[$pkg]+x}" ]] && { printf "%s${C_DIM}... (cycle: %s)${C_RESET}\n" "$prefix" "$pkg"; return; }
+                    _pkgs_tree_seen[$pkg]=1
+                    local deps
+                    deps=$(apt-cache depends --no-recommends --no-suggests --no-conflicts --no-breaks --no-replaces --no-enhances "$pkg" 2>/dev/null | grep "Depends:" | sed 's/.*Depends: //' | tr -d '<>' | awk '{print $1}')
+                    local first=1
+                    for d in ${(f)deps}; do
+                        if (( first )); then
+                            printf "%s└── ${C_TEAL}%s${C_RESET}\n" "$prefix" "$d"
+                            first=0
+                        else
+                            printf "%s├── ${C_TEAL}%s${C_RESET}\n" "$prefix" "$d"
+                        fi
+                        _pkgs_tree_draw "$d" "${prefix}│   " $((depth+1))
+                    done
                 }
-                _pkgs_draw_tree "$dt_pkg" "  " 0
+                printf "  ${C_GREEN}%s${C_RESET}\n" "$dt_pkg"
+                _pkgs_tree_draw "$dt_pkg" "  " 0
             fi
             printf "\n  ${C_MSG_INFO}Press Enter to return.${C_RESET}"
             read -r
@@ -3433,32 +3466,30 @@ PREVIEW_EOF
                 _pkgs_get_cached_list > /dev/null 2>&1
                 rt_pkg=$(fzf < "$_PKGS_CACHE_FILE" --prompt=" Reverse tree for> " --height=50% --reverse | sed 's/\o033\[[0-9;]*m//g')
                 rt_pkg=$(echo "$rt_pkg" | awk -F'|' '{print $2}' | xargs)
+            else
+                _pkgs_validate_name "$rt_pkg" || { printf "  ${C_MSG_REMOVE}Invalid package name.${C_RESET}\n"; printf "\n  ${C_MSG_INFO}Press Enter to return.${C_RESET}\n"; read -r; continue; }
             fi
             if [[ -n "$rt_pkg" ]]; then
                 printf "\n  ${C_WHITE}Reverse dependency tree: %s${C_RESET}\n\n" "$rt_pkg"
-                _pkgs_draw_rev_tree() {
+                local -A _pkgs_rev_seen=()
+                _pkgs_rev_tree_draw() {
                     local pkg="$1" prefix="$2" depth="$3"
-                    local -A _rev_seen=()
-                    _pkgs_draw_rev_tree_inner() {
-                        local pkg="$1" prefix="$2" depth="$3"
-                        (( depth > 8 )) && { printf "%s${C_DIM}... (max depth)${C_RESET}\n" "$prefix"; return; }
-                        [[ -n "${_rev_seen[$pkg]+x}" ]] && { printf "%s${C_DIM}... (cycle: %s)${C_RESET}\n" "$prefix" "$pkg"; return; }
-                        _rev_seen[$pkg]=1
-                        local rdeps
-                        rdeps=$(apt-cache rdepends --installed "$pkg" 2>/dev/null | tail -n +2 | grep -v "^$")
-                        local first=1
-                        for d in ${(f)rdeps}; do
-                            [[ -z "$d" ]] && continue
-                            local marker=""
-                            dpkg -s -- "$d" 2>/dev/null | grep -q '^Status: install ok installed' && marker="${C_GREEN}*" || marker="${C_DIM}-"
-                            printf "%s├── %b ${C_TEAL}%s${C_RESET}\n" "$prefix" "$marker" "$d"
-                            _pkgs_draw_rev_tree_inner "$d" "${prefix}│   " $((depth+1))
-                        done
-                    }
-                    printf "  ${C_GREEN}%s${C_RESET} ${C_DIM}(*=installed)${C_RESET}\n" "$pkg"
-                    _pkgs_draw_rev_tree_inner "$pkg" "  " 0
+                    (( depth > 8 )) && { printf "%s${C_DIM}... (max depth)${C_RESET}\n" "$prefix"; return; }
+                    [[ -n "${_pkgs_rev_seen[$pkg]+x}" ]] && { printf "%s${C_DIM}... (cycle: %s)${C_RESET}\n" "$prefix" "$pkg"; return; }
+                    _pkgs_rev_seen[$pkg]=1
+                    local rdeps
+                    rdeps=$(apt-cache rdepends --installed "$pkg" 2>/dev/null | tail -n +2 | grep -v "^$")
+                    local first=1
+                    for d in ${(f)rdeps}; do
+                        [[ -z "$d" ]] && continue
+                        local marker=""
+                        dpkg -s -- "$d" 2>/dev/null | grep -q '^Status: install ok installed' && marker="${C_GREEN}*" || marker="${C_DIM}-"
+                        printf "%s├── %b ${C_TEAL}%s${C_RESET}\n" "$prefix" "$marker" "$d"
+                        _pkgs_rev_tree_draw "$d" "${prefix}│   " $((depth+1))
+                    done
                 }
-                _pkgs_draw_rev_tree "$rt_pkg" "  " 0
+                printf "  ${C_GREEN}%s${C_RESET} ${C_DIM}(*=installed)${C_RESET}\n" "$rt_pkg"
+                _pkgs_rev_tree_draw "$rt_pkg" "  " 0
             fi
             printf "\n  ${C_MSG_INFO}Press Enter to return.${C_RESET}"
             read -r
@@ -3472,11 +3503,11 @@ PREVIEW_EOF
             local us_out
             us_out=$("${PKG_MGR}" upgrade --dry-run 2>&1)
             local us_total
-            us_total=$(echo "$us_out" | grep -oP 'Need to get \K[0-9.]+[KMGT]?B' | head -1)
+            us_total=$(echo "$us_out" | sed -n 's/.*Need to get \([0-9.]*[KMGT]*B\).*/\1/p' | head -1)
             local us_new us_upgrade us_remove
-            us_new=$(echo "$us_out" | grep -oP '\d+ (?:newly installed)' | grep -oP '^\d+')
-            us_upgrade=$(echo "$us_out" | grep -oP '\d+ upgraded' | grep -oP '^\d+')
-            us_remove=$(echo "$us_out" | grep -oP '\d+ to remove' | grep -oP '^\d+')
+            us_new=$(echo "$us_out" | sed -n 's/.*\([0-9][0-9]*\) newly installed.*/\1/p')
+            us_upgrade=$(echo "$us_out" | sed -n 's/.*\([0-9][0-9]*\) upgraded.*/\1/p')
+            us_remove=$(echo "$us_out" | sed -n 's/.*\([0-9][0-9]*\) to remove.*/\1/p')
             printf "  ${C_WHITE}Upgrade Summary:${C_RESET}\n\n"
             printf "  ${C_MSG_DONE}Download size:${C_RESET}   %s\n" "${us_total:-unknown}"
             printf "  ${C_GREEN}Upgrades:${C_RESET}       %s packages\n" "${us_upgrade:-0}"
@@ -3498,15 +3529,17 @@ PREVIEW_EOF
                 _pkgs_get_cached_list > /dev/null 2>&1
                 dl_pkg=$(fzf < "$_PKGS_CACHE_FILE" --prompt=" Download> " --height=50% --reverse | sed 's/\o033\[[0-9;]*m//g')
                 dl_pkg=$(echo "$dl_pkg" | awk -F'|' '{print $2}' | xargs)
+            else
+                _pkgs_validate_name "$dl_pkg" || { printf "  ${C_MSG_REMOVE}Invalid package name.${C_RESET}\n"; printf "\n  ${C_MSG_INFO}Press Enter to return.${C_RESET}\n"; read -r; continue; }
             fi
             if [[ -n "$dl_pkg" ]]; then
                 printf "\n  ${C_MSG_INFO}Downloading %s...${C_RESET}\n\n" "$dl_pkg"
                 local dl_dir="${PREFIX}/tmp/pkgs-dl"
                 mkdir -p "$dl_dir" 2>/dev/null
-                "${PKG_MGR}" download --target-dir="$dl_dir" "$dl_pkg" 2>&1 | sed 's/^/  /'
-                if ls "$dl_dir"/${dl_pkg}*.deb 2>/dev/null | head -1 > /dev/null; then
+                (cd "$dl_dir" 2>/dev/null && apt-get download -- "$dl_pkg" 2>&1) | sed 's/^/  /'
+                if ls "$dl_dir"/"$dl_pkg"*.deb 2>/dev/null | head -1 > /dev/null; then
                     printf "\n  ${C_MSG_DONE}Downloaded to:${C_RESET} %s\n" "$dl_dir"
-                    ls -lh "$dl_dir"/${dl_pkg}*.deb 2>/dev/null | sed 's/^/  /'
+                    ls -lh "$dl_dir"/"$dl_pkg"*.deb 2>/dev/null | sed 's/^/  /'
                 else
                     printf "\n  ${C_MSG_REMOVE}Download failed.${C_RESET}\n"
                 fi
@@ -3525,6 +3558,8 @@ PREVIEW_EOF
                 _pkgs_get_cached_list > /dev/null 2>&1
                 vr_pkg=$(fzf < "$_PKGS_CACHE_FILE" --prompt=" Verify> " --height=50% --reverse | sed 's/\o033\[[0-9;]*m//g')
                 vr_pkg=$(echo "$vr_pkg" | awk -F'|' '{print $2}' | xargs)
+            else
+                _pkgs_validate_name "$vr_pkg" || { printf "  ${C_MSG_REMOVE}Invalid package name.${C_RESET}\n"; printf "\n  ${C_MSG_INFO}Press Enter to return.${C_RESET}\n"; read -r; continue; }
             fi
             if [[ -n "$vr_pkg" ]]; then
                 printf "\n  ${C_MSG_INFO}Verifying %s...${C_RESET}\n\n" "$vr_pkg"
@@ -3602,7 +3637,8 @@ PREVIEW_EOF
             printf "  ${C_DIM}%-25s %-12s %s${C_RESET}\n" "-------------------------" "------------" "------"
             for entry in "${mirrors_bw[@]}"; do
                 IFS='|' read -r murl mname <<< "$entry"
-                local tmp_bw="${TMPDIR:-$PREFIX/tmp}/pkgs_bw_$$"
+                local tmp_bw
+                tmp_bw=$(mktemp "${TMPDIR:-${PREFIX}/tmp}/pkgs_bw.XXXXXX") 2>/dev/null
                 local start_t end_t elapsed_s speed_bps
                 start_t=$(date +%s%N)
                 curl -sL --connect-timeout 5 --max-time 10 "https://${murl}/dists/stable/Release" -o "$tmp_bw" 2>/dev/null
@@ -3663,6 +3699,8 @@ PREVIEW_EOF
                 _pkgs_get_cached_list > /dev/null 2>&1
                 pr_pkg=$(fzf < "$_PKGS_CACHE_FILE" --prompt=" Who recommends> " --height=50% --reverse | sed 's/\o033\[[0-9;]*m//g')
                 pr_pkg=$(echo "$pr_pkg" | awk -F'|' '{print $2}' | xargs)
+            else
+                _pkgs_validate_name "$pr_pkg" || { printf "  ${C_MSG_REMOVE}Invalid package name.${C_RESET}\n"; printf "\n  ${C_MSG_INFO}Press Enter to return.${C_RESET}\n"; read -r; continue; }
             fi
             if [[ -n "$pr_pkg" ]]; then
                 printf "\n  ${C_WHITE}Packages that recommend %s:${C_RESET}\n\n" "$pr_pkg"
@@ -3689,6 +3727,8 @@ PREVIEW_EOF
                 _pkgs_get_cached_list > /dev/null 2>&1
                 ps_pkg=$(fzf < "$_PKGS_CACHE_FILE" --prompt=" Who suggests> " --height=50% --reverse | sed 's/\o033\[[0-9;]*m//g')
                 ps_pkg=$(echo "$ps_pkg" | awk -F'|' '{print $2}' | xargs)
+            else
+                _pkgs_validate_name "$ps_pkg" || { printf "  ${C_MSG_REMOVE}Invalid package name.${C_RESET}\n"; printf "\n  ${C_MSG_INFO}Press Enter to return.${C_RESET}\n"; read -r; continue; }
             fi
             if [[ -n "$ps_pkg" ]]; then
                 printf "\n  ${C_WHITE}Packages that suggest %s:${C_RESET}\n\n" "$ps_pkg"
@@ -3715,6 +3755,8 @@ PREVIEW_EOF
                 _pkgs_get_cached_list > /dev/null 2>&1
                 pb_pkg=$(fzf < "$_PKGS_CACHE_FILE" --prompt=" What breaks> " --height=50% --reverse | sed 's/\o033\[[0-9;]*m//g')
                 pb_pkg=$(echo "$pb_pkg" | awk -F'|' '{print $2}' | xargs)
+            else
+                _pkgs_validate_name "$pb_pkg" || { printf "  ${C_MSG_REMOVE}Invalid package name.${C_RESET}\n"; printf "\n  ${C_MSG_INFO}Press Enter to return.${C_RESET}\n"; read -r; continue; }
             fi
             if [[ -n "$pb_pkg" ]]; then
                 printf "\n  ${C_WHITE}Packages that break with %s:${C_RESET}\n\n" "$pb_pkg"
@@ -3743,6 +3785,8 @@ PREVIEW_EOF
                 _pkgs_get_cached_list > /dev/null 2>&1
                 prr_pkg=$(fzf < "$_PKGS_CACHE_FILE" --prompt=" What replaces> " --height=50% --reverse | sed 's/\o033\[[0-9;]*m//g')
                 prr_pkg=$(echo "$prr_pkg" | awk -F'|' '{print $2}' | xargs)
+            else
+                _pkgs_validate_name "$prr_pkg" || { printf "  ${C_MSG_REMOVE}Invalid package name.${C_RESET}\n"; printf "\n  ${C_MSG_INFO}Press Enter to return.${C_RESET}\n"; read -r; continue; }
             fi
             if [[ -n "$prr_pkg" ]]; then
                 printf "\n  ${C_WHITE}Packages that %s replaces:${C_RESET}\n\n" "$prr_pkg"
@@ -3805,7 +3849,7 @@ PREVIEW_EOF
                         printf "  ${C_RED}- %s${C_RESET}\n" "$rpkg"
                         found_removed=1
                     fi
-                done < <(tac "$apt_log" | head -500)
+                done < <(tac "$apt_log" 2>/dev/null | head -500)
                 (( found_removed == 0 )) && printf "  ${C_DIM}No packages removed recently.${C_RESET}\n"
             fi
             printf "\n  ${C_MSG_INFO}Press Enter to return.${C_RESET}"
@@ -3818,14 +3862,14 @@ PREVIEW_EOF
             clear
             printf "\n  ${C_WHITE}Packages installed this week:${C_RESET}\n\n"
             local week_ago
-            week_ago=$(date -d "7 days ago" +%Y-%m-%d 2>/dev/null || date -v-7d +%Y-%m-%d 2>/dev/null)
+            week_ago=$(_pkgs_date_ago 7)
             local dpkg_log="${PREFIX}/var/log/dpkg.log"
             if [[ -f "$dpkg_log" ]]; then
                 local found_new=0
                 while IFS= read -r line; do
                     local ndate npkg
                     ndate=$(echo "$line" | awk '{print $1}')
-                    npkg=$(echo "$line" | awk '{print $4}')
+                    npkg=$(echo "$line" | awk '{print $3}')
                     if [[ "$ndate" > "$week_ago" || "$ndate" == "$week_ago" ]]; then
                         printf "  ${C_GREEN}+ %s${C_RESET} ${C_DIM}(%s)${C_RESET}\n" "$npkg" "$ndate"
                         found_new=1
@@ -3872,7 +3916,8 @@ PREVIEW_EOF
             if [[ -n "$dol_list" ]]; then
                 printf "\n  ${C_WHITE}Shared dependencies of: %s${C_RESET}\n\n" "$dol_list"
                 local all_deps=""
-                for p in ${(f)dol_list}; do
+                for p in ${(w)dol_list}; do
+                    _pkgs_validate_name "$p" || continue
                     local pdeps
                     pdeps=$(apt-cache depends --no-recommends --no-suggests --no-conflicts --no-breaks --no-replaces --no-enhances "$p" 2>/dev/null | grep "Depends:" | sed 's/.*Depends: //' | tr -d '<>' | awk '{print $1}')
                     if [[ -z "$all_deps" ]]; then
@@ -3973,17 +4018,21 @@ PREVIEW_EOF
             if [[ -n "$si_file" && -f "$si_file" ]]; then
                 if [[ "${si_file##*.}" != "deb" ]]; then
                     printf "\n  ${C_MSG_WARN}File does not have .deb extension.${C_RESET}\n"
-                elif [[ "$si_file" != "$HOME"* && "$si_file" != "$PREFIX"* && "$si_file" != /tmp/* ]]; then
-                    printf "\n  ${C_MSG_WARN}File must be in $HOME, $PREFIX, or /tmp.${C_RESET}\n"
                 else
-                    printf "\n  ${C_MSG_INFO}Installing from: %s${C_RESET}\n\n" "$si_file"
-                    dpkg -i -- "$si_file" 2>&1 | sed 's/^/  /'
+                    local resolved_si
+                    resolved_si=$(_pkgs_resolve_path "$si_file") || resolved_si="$si_file"
+                    if [[ "$resolved_si" != "$HOME"* && "$resolved_si" != "$PREFIX"* && "$resolved_si" != "${TMPDIR:-${PREFIX}/tmp}"* ]]; then
+                        printf "\n  ${C_MSG_WARN}File must be in \$HOME, \$PREFIX, or \$TMPDIR.${C_RESET}\n"
+                    else
+                    printf "\n  ${C_MSG_INFO}Installing from: %s${C_RESET}\n\n" "$resolved_si"
+                    dpkg -i -- "$resolved_si" 2>&1 | sed 's/^/  /'
                     local si_status=${pipestatus[1]}
                     if (( si_status == 0 )); then
                         printf "\n  ${C_MSG_DONE}Installation successful.${C_RESET}\n"
                     else
                         printf "\n  ${C_MSG_REMOVE}Installation had errors. Running ${PKG_MGR} --fix-broken install...${C_RESET}\n"
                         "${PKG_MGR}" --fix-broken install -y 2>&1 | sed 's/^/  /'
+                    fi
                     fi
                 fi
             elif [[ -n "$si_file" ]]; then
@@ -4003,6 +4052,8 @@ PREVIEW_EOF
                 _pkgs_get_cached_list > /dev/null 2>&1
                 sr_pkg=$(fzf < "$_PKGS_CACHE_FILE" --prompt=" Simulate remove> " --height=50% --reverse | sed 's/\o033\[[0-9;]*m//g')
                 sr_pkg=$(echo "$sr_pkg" | awk -F'|' '{print $2}' | xargs)
+            else
+                _pkgs_validate_name "$sr_pkg" || { printf "  ${C_MSG_REMOVE}Invalid package name.${C_RESET}\n"; printf "\n  ${C_MSG_INFO}Press Enter to return.${C_RESET}\n"; read -r; continue; }
             fi
             if [[ -n "$sr_pkg" ]]; then
                 printf "\n  ${C_WHITE}Simulating removal of %s...${C_RESET}\n\n" "$sr_pkg"
@@ -4011,7 +4062,7 @@ PREVIEW_EOF
                 printf "  ${C_MSG_DONE}Would be removed:${C_RESET}\n"
                 echo "$sr_out" | grep "^  " | head -30 | sed 's/^/  /'
                 local sr_free
-                sr_free=$(echo "$sr_out" | grep -oP 'After this operation, \K[0-9.]+[KMGT]?B')
+                sr_free=$(echo "$sr_out" | sed -n 's/.*After this operation, \([0-9.]*[KMGT]*B\).*/\1/p')
                 if [[ -n "$sr_free" ]]; then
                     printf "\n  ${C_GREEN}Freed space: %s${C_RESET}\n" "$sr_free"
                 fi
@@ -4036,8 +4087,13 @@ PREVIEW_EOF
                     printf "\t%d\n", total
                 }
             ' | sort -t$'\t' -k2 -rn | while IFS=$'\t' read -r sec cnt total; do
+                local rs_cols
+                rs_cols=$(tput cols 2>/dev/null) || rs_cols=80
+                local rs_max_bar=$(( rs_cols - 34 ))
+                (( rs_max_bar < 5 )) && rs_max_bar=5
                 local bar=""
-                local bcount=$((cnt / 5))
+                local bcount=0
+                (( total > 0 )) && bcount=$(( cnt * rs_max_bar / total ))
                 (( bcount < 1 )) && bcount=1
                 for ((i=0; i<bcount; i++)); do bar="${bar}█"; done
                 printf "  ${C_TEAL}%-25s${C_RESET} ${C_GREEN}%-4s${C_RESET} %s\n" "$sec" "$cnt" "$bar"
@@ -4056,6 +4112,8 @@ PREVIEW_EOF
                 _pkgs_get_cached_list > /dev/null 2>&1
                 de_pkg=$(fzf < "$_PKGS_CACHE_FILE" --prompt=" Download est> " --height=50% --reverse | sed 's/\o033\[[0-9;]*m//g')
                 de_pkg=$(echo "$de_pkg" | awk -F'|' '{print $2}' | xargs)
+            else
+                _pkgs_validate_name "$de_pkg" || { printf "  ${C_MSG_REMOVE}Invalid package name.${C_RESET}\n"; printf "\n  ${C_MSG_INFO}Press Enter to return.${C_RESET}\n"; read -r; continue; }
             fi
             if [[ -n "$de_pkg" ]]; then
                 printf "\n  ${C_WHITE}Download estimate: %s${C_RESET}\n\n" "$de_pkg"
@@ -4103,6 +4161,8 @@ PREVIEW_EOF
                 _pkgs_get_cached_list > /dev/null 2>&1
                 df_pkg=$(fzf < "$_PKGS_CACHE_FILE" --prompt=" Changelog diff> " --height=50% --reverse | sed 's/\o033\[[0-9;]*m//g')
                 df_pkg=$(echo "$df_pkg" | awk -F'|' '{print $2}' | xargs)
+            else
+                _pkgs_validate_name "$df_pkg" || { printf "  ${C_MSG_REMOVE}Invalid package name.${C_RESET}\n"; printf "\n  ${C_MSG_INFO}Press Enter to return.${C_RESET}\n"; read -r; continue; }
             fi
             if [[ -n "$df_pkg" ]]; then
                 printf "\n  ${C_WHITE}Changelog diff: %s${C_RESET}\n\n" "$df_pkg"
@@ -4238,7 +4298,7 @@ PREVIEW_EOF
                         done
                     fi
                 } > "$export_file"
-                chmod +x "$export_file" 2>/dev/null
+                chmod 700 "$export_file" 2>/dev/null
                 if [[ -f "$export_file" ]]; then
                     printf "  ${C_MSG_DONE}Saved: ${C_RESET}%s\n" "$export_file"
                 else
@@ -4296,13 +4356,13 @@ PREVIEW_EOF
 
         if (( ${#to_remove[@]} > 0 )); then
             local auto_out
-            if auto_out=$("${PKG_MGR}" autoremove --dry-run 2>&1) && ! echo "$auto_out" | grep -qE "^0 upgraded, 0 newly installed, 0 to remove"; then
+            if auto_out=$(apt-get autoremove --dry-run 2>&1) && ! echo "$auto_out" | grep -qE "^0 upgraded, 0 newly installed, 0 to remove"; then
                 printf "\n  ${C_MSG_WARN}Remove orphaned dependencies? (y/N) ${C_RESET}"
                 read -q auto_confirm; read -r
                 printf "\n"
                 if [[ "$auto_confirm" == "y" ]]; then
                     printf "  ${C_MSG_INFO}Cleaning up...${C_RESET}\n"
-                    "${PKG_MGR}" autoremove -y 2>/dev/null
+                    apt-get autoremove -y 2>/dev/null
                     _pkgs_log_history "CLEAN" "autoremove"
                 fi
             fi
@@ -4378,7 +4438,7 @@ Interactive Commands (type in search box):
   /backup               Export full package list to file
   /restore <file>       Install packages from list file
   /undo                 Reverse last install/remove
-  /mirror               Switch apt mirror
+  /mirror               Switch apt mirror (termux-tools)
   /fav <pkg>            Toggle package favorite
   /fav-list             Show all favorites
   /fav-remove           Remove a favorite
