@@ -8,6 +8,43 @@
 
 ---
 
+## [1.4.0] - 2026-07-20
+
+### Added
+- `/profile` — Save/restore named package profiles (save, restore, list, delete)
+- `/check-deps` — Scan project directory for missing tools/packages
+- `/shell-hook` — Auto-generate zsh aliases from installed packages
+- `/storage-report` — Android-aware storage breakdown with quota estimates
+- `/health` — System health score (0-100) with prioritized fix list
+- `/auto-clean` — Set up scheduled cleanup via cronie
+- `/footprint <pkg>` — Total disk cost including all transitive dependencies
+- `/unused` — Find installed packages you never actually invoke
+- `/timeline` — Visual heatmap of install/upgrade activity
+- `/schedule` — Set up update reminders via termux-notification
+- `/search-providers <cmd>` — Find which packages provide a command
+- `/diff-snapshots` — Color-coded diff between two saved snapshots
+- `/audit` — Scan for SUID/SGID binaries and world-writable files
+- `/repo-check` — Flag packages from non-official/untrusted repos
+- `/popular` — Curated list of popular Termux packages
+- `/boot-time` — Benchmark Termux cold-start time with optimization tips
+- `/disk-pressure` — Storage pressure monitor with days-till-full estimate
+- `/pkg-impact <pkg>` — Pre-install impact analysis (deps, sizes, conflicts)
+
+### Changed
+- Refactored 18 copy-pasted fzf picker patterns into `_pkgs_fzf_pick_pkg` helper
+- Performance: `/outdated`, `/security`, `/manually-installed`, `/auto-installed`, `/upgradable` now use bulk apt-cache calls instead of per-package subprocess spawning
+- Improved `CONTRIBUTING.md` with coding style guide and testing instructions
+
+### Fixed
+- `install.sh`: SHA256 checksum verification is now mandatory (aborts if unavailable)
+- `pkgs -v` now correctly displays version number (variable was used before declaration)
+- `/snap-install`: Now validates both original path and symlink target to prevent symlink attacks
+- `_pkgs_validate_export_path`: Now blocks `.ssh`, `.gnupg`, `/proc`, `/sys`, `/dev` paths
+- `/search-history`: Uses `grep -Fi` for literal matching instead of regex
+
+### Security
+- Added CI/CD workflows: syntax check on PRs, auto-generate SHA256 checksum on push to main
+
 ## [1.3.0] - 2026-07-16
 
 ### Added
