@@ -122,18 +122,22 @@ if ! head -1 "${INSTALL_PATH}.tmp" | grep -q 'zsh'; then
   exit 1
 fi
 
-# Verify SHA256 checksum
+# Verify SHA256 checksum (mandatory — abort if unavailable)
 SHA_URL="https://raw.githubusercontent.com/${REPO}/${BRANCH}/pkgs_core.zsh.sha256"
 EXPECTED_SHA=$(curl -fsSL "$SHA_URL" 2>/dev/null | awk '{print $1}')
-if [[ -n "$EXPECTED_SHA" ]]; then
-  ACTUAL_SHA=$(sha256sum "${INSTALL_PATH}.tmp" 2>/dev/null | awk '{print $1}')
-  if [[ "$EXPECTED_SHA" != "$ACTUAL_SHA" ]]; then
-    echo "${RED}  ✗ Checksum mismatch — download may be corrupted or tampered.${RESET}"
-    echo "${YELLOW}  Expected: $EXPECTED_SHA${RESET}"
-    echo "${YELLOW}  Got:      $ACTUAL_SHA${RESET}"
-    rm -f "${INSTALL_PATH}.tmp"
-    exit 1
-  fi
+if [[ -z "$EXPECTED_SHA" ]]; then
+  echo "${RED}  ✗ Could not retrieve checksum file. Aborting for safety.${RESET}"
+  echo "${YELLOW}  URL: $SHA_URL${RESET}"
+  rm -f "${INSTALL_PATH}.tmp"
+  exit 1
+fi
+ACTUAL_SHA=$(sha256sum "${INSTALL_PATH}.tmp" 2>/dev/null | awk '{print $1}')
+if [[ "$EXPECTED_SHA" != "$ACTUAL_SHA" ]]; then
+  echo "${RED}  ✗ Checksum mismatch — download may be corrupted or tampered.${RESET}"
+  echo "${YELLOW}  Expected: $EXPECTED_SHA${RESET}"
+  echo "${YELLOW}  Got:      $ACTUAL_SHA${RESET}"
+  rm -f "${INSTALL_PATH}.tmp"
+  exit 1
 fi
 
 mv "${INSTALL_PATH}.tmp" "$INSTALL_PATH"

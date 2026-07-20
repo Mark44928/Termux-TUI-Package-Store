@@ -15,6 +15,9 @@ pkgs() {
         return 1
     fi
 
+    # Configuration
+    local _PKGS_VERSION="1.3.0"
+
     for arg in "$@"; do
         case "$arg" in
             -h|--help)
@@ -27,9 +30,6 @@ pkgs() {
                 ;;
         esac
     done
-
-    # Configuration
-    local _PKGS_VERSION="1.3.0"
     local PKG_MGR="pkg"
     local PORTRAIT_SPLIT="down:48%:wrap"
     local LANDSCAPE_SPLIT="right:40%:wrap"
@@ -103,7 +103,8 @@ pkgs() {
         prefix_dir=$(readlink -f "${PREFIX}" 2>/dev/null || echo "${PREFIX}")
         [[ -z "$prefix_dir" ]] && return 1
         [[ "$resolved" == "$prefix_dir/bin/pkgs" ]] && return 1
-        [[ "$resolved" == *"/.ssh/"* || "$resolved" == *"/.gnupg/"* || "$resolved" == "/etc/"* ]] && return 1
+        # Block sensitive directories (both as direct paths and as substrings in the path)
+        [[ "$resolved" == *"/.ssh"* || "$resolved" == *"/.gnupg"* || "$resolved" == "/etc/"* || "$resolved" == "/proc/"* || "$resolved" == "/sys/"* || "$resolved" == "/dev/"* ]] && return 1
         [[ "$resolved" != "$HOME"/* && "$resolved" != "$HOME" ]] && return 1
         return 0
     }
@@ -133,6 +134,70 @@ pkgs() {
         else
             echo "${kb} KiB"
         fi
+    }
+
+    # FZF package picker — extracts package name from cache selection
+    _pkgs_fzf_pick_pkg() {
+        local prompt="$1" height="${2:-50%}"
+        _pkgs_get_cached_list > /dev/null 2>&1
+        local raw
+        raw=$(fzf < "$_PKGS_CACHE_FILE" --prompt=" $prompt> " --height="$height" --reverse | sed 's/\o033\[[0-9;]*m//g')
+        [[ -z "$raw" ]] && return 1
+        echo "$raw" | awk -F'|' '{print $2}' | xargs
+    }
+
+    # Bulk apt-cache policy — returns "pkg installed_ver candidate_ver" for all given packages
+    # Accepts package names as arguments or reads from stdin (one per line)
+    _pkgs_bulk_apt_policy() {
+        local -a pkgs=()
+        if (( $# > 0 )); then
+            pkgs=("$@")
+        else
+            while IFS= read -r line; do
+                [[ -n "$line" ]] && pkgs+=("$line")
+            done
+        fi
+        (( ${#pkgs[@]} == 0 )) && return
+        # apt-cache policy accepts multiple packages in one call
+        apt-cache policy -- "${pkgs[@]}" 2>/dev/null | awk '
+            /^Package:/ { pkg = $2 }
+            /^\s+Installed:/ { installed = $NF }
+            /^\s+Candidate:/ { candidate = $NF }
+            /^$/ { if (pkg != "" && installed != "(none)" && installed != candidate) print pkg, installed, candidate; pkg=""; installed=""; candidate="" }
+            END { if (pkg != "" && installed != "(none)" && installed != candidate) print pkg, installed, candidate }
+        '
+    }
+
+    # Bulk dpkg-query size — returns "pkg size_kb" for all given packages
+    _pkgs_bulk_dpkg_size() {
+        local -a pkgs=("$@")
+        (( ${#pkgs[@]} == 0 )) && return
+        dpkg-query -W -f='${Package} ${Installed-Size}\n' -- "${pkgs[@]}" 2>/dev/null
+    }
+
+    # Profile storage
+    _PKGS_PROFILES_DIR="${XDG_DATA_HOME:-$HOME/.local/share}/pkgs/profiles"
+
+    _pkgs_profile_list() {
+        mkdir -p "$_PKGS_PROFILES_DIR" 2>/dev/null
+        ls -1 "$_PKGS_PROFILES_DIR"/*.pkgslist(N) 2>/dev/null | while read -r f; do
+            local name="${f:t}"
+            name="${name%.pkgslist}"
+            local count
+            count=$(wc -l < "$f" 2>/dev/null || echo 0)
+            local mtime
+            mtime=$(stat -c '%Y' "$f" 2>/dev/null || stat -f '%m' "$f" 2>/dev/null || echo 0)
+            printf "%s\t%d\t%s\n" "$name" "$count" "$mtime"
+        done
+    }
+
+    # Snapshot storage
+    _PKGS_SNAPSHOTS_DIR="${XDG_DATA_HOME:-$HOME/.local/share}/pkgs/snapshots"
+
+    # Get termux-api notification helper (soft dependency)
+    _pkgs_notify() {
+        local title="$1" msg="$2"
+        command -v termux-notification >/dev/null 2>&1 && termux-notification --title "$title" --content "$msg" 2>/dev/null
     }
 
     _pkgs_parse_pkg_arg() {
@@ -417,6 +482,25 @@ pkgs() {
         printf "    ${C_TEAL}/size-filter <min> <max>${C_RESET} Filter by installed size (KiB)\n"
         printf "    ${C_TEAL}/security${C_RESET}        Check for outdated packages\n"
         printf "    ${C_TEAL}/duplicate${C_RESET}       Find duplicate/virtual packages\n"
+        printf "\n  ${C_AMBER}New Features${C_RESET}\n"
+        printf "    ${C_TEAL}/profile${C_RESET}          Save/restore named package profiles\n"
+        printf "    ${C_TEAL}/check-deps${C_RESET}      Scan project for missing tools\n"
+        printf "    ${C_TEAL}/shell-hook${C_RESET}      Generate shell aliases from packages\n"
+        printf "    ${C_TEAL}/storage-report${C_RESET}  Android-aware storage breakdown\n"
+        printf "    ${C_TEAL}/health${C_RESET}          System health score (0-100)\n"
+        printf "    ${C_TEAL}/auto-clean${C_RESET}      Set up scheduled cleanup\n"
+        printf "    ${C_TEAL}/footprint <pkg>${C_RESET} Total size incl. all transitive deps\n"
+        printf "    ${C_TEAL}/unused${C_RESET}          Find packages you never invoke\n"
+        printf "    ${C_TEAL}/timeline${C_RESET}        Visual install/upgrade activity map\n"
+        printf "    ${C_TEAL}/schedule${C_RESET}        Set up update reminders\n"
+        printf "    ${C_TEAL}/search-providers${C_RESET} Find packages for a command\n"
+        printf "    ${C_TEAL}/diff-snapshots${C_RESET}  Diff two saved snapshots\n"
+        printf "    ${C_TEAL}/audit${C_RESET}           Scan for SUID/SGID + world-writable\n"
+        printf "    ${C_TEAL}/repo-check${C_RESET}      Flag packages from untrusted repos\n"
+        printf "    ${C_TEAL}/popular${C_RESET}         Curated popular packages list\n"
+        printf "    ${C_TEAL}/boot-time${C_RESET}       Benchmark Termux startup speed\n"
+        printf "    ${C_TEAL}/disk-pressure${C_RESET}   Storage pressure + days-till-full\n"
+        printf "    ${C_TEAL}/pkg-impact <pkg>${C_RESET} Pre-install impact analysis\n"
         printf "    ${C_TEAL}/help${C_RESET}              Show this help\n"
         printf "    ${C_TEAL}/theme${C_RESET}            Switch color scheme\n"
         printf "\n  ${C_AMBER}Keybindings${C_RESET}\n"
@@ -1593,21 +1677,19 @@ PREVIEW_EOF
             clear
             printf "\n${C_MSG_INFO}--- Outdated Packages (updates available) ---${C_RESET}\n\n"
             local outdated_count=0
-            while read -r pkg_line; do
-                [[ -z "$pkg_line" ]] && continue
-                local opkg="${pkg_line%% *}"
-                local orest="${pkg_line#* }"
-                local oinst_ver="${orest%% *}"
-                local ocand_ver="${orest#* }"
-                [[ "$oinst_ver" == "$ocand_ver" ]] && continue
+            # Bulk: get all installed packages, then batch apt-cache policy
+            local -a all_pkgs=()
+            while IFS= read -r line; do
+                [[ -n "$line" ]] && all_pkgs+=("$line")
+            done < <(dpkg-query -W -f='${Package}\t${Version}\n' 2>/dev/null)
+            # Single apt-cache policy call for all packages
+            local bulk_out
+            bulk_out=$(_pkgs_bulk_apt_policy "${all_pkgs[@]}" 2>/dev/null)
+            while read -r opkg oinst_ver ocand_ver; do
+                [[ -z "$opkg" ]] && continue
                 printf "  ${C_WHITE}%-28s${C_RESET} ${C_DIM}%-16s${C_RESET} ${C_GREEN}%s${C_RESET}\n" "$opkg" "$oinst_ver" "$ocand_ver"
                 ((outdated_count++))
-            done < <(
-                dpkg-query -W -f='${Package} ${Version}\n' 2>/dev/null | while read -r pname pver; do
-                    cver=$(apt-cache policy -- "$pname" 2>/dev/null | grep 'Candidate:' | head -1 | sed 's/^.*Candidate: //')
-                    [[ -n "$cver" && "$pver" != "$cver" ]] && printf "%s %s %s\n" "$pname" "$pver" "$cver"
-                done
-            )
+            done <<< "$bulk_out"
             if (( outdated_count == 0 )); then
                 printf "  ${C_MSG_DONE}All packages are up to date.${C_RESET}\n"
             else
@@ -2459,9 +2541,7 @@ PREVIEW_EOF
             [[ "$fav_pkg" == "/fav" ]] && fav_pkg=""
             if [[ -z "$fav_pkg" ]]; then
                 clear
-                _pkgs_get_cached_list > /dev/null 2>&1
-                fav_pkg=$(fzf < "$_PKGS_CACHE_FILE" --prompt=" Add favorite> " --height=50% --reverse | sed 's/\o033\[[0-9;]*m//g')
-                fav_pkg=$(echo "$fav_pkg" | awk -F'|' '{print $2}' | xargs)
+                fav_pkg=$(_pkgs_fzf_pick_pkg "Add favorite")
             else
                 _pkgs_validate_name "$fav_pkg" || { printf "  ${C_MSG_REMOVE}Invalid package name.${C_RESET}\n"; printf "\n  ${C_MSG_INFO}Press Enter to return.${C_RESET}\n"; read -r; continue; }
             fi
@@ -2544,9 +2624,7 @@ PREVIEW_EOF
             [[ "$why_pkg" == "/why" ]] && why_pkg=""
             clear
             if [[ -z "$why_pkg" ]]; then
-                _pkgs_get_cached_list > /dev/null 2>&1
-                why_pkg=$(fzf < "$_PKGS_CACHE_FILE" --prompt=" Why installed> " --height=50% --reverse | sed 's/\o033\[[0-9;]*m//g')
-                why_pkg=$(echo "$why_pkg" | awk -F'|' '{print $2}' | xargs)
+                why_pkg=$(_pkgs_fzf_pick_pkg "Why installed")
             else
                 _pkgs_validate_name "$why_pkg" || { printf "  ${C_MSG_REMOVE}Invalid package name.${C_RESET}\n"; printf "\n  ${C_MSG_INFO}Press Enter to return.${C_RESET}\n"; read -r; continue; }
             fi
@@ -2614,9 +2692,7 @@ PREVIEW_EOF
             [[ "$sug_pkg" == "/suggest" ]] && sug_pkg=""
             clear
             if [[ -z "$sug_pkg" ]]; then
-                _pkgs_get_cached_list > /dev/null 2>&1
-                sug_pkg=$(fzf < "$_PKGS_CACHE_FILE" --prompt=" Suggest for> " --height=50% --reverse | sed 's/\o033\[[0-9;]*m//g')
-                sug_pkg=$(echo "$sug_pkg" | awk -F'|' '{print $2}' | xargs)
+                sug_pkg=$(_pkgs_fzf_pick_pkg "Suggest for")
             else
                 _pkgs_validate_name "$sug_pkg" || { printf "  ${C_MSG_REMOVE}Invalid package name.${C_RESET}\n"; printf "\n  ${C_MSG_INFO}Press Enter to return.${C_RESET}\n"; read -r; continue; }
             fi
@@ -2989,9 +3065,7 @@ PREVIEW_EOF
             [[ "$ph_pkg" == "/pkg-history" ]] && ph_pkg=""
             clear
             if [[ -z "$ph_pkg" ]]; then
-                _pkgs_get_cached_list > /dev/null 2>&1
-                ph_pkg=$(fzf < "$_PKGS_CACHE_FILE" --prompt=" History for> " --height=50% --reverse | sed 's/\o033\[[0-9;]*m//g')
-                ph_pkg=$(echo "$ph_pkg" | awk -F'|' '{print $2}' | xargs)
+                ph_pkg=$(_pkgs_fzf_pick_pkg "History for")
             else
                 _pkgs_validate_name "$ph_pkg" || { printf "  ${C_MSG_REMOVE}Invalid package name.${C_RESET}\n"; printf "\n  ${C_MSG_INFO}Press Enter to return.${C_RESET}\n"; read -r; continue; }
             fi
@@ -3026,16 +3100,14 @@ PREVIEW_EOF
             if [[ -z "$dc_a" || -z "$dc_b" ]]; then
                 _pkgs_get_cached_list > /dev/null 2>&1
                 printf "\n  ${C_MSG_INFO}Select first package:${C_RESET}\n"
-                dc_a=$(fzf < "$_PKGS_CACHE_FILE" --prompt=" Package A> " --height=50% --reverse | sed 's/\o033\[[0-9;]*m//g')
-                dc_a=$(echo "$dc_a" | awk -F'|' '{print $2}' | xargs)
+                dc_a=$(_pkgs_fzf_pick_pkg "Package A")
                 if [[ -z "$dc_a" ]]; then
                     printf "\n  ${C_MSG_INFO}Press Enter to return.${C_RESET}"
                     read -r
                     continue
                 fi
                 printf "\n  ${C_MSG_INFO}Select second package:${C_RESET}\n"
-                dc_b=$(fzf < "$_PKGS_CACHE_FILE" --prompt=" Package B> " --height=50% --reverse | sed 's/\o033\[[0-9;]*m//g')
-                dc_b=$(echo "$dc_b" | awk -F'|' '{print $2}' | xargs)
+                dc_b=$(_pkgs_fzf_pick_pkg "Package B")
             else
                 _pkgs_validate_name "$dc_a" || { printf "  ${C_MSG_REMOVE}Invalid package name: %s${C_RESET}\n" "$dc_a"; printf "\n  ${C_MSG_INFO}Press Enter to return.${C_RESET}\n"; read -r; continue; }
                 _pkgs_validate_name "$dc_b" || { printf "  ${C_MSG_REMOVE}Invalid package name: %s${C_RESET}\n" "$dc_b"; printf "\n  ${C_MSG_INFO}Press Enter to return.${C_RESET}\n"; read -r; continue; }
@@ -3116,9 +3188,7 @@ PREVIEW_EOF
             [[ "$cw_pkg" == "/conflicts-with" ]] && cw_pkg=""
             clear
             if [[ -z "$cw_pkg" ]]; then
-                _pkgs_get_cached_list > /dev/null 2>&1
-                cw_pkg=$(fzf < "$_PKGS_CACHE_FILE" --prompt=" Conflicts for> " --height=50% --reverse | sed 's/\o033\[[0-9;]*m//g')
-                cw_pkg=$(echo "$cw_pkg" | awk -F'|' '{print $2}' | xargs)
+                cw_pkg=$(_pkgs_fzf_pick_pkg "Conflicts for")
             else
                 _pkgs_validate_name "$cw_pkg" || { printf "  ${C_MSG_REMOVE}Invalid package name.${C_RESET}\n"; printf "\n  ${C_MSG_INFO}Press Enter to return.${C_RESET}\n"; read -r; continue; }
             fi
@@ -3153,9 +3223,7 @@ PREVIEW_EOF
             [[ "$pv_pkg" == "/provides" ]] && pv_pkg=""
             clear
             if [[ -z "$pv_pkg" ]]; then
-                _pkgs_get_cached_list > /dev/null 2>&1
-                pv_pkg=$(fzf < "$_PKGS_CACHE_FILE" --prompt=" Provides for> " --height=50% --reverse | sed 's/\o033\[[0-9;]*m//g')
-                pv_pkg=$(echo "$pv_pkg" | awk -F'|' '{print $2}' | xargs)
+                pv_pkg=$(_pkgs_fzf_pick_pkg "Provides for")
             else
                 _pkgs_validate_name "$pv_pkg" || { printf "  ${C_MSG_REMOVE}Invalid package name.${C_RESET}\n"; printf "\n  ${C_MSG_INFO}Press Enter to return.${C_RESET}\n"; read -r; continue; }
             fi
@@ -3190,12 +3258,26 @@ PREVIEW_EOF
             printf "  ${C_MSG_DONE}%d packages installed manually${C_RESET}\n\n" "${#manual_pkgs[@]}"
             printf "  ${C_DIM}%-30s %-12s %s${C_RESET}\n" "PACKAGE" "SIZE" "SECTION"
             printf "  ${C_DIM}%-30s %-12s %s${C_RESET}\n" "------------------------------" "------------" "-------"
+            # Bulk: single dpkg-query for all sizes
+            local -A size_map=()
+            local bulk_sizes
+            bulk_sizes=$(_pkgs_bulk_dpkg_size "${manual_pkgs[@]}" 2>/dev/null)
+            while read -r spkg ssize; do
+                [[ -n "$spkg" ]] && size_map["$spkg"]="$ssize"
+            done <<< "$bulk_sizes"
+            # Bulk: single apt-cache show for all sections
+            local -A section_map=()
+            local bulk_sections
+            bulk_sections=$(apt-cache show -- "${manual_pkgs[@]}" 2>/dev/null | awk '
+                /^Package:/ { pkg = $2 }
+                /^Section:/ { if (pkg != "") section[pkg] = $2 }
+                END { for (p in section) print p, section[p] }
+            ')
+            while read -r spkg ssec; do
+                [[ -n "$spkg" ]] && section_map["$spkg"]="$ssec"
+            done <<< "$bulk_sections"
             for pkg in "${manual_pkgs[@]}"; do
-                local size
-                size=$(dpkg-query -W -f='${Installed-Size}' -- "$pkg" 2>/dev/null)
-                local section
-                section=$(apt-cache show "$pkg" 2>/dev/null | sed -n 's/^Section: //p' | head -1)
-                printf "  ${C_GREEN}%-30s${C_RESET} %-12s %s\n" "$pkg" "$(_pkgs_format_size "${size:-0}")" "${section:---}"
+                printf "  ${C_GREEN}%-30s${C_RESET} %-12s %s\n" "$pkg" "$(_pkgs_format_size "${size_map[$pkg]:-0}")" "${section_map[$pkg]:---}"
             done
             printf "\n  ${C_MSG_INFO}Press Enter to return.${C_RESET}"
             read -r
@@ -3214,15 +3296,31 @@ PREVIEW_EOF
             printf "  ${C_MSG_DONE}%d packages auto-installed${C_RESET}\n\n" "${#auto_pkgs[@]}"
             printf "  ${C_DIM}%-30s %-12s %s${C_RESET}\n" "PACKAGE" "SIZE" "PARENT"
             printf "  ${C_DIM}%-30s %-12s %s${C_RESET}\n" "------------------------------" "------------" "------"
+            # Bulk: single dpkg-query for all sizes
+            local -A auto_size_map=()
+            local bulk_sizes
+            bulk_sizes=$(_pkgs_bulk_dpkg_size "${auto_pkgs[@]}" 2>/dev/null)
+            while read -r spkg ssize; do
+                [[ -n "$spkg" ]] && auto_size_map["$spkg"]="$ssize"
+            done <<< "$bulk_sizes"
+            # Bulk: single apt-cache rdepends for all packages
+            local -A auto_parent_map=()
+            local bulk_rdeps
+            bulk_rdeps=$(apt-cache rdepends --installed -- "${auto_pkgs[@]}" 2>/dev/null | awk '
+                /^Package:/ { pkg = $2; next }
+                /^[^ ]/ { next }
+                { if (pkg != "" && parent == "") { parent = $1 } }
+                /^$/ { if (pkg != "") { print pkg, parent; pkg=""; parent="" } }
+                END { if (pkg != "") print pkg, parent }
+            ')
+            while read -r spkg sparent; do
+                [[ -n "$spkg" ]] && auto_parent_map["$spkg"]="$sparent"
+            done <<< "$bulk_rdeps"
             local shown=0
             for pkg in "${auto_pkgs[@]}"; do
                 ((shown++))
                 (( shown > 100 )) && { printf "\n  ${C_DIM}... and %d more${C_RESET}\n" "$((${#auto_pkgs[@]} - 100))"; break; }
-                local size
-                size=$(dpkg-query -W -f='${Installed-Size}' -- "$pkg" 2>/dev/null)
-                local parent
-                parent=$(apt-cache rdepends --installed "$pkg" 2>/dev/null | tail -n +2 | head -1)
-                printf "  %-30s %-12s ${C_DIM}%s${C_RESET}\n" "$pkg" "$(_pkgs_format_size "${size:-0}")" "${parent:---}"
+                printf "  %-30s %-12s ${C_DIM}%s${C_RESET}\n" "$pkg" "$(_pkgs_format_size "${auto_size_map[$pkg]:-0}")" "${auto_parent_map[$pkg]:---}"
             done
             printf "\n  ${C_MSG_INFO}Press Enter to return.${C_RESET}"
             read -r
@@ -3440,9 +3538,7 @@ PREVIEW_EOF
             [[ "$dt_pkg" == "/deptree" ]] && dt_pkg=""
             clear
             if [[ -z "$dt_pkg" ]]; then
-                _pkgs_get_cached_list > /dev/null 2>&1
-                dt_pkg=$(fzf < "$_PKGS_CACHE_FILE" --prompt=" Dep tree for> " --height=50% --reverse | sed 's/\o033\[[0-9;]*m//g')
-                dt_pkg=$(echo "$dt_pkg" | awk -F'|' '{print $2}' | xargs)
+                dt_pkg=$(_pkgs_fzf_pick_pkg "Dep tree for")
             else
                 _pkgs_validate_name "$dt_pkg" || { printf "  ${C_MSG_REMOVE}Invalid package name.${C_RESET}\n"; printf "\n  ${C_MSG_INFO}Press Enter to return.${C_RESET}\n"; read -r; continue; }
             fi
@@ -3481,9 +3577,7 @@ PREVIEW_EOF
             [[ "$rt_pkg" == "/reverse-tree" ]] && rt_pkg=""
             clear
             if [[ -z "$rt_pkg" ]]; then
-                _pkgs_get_cached_list > /dev/null 2>&1
-                rt_pkg=$(fzf < "$_PKGS_CACHE_FILE" --prompt=" Reverse tree for> " --height=50% --reverse | sed 's/\o033\[[0-9;]*m//g')
-                rt_pkg=$(echo "$rt_pkg" | awk -F'|' '{print $2}' | xargs)
+                rt_pkg=$(_pkgs_fzf_pick_pkg "Reverse tree for")
             else
                 _pkgs_validate_name "$rt_pkg" || { printf "  ${C_MSG_REMOVE}Invalid package name.${C_RESET}\n"; printf "\n  ${C_MSG_INFO}Press Enter to return.${C_RESET}\n"; read -r; continue; }
             fi
@@ -3544,9 +3638,7 @@ PREVIEW_EOF
             [[ "$dl_pkg" == "/download" ]] && dl_pkg=""
             clear
             if [[ -z "$dl_pkg" ]]; then
-                _pkgs_get_cached_list > /dev/null 2>&1
-                dl_pkg=$(fzf < "$_PKGS_CACHE_FILE" --prompt=" Download> " --height=50% --reverse | sed 's/\o033\[[0-9;]*m//g')
-                dl_pkg=$(echo "$dl_pkg" | awk -F'|' '{print $2}' | xargs)
+                dl_pkg=$(_pkgs_fzf_pick_pkg "Download")
             else
                 _pkgs_validate_name "$dl_pkg" || { printf "  ${C_MSG_REMOVE}Invalid package name.${C_RESET}\n"; printf "\n  ${C_MSG_INFO}Press Enter to return.${C_RESET}\n"; read -r; continue; }
             fi
@@ -3573,9 +3665,7 @@ PREVIEW_EOF
             [[ "$vr_pkg" == "/verify" ]] && vr_pkg=""
             clear
             if [[ -z "$vr_pkg" ]]; then
-                _pkgs_get_cached_list > /dev/null 2>&1
-                vr_pkg=$(fzf < "$_PKGS_CACHE_FILE" --prompt=" Verify> " --height=50% --reverse | sed 's/\o033\[[0-9;]*m//g')
-                vr_pkg=$(echo "$vr_pkg" | awk -F'|' '{print $2}' | xargs)
+                vr_pkg=$(_pkgs_fzf_pick_pkg "Verify")
             else
                 _pkgs_validate_name "$vr_pkg" || { printf "  ${C_MSG_REMOVE}Invalid package name.${C_RESET}\n"; printf "\n  ${C_MSG_INFO}Press Enter to return.${C_RESET}\n"; read -r; continue; }
             fi
@@ -3714,9 +3804,7 @@ PREVIEW_EOF
             [[ "$pr_pkg" == "/pkg-recommendations" ]] && pr_pkg=""
             clear
             if [[ -z "$pr_pkg" ]]; then
-                _pkgs_get_cached_list > /dev/null 2>&1
-                pr_pkg=$(fzf < "$_PKGS_CACHE_FILE" --prompt=" Who recommends> " --height=50% --reverse | sed 's/\o033\[[0-9;]*m//g')
-                pr_pkg=$(echo "$pr_pkg" | awk -F'|' '{print $2}' | xargs)
+                pr_pkg=$(_pkgs_fzf_pick_pkg "Who recommends")
             else
                 _pkgs_validate_name "$pr_pkg" || { printf "  ${C_MSG_REMOVE}Invalid package name.${C_RESET}\n"; printf "\n  ${C_MSG_INFO}Press Enter to return.${C_RESET}\n"; read -r; continue; }
             fi
@@ -3742,9 +3830,7 @@ PREVIEW_EOF
             [[ "$ps_pkg" == "/pkg-suggests" ]] && ps_pkg=""
             clear
             if [[ -z "$ps_pkg" ]]; then
-                _pkgs_get_cached_list > /dev/null 2>&1
-                ps_pkg=$(fzf < "$_PKGS_CACHE_FILE" --prompt=" Who suggests> " --height=50% --reverse | sed 's/\o033\[[0-9;]*m//g')
-                ps_pkg=$(echo "$ps_pkg" | awk -F'|' '{print $2}' | xargs)
+                ps_pkg=$(_pkgs_fzf_pick_pkg "Who suggests")
             else
                 _pkgs_validate_name "$ps_pkg" || { printf "  ${C_MSG_REMOVE}Invalid package name.${C_RESET}\n"; printf "\n  ${C_MSG_INFO}Press Enter to return.${C_RESET}\n"; read -r; continue; }
             fi
@@ -3770,9 +3856,7 @@ PREVIEW_EOF
             [[ "$pb_pkg" == "/pkg-breaks" ]] && pb_pkg=""
             clear
             if [[ -z "$pb_pkg" ]]; then
-                _pkgs_get_cached_list > /dev/null 2>&1
-                pb_pkg=$(fzf < "$_PKGS_CACHE_FILE" --prompt=" What breaks> " --height=50% --reverse | sed 's/\o033\[[0-9;]*m//g')
-                pb_pkg=$(echo "$pb_pkg" | awk -F'|' '{print $2}' | xargs)
+                pb_pkg=$(_pkgs_fzf_pick_pkg "What breaks")
             else
                 _pkgs_validate_name "$pb_pkg" || { printf "  ${C_MSG_REMOVE}Invalid package name.${C_RESET}\n"; printf "\n  ${C_MSG_INFO}Press Enter to return.${C_RESET}\n"; read -r; continue; }
             fi
@@ -3800,9 +3884,7 @@ PREVIEW_EOF
             [[ "$prr_pkg" == "/pkg-replaces" ]] && prr_pkg=""
             clear
             if [[ -z "$prr_pkg" ]]; then
-                _pkgs_get_cached_list > /dev/null 2>&1
-                prr_pkg=$(fzf < "$_PKGS_CACHE_FILE" --prompt=" What replaces> " --height=50% --reverse | sed 's/\o033\[[0-9;]*m//g')
-                prr_pkg=$(echo "$prr_pkg" | awk -F'|' '{print $2}' | xargs)
+                prr_pkg=$(_pkgs_fzf_pick_pkg "What replaces")
             else
                 _pkgs_validate_name "$prr_pkg" || { printf "  ${C_MSG_REMOVE}Invalid package name.${C_RESET}\n"; printf "\n  ${C_MSG_INFO}Press Enter to return.${C_RESET}\n"; read -r; continue; }
             fi
@@ -3966,16 +4048,29 @@ PREVIEW_EOF
             printf "\n  ${C_WHITE}Upgradable packages with version diff:${C_RESET}\n\n"
             printf "  ${C_DIM}%-30s %-16s %-16s %s${C_RESET}\n" "PACKAGE" "CURRENT" "AVAILABLE" "SIZE"
             printf "  ${C_DIM}%-30s %-16s %-16s %s${C_RESET}\n" "------------------------------" "----------------" "----------------" "------"
-            apt list --upgradable 2>/dev/null | tail -n +2 | while IFS= read -r line; do
+            # Get list of upgradable packages
+            local -a upg_pkgs=()
+            while IFS= read -r line; do
                 local upkg
                 upkg=$(echo "$line" | awk -F'/' '{print $1}')
-                local ucur uavail
-                ucur=$(apt-cache policy "$upkg" 2>/dev/null | grep "Installed:" | awk '{print $2}')
-                uavail=$(apt-cache policy "$upkg" 2>/dev/null | grep "Candidate:" | awk '{print $2}')
-                local usize
-                usize=$(apt-cache show "$upkg" 2>/dev/null | grep "^Size:" | awk '{print $2}')
-                local usize_h
-                if [[ -n "$usize" ]]; then
+                [[ -n "$upkg" ]] && upg_pkgs+=("$upkg")
+            done < <(apt list --upgradable 2>/dev/null | tail -n +2)
+            (( ${#upg_pkgs[@]} == 0 )) && { printf "  ${C_MSG_DONE}All packages are up to date.${C_RESET}\n"; printf "\n  ${C_MSG_INFO}Press Enter to return.${C_RESET}"; read -r; continue; }
+            # Bulk: single apt-cache policy call for all upgradable packages
+            local bulk_out
+            bulk_out=$(_pkgs_bulk_apt_policy "${upg_pkgs[@]}" 2>/dev/null)
+            # Bulk: single apt-cache show for all sizes
+            local -A upg_size_map=()
+            local bulk_sizes
+            bulk_sizes=$(apt-cache show -- "${upg_pkgs[@]}" 2>/dev/null | awk '/^Package:/ { pkg=$2 } /^Size:/ { if(pkg!="") { print pkg, $2; pkg="" } }')
+            while read -r spkg ssize; do
+                [[ -n "$spkg" ]] && upg_size_map["$spkg"]="$ssize"
+            done <<< "$bulk_sizes"
+            while read -r upkg ucur uavail; do
+                [[ -z "$upkg" ]] && continue
+                local usize="${upg_size_map[$upkg]:-}"
+                local usize_h="?"
+                if [[ -n "$usize" && "$usize" =~ ^[0-9]+$ ]]; then
                     if (( usize > 1048576 )); then
                         usize_h="$((usize/1048576))MB"
                     elif (( usize > 1024 )); then
@@ -3983,11 +4078,9 @@ PREVIEW_EOF
                     else
                         usize_h="${usize}B"
                     fi
-                else
-                    usize_h="?"
                 fi
                 printf "  %-30s ${C_DIM}%-16s${C_RESET} ${C_GREEN}%-16s${C_RESET} %s\n" "$upkg" "$ucur" "$uavail" "$usize_h"
-            done
+            done <<< "$bulk_out"
             printf "\n  ${C_MSG_INFO}Press Enter to return.${C_RESET}"
             read -r
             continue
@@ -4037,13 +4130,16 @@ PREVIEW_EOF
                 if [[ "${si_file##*.}" != "deb" ]]; then
                     printf "\n  ${C_MSG_WARN}File does not have .deb extension.${C_RESET}\n"
                 else
-                    local resolved_si
-                    resolved_si=$(_pkgs_resolve_path "$si_file") || resolved_si="$si_file"
-                    if [[ "$resolved_si" != "$HOME"/* && "$resolved_si" != "$HOME" && "$resolved_si" != "$PREFIX"/* && "$resolved_si" != "$PREFIX" && "$resolved_si" != "${TMPDIR:-${PREFIX}/tmp}"/* && "$resolved_si" != "${TMPDIR:-${PREFIX}/tmp}" ]]; then
+                    # Validate the original path (not just resolved) to prevent symlink attacks
+                    local real_si
+                    real_si=$(realpath "$si_file" 2>/dev/null || _pkgs_resolve_path "$si_file")
+                    if [[ "$si_file" != "$HOME"/* && "$si_file" != "$PREFIX"/* && "$si_file" != "${TMPDIR:-${PREFIX}/tmp}"/* ]]; then
                         printf "\n  ${C_MSG_WARN}File must be in \$HOME, \$PREFIX, or \$TMPDIR.${C_RESET}\n"
+                    elif [[ "$real_si" != "$HOME"/* && "$real_si" != "$PREFIX"/* && "$real_si" != "${TMPDIR:-${PREFIX}/tmp}"/* ]]; then
+                        printf "\n  ${C_MSG_WARN}Symlink target must be in \$HOME, \$PREFIX, or \$TMPDIR.${C_RESET}\n"
                     else
-                        printf "\n  ${C_MSG_INFO}Installing from: %s${C_RESET}\n\n" "$resolved_si"
-                        dpkg -i -- "$resolved_si" 2>&1 | sed 's/^/  /'
+                        printf "\n  ${C_MSG_INFO}Installing from: %s${C_RESET}\n\n" "$si_file"
+                        dpkg -i -- "$si_file" 2>&1 | sed 's/^/  /'
                         local si_status=${pipestatus[1]}
                         if (( si_status == 0 )); then
                             printf "\n  ${C_MSG_DONE}Installation successful.${C_RESET}\n"
@@ -4067,9 +4163,7 @@ PREVIEW_EOF
             [[ "$sr_pkg" == "/simulate-remove" ]] && sr_pkg=""
             clear
             if [[ -z "$sr_pkg" ]]; then
-                _pkgs_get_cached_list > /dev/null 2>&1
-                sr_pkg=$(fzf < "$_PKGS_CACHE_FILE" --prompt=" Simulate remove> " --height=50% --reverse | sed 's/\o033\[[0-9;]*m//g')
-                sr_pkg=$(echo "$sr_pkg" | awk -F'|' '{print $2}' | xargs)
+                sr_pkg=$(_pkgs_fzf_pick_pkg "Simulate remove")
             else
                 _pkgs_validate_name "$sr_pkg" || { printf "  ${C_MSG_REMOVE}Invalid package name.${C_RESET}\n"; printf "\n  ${C_MSG_INFO}Press Enter to return.${C_RESET}\n"; read -r; continue; }
             fi
@@ -4127,9 +4221,7 @@ PREVIEW_EOF
             [[ "$de_pkg" == "/download-est" ]] && de_pkg=""
             clear
             if [[ -z "$de_pkg" ]]; then
-                _pkgs_get_cached_list > /dev/null 2>&1
-                de_pkg=$(fzf < "$_PKGS_CACHE_FILE" --prompt=" Download est> " --height=50% --reverse | sed 's/\o033\[[0-9;]*m//g')
-                de_pkg=$(echo "$de_pkg" | awk -F'|' '{print $2}' | xargs)
+                de_pkg=$(_pkgs_fzf_pick_pkg "Download est")
             else
                 _pkgs_validate_name "$de_pkg" || { printf "  ${C_MSG_REMOVE}Invalid package name.${C_RESET}\n"; printf "\n  ${C_MSG_INFO}Press Enter to return.${C_RESET}\n"; read -r; continue; }
             fi
@@ -4176,9 +4268,7 @@ PREVIEW_EOF
             [[ "$df_pkg" == "/diff" ]] && df_pkg=""
             clear
             if [[ -z "$df_pkg" ]]; then
-                _pkgs_get_cached_list > /dev/null 2>&1
-                df_pkg=$(fzf < "$_PKGS_CACHE_FILE" --prompt=" Changelog diff> " --height=50% --reverse | sed 's/\o033\[[0-9;]*m//g')
-                df_pkg=$(echo "$df_pkg" | awk -F'|' '{print $2}' | xargs)
+                df_pkg=$(_pkgs_fzf_pick_pkg "Changelog diff")
             else
                 _pkgs_validate_name "$df_pkg" || { printf "  ${C_MSG_REMOVE}Invalid package name.${C_RESET}\n"; printf "\n  ${C_MSG_INFO}Press Enter to return.${C_RESET}\n"; read -r; continue; }
             fi
@@ -4202,6 +4292,864 @@ PREVIEW_EOF
             read -r
             continue
         fi
+
+        # === NEW FEATURES (18) ===
+
+        # --- /profile ---
+        if [[ "$query" == /profile* ]]; then
+            local prof_action="${query#/profile }"
+            [[ "$prof_action" == "/profile" ]] && prof_action=""
+            clear
+            mkdir -p "$_PKGS_PROFILES_DIR" 2>/dev/null
+            if [[ -z "$prof_action" || "$prof_action" == "list" ]]; then
+                printf "\n  ${C_WHITE}Saved Profiles:${C_RESET}\n\n"
+                local prof_count=0
+                for f in "$_PKGS_PROFILES_DIR"/*.pkgslist(N); do
+                    local pname="${f:t}"; pname="${pname%.pkgslist}"
+                    local pcount; pcount=$(wc -l < "$f" 2>/dev/null || echo 0)
+                    printf "  ${C_TEAL}%-20s${C_RESET} %s packages\n" "$pname" "$pcount"
+                    ((prof_count++))
+                done
+                (( prof_count == 0 )) && printf "  ${C_DIM}No profiles saved yet.${C_RESET}\n"
+                printf "\n  ${C_DIM}Usage: /profile save <name> | /profile restore <name> | /profile delete <name>${C_RESET}\n"
+            elif [[ "$prof_action" == save* ]]; then
+                local pname="${prof_action#save }"
+                [[ "$pname" == "save" ]] && pname=""
+                if [[ -z "$pname" ]]; then
+                    printf "  ${C_MSG_WARN}Usage: /profile save <name>${C_RESET}\n"
+                else
+                    dpkg-query -W -f='${Package}\n' 2>/dev/null | sort > "$_PKGS_PROFILES_DIR/${pname}.pkgslist"
+                    local pcount; pcount=$(wc -l < "$_PKGS_PROFILES_DIR/${pname}.pkgslist" | tr -d ' ')
+                    printf "  ${C_MSG_DONE}Profile '%s' saved:${C_RESET} %s packages\n" "$pname" "$pcount"
+                fi
+            elif [[ "$prof_action" == restore* ]]; then
+                local pname="${prof_action#restore }"
+                [[ "$pname" == "restore" ]] && pname=""
+                if [[ -z "$pname" ]]; then
+                    local prof_list
+                    prof_list=$(ls -1 "$_PKGS_PROFILES_DIR"/*.pkgslist(N) 2>/dev/null | while read -r f; do echo "${f:t:.pkgslist}"; done)
+                    pname=$(echo "$prof_list" | fzf --prompt=" Restore profile> " --height=40% --reverse)
+                fi
+                if [[ -n "$pname" && -f "$_PKGS_PROFILES_DIR/${pname}.pkgslist" ]]; then
+                    printf "\n  ${C_MSG_INFO}Restoring profile '%s'...${C_RESET}\n\n" "$pname"
+                    local not_found=0
+                    while IFS= read -r pkg; do
+                        [[ -z "$pkg" ]] && continue
+                        if dpkg -s -- "$pkg" >/dev/null 2>&1; then
+                            printf "  ${C_DIM}  %s (already installed)${C_RESET}\n" "$pkg"
+                        else
+                            printf "  ${C_MSG_INFO}  Installing %s...${C_RESET}" "$pkg"
+                            if "${PKG_MGR}" install -y -- "$pkg" 2>/dev/null; then
+                                printf "\r  ${C_MSG_DONE}  Installed %s${C_RESET}\n" "$pkg"
+                            else
+                                printf "\r  ${C_MSG_REMOVE}  Failed %s${C_RESET}\n" "$pkg"
+                                ((not_found++))
+                            fi
+                        fi
+                    done < "$_PKGS_PROFILES_DIR/${pname}.pkgslist"
+                    printf "\n  ${C_MSG_DONE}Profile '%s' restored.${C_RESET}\n" "$pname"
+                elif [[ -n "$pname" ]]; then
+                    printf "  ${C_MSG_REMOVE}Profile not found: %s${C_RESET}\n" "$pname"
+                fi
+            elif [[ "$prof_action" == delete* ]]; then
+                local pname="${prof_action#delete }"
+                [[ "$pname" == "delete" ]] && pname=""
+                if [[ -z "$pname" ]]; then
+                    printf "  ${C_MSG_WARN}Usage: /profile delete <name>${C_RESET}\n"
+                elif [[ -f "$_PKGS_PROFILES_DIR/${pname}.pkgslist" ]]; then
+                    rm -f "$_PKGS_PROFILES_DIR/${pname}.pkgslist"
+                    printf "  ${C_MSG_DONE}Profile '%s' deleted.${C_RESET}\n" "$pname"
+                else
+                    printf "  ${C_MSG_REMOVE}Profile not found: %s${C_RESET}\n" "$pname"
+                fi
+            fi
+            printf "\n  ${C_MSG_INFO}Press Enter to return.${C_RESET}"
+            read -r
+            clear
+            query=""
+            continue
+        fi
+
+        # --- /check-deps ---
+        if [[ "$query" == /check-deps* ]]; then
+            local cd_path="${query#/check-deps }"
+            [[ "$cd_path" == "/check-deps" ]] && cd_path=""
+            clear
+            if [[ -z "$cd_path" ]]; then
+                printf "  ${C_MSG_INFO}Enter project path (or . for current dir):${C_RESET} "
+                read -r cd_path
+                [[ -z "$cd_path" ]] && cd_path="."
+            fi
+            if [[ -d "$cd_path" ]]; then
+                printf "\n  ${C_WHITE}Checking dependencies for: %s${C_RESET}\n\n" "$(cd "$cd_path" && pwd)"
+                local -A needed=()
+                # Check common project files
+                [[ -f "$cd_path/requirements.txt" ]] && while IFS= read -r line; do
+                    [[ -z "$line" || "$line" == \#* ]] && continue
+                    local pkg="${line%%[>=<]*}"; pkg="${pkg%%\[*}"; pkg="${pkg// /}"
+                    [[ -n "$pkg" ]] && needed["python-$pkg"]=1
+                done < "$cd_path/requirements.txt"
+                [[ -f "$cd_path/package.json" ]] && needed[nodejs]=1 && needed[npm]=1
+                [[ -f "$cd_path/Makefile" ]] && needed[make]=1
+                [[ -f "$cd_path/Cargo.toml" ]] && needed[rust]=1
+                [[ -f "$cd_path/go.mod" ]] && needed[go]=1
+                [[ -f "$cd_path/CMakeLists.txt" ]] && needed[cmake]=1
+                # Check shebangs
+                while IFS= read -r -d '' f; do
+                    local shebang
+                    shebang=$(head -1 "$f" 2>/dev/null)
+                    case "$shebang" in
+                        *python3*) needed[python]=1 ;;
+                        *node*) needed[nodejs]=1 ;;
+                        *bash*) ;; # always available
+                        *zsh*) needed[zsh]=1 ;;
+                    esac
+                done < <(find "$cd_path" -maxdepth 3 -type f -executable 2>/dev/null -print0 | head -z -50)
+                local missing_count=0
+                for cmd in "${(k)needed}"; do
+                    if ! dpkg -s -- "$cmd" >/dev/null 2>&1; then
+                        printf "  ${C_MSG_REMOVE}✗ Missing:${C_RESET} %s\n" "$cmd"
+                        ((missing_count++))
+                    else
+                        printf "  ${C_MSG_DONE}✓ Installed:${C_RESET} %s\n" "$cmd"
+                    fi
+                done
+                (( missing_count > 0 )) && printf "\n  ${C_MSG_WARN}Install missing with:${C_RESET} pkg install ${(j: :)${(k)needed}}\n"
+                (( missing_count == 0 && ${#needed[@]} > 0 )) && printf "\n  ${C_MSG_DONE}All dependencies satisfied!${C_RESET}\n"
+                (( ${#needed[@]} == 0 )) && printf "  ${C_DIM}No dependency files found.${C_RESET}\n"
+            else
+                printf "  ${C_MSG_REMOVE}Not a directory: %s${C_RESET}\n" "$cd_path"
+            fi
+            printf "\n  ${C_MSG_INFO}Press Enter to return.${C_RESET}"
+            read -r
+            clear
+            query=""
+            continue
+        fi
+
+        # --- /shell-hook ---
+        if [[ "$query" == /shell-hook ]]; then
+            clear
+            printf "\n  ${C_WHITE}Generating shell hooks from installed packages...${C_RESET}\n\n"
+            local hook_file="${HOME}/.pkgs_aliases.zsh"
+            {
+                printf "# Auto-generated by pkgs — $(date)\n"
+                printf "# Source this in .zshrc: source ~/.pkgs_aliases.zsh\n\n"
+                dpkg-query -W -f='${Package}\n' 2>/dev/null | while IFS= read -r pkg; do
+                    case "$pkg" in
+                        git) printf "alias g='git'\nalias gs='git status'\nalias gp='git push'\nalias gl='git log --oneline -10'\nalias gd='git diff'\n" ;;
+                        python|python3) printf "alias py='python3'\nalias ipy='ipython'\n" ;;
+                        nodejs) printf "alias ni='npm install'\nalias nr='npm run'\nalias nrs='npm start'\n" ;;
+                        vim|neovim) printf "alias v='vim'\nalias vi='vim'\n" ;;
+                        nano) printf "alias n='nano'\n" ;;
+                        tmux) printf "alias t='tmux'\nalias ta='tmux attach'\nalias tl='tmux ls'\n" ;;
+                        fzf) printf "alias fz='fzf'\n" ;;
+                        ripgrep) printf "alias rg='rg --hidden'\n" ;;
+                        fd) printf "alias fdf='fd --hidden'\n" ;;
+                        bat) printf "alias cat='bat --paging=never'\n" ;;
+                        exa|eza) printf "alias ls='exa'\nalias ll='exa -la'\n" ;;
+                        lsd) printf "alias ls='lsd'\nalias ll='lsd -la'\n" ;;
+                        lazygit) printf "alias lg='lazygit'\n" ;;
+                        tig) printf "alias tg='tig'\n" ;;
+                    esac
+                done
+            } > "$hook_file"
+            printf "  ${C_MSG_DONE}Generated:${C_RESET} %s\n" "$hook_file"
+            printf "  ${C_DIM}Add to .zshrc: source ~/.pkgs_aliases.zsh${C_RESET}\n"
+            printf "\n  ${C_MSG_INFO}Press Enter to return.${C_RESET}"
+            read -r
+            clear
+            query=""
+            continue
+        fi
+
+        # --- /storage-report ---
+        if [[ "$query" == /storage-report ]]; then
+            clear
+            printf "\n  ${C_WHITE}Storage Report:${C_RESET}\n\n"
+            printf "  ${C_DIM}%-25s %s${C_RESET}\n" "LOCATION" "SIZE"
+            printf "  ${C_DIM}%-25s %s${C_RESET}\n" "-------------------------" "---------"
+            local total=0
+            for dir_pair in "\$HOME:$HOME" "\$PREFIX:$PREFIX" "Cache:\$HOME/.cache" "Shared:\$HOME/storage/shared"; do
+                local label="${dir_pair%%:*}"
+                local dpath="${dir_pair#*:}"
+                if [[ -d "$dpath" ]]; then
+                    local dsize
+                    dsize=$(du -sk "$dpath" 2>/dev/null | awk '{print $1}')
+                    printf "  %-25s %s\n" "$label" "$(_pkgs_format_size "${dsize:-0}")"
+                    total=$((total + ${dsize:-0}))
+                else
+                    printf "  %-25s ${C_DIM}N/A${C_RESET}\n" "$label"
+                fi
+            done
+            printf "  ${C_DIM}%-25s %s${C_RESET}\n" "-------------------------" "---------"
+            printf "  ${C_WHITE}%-25s %s${C_RESET}\n" "Total (Termux)" "$(_pkgs_format_size "$total")"
+            # Show Android storage
+            local avail_kb
+            avail_kb=$(df "$HOME" 2>/dev/null | awk 'NR==2{print $4}')
+            if [[ -n "$avail_kb" ]]; then
+                printf "\n  ${C_TEAL}System available:${C_RESET} %s\n" "$(_pkgs_format_size "$avail_kb")"
+                # Estimate Android per-app quota (heuristic: 1-8 GB)
+                local est_limit_kb=$((4 * 1024 * 1024))  # 4GB typical
+                local pct=$((total * 100 / est_limit_kb))
+                if (( pct > 80 )); then
+                    printf "  ${C_MSG_WARN}⚠ Approaching storage limit (~%d%% of estimated quota)${C_RESET}\n" "$pct"
+                fi
+            fi
+            printf "\n  ${C_MSG_INFO}Press Enter to return.${C_RESET}"
+            read -r
+            clear
+            query=""
+            continue
+        fi
+
+        # --- /health ---
+        if [[ "$query" == /health ]]; then
+            clear
+            printf "\n  ${C_WHITE}Termux Health Check${C_RESET}\n\n"
+            local health_score=100
+            local -a issues=()
+            # Check broken packages
+            local broken_count
+            broken_count=$(dpkg --audit 2>&1 | grep -c "^Broken" || echo 0)
+            if (( broken_count > 0 )); then
+                issues+=("$broken_count broken packages (-15)")
+                ((health_score -= 15))
+            fi
+            # Check disk pressure
+            local avail_kb
+            avail_kb=$(df "$HOME" 2>/dev/null | awk 'NR==2{print $4}')
+            if [[ -n "$avail_kb" ]] && (( avail_kb < 200000 )); then
+                issues+=("Low disk space: $(_pkgs_format_size "$avail_kb") remaining (-20)")
+                ((health_score -= 20))
+            fi
+            # Check held packages
+            local held_count
+            held_count=$(apt-mark showhold 2>/dev/null | wc -l | tr -d ' ')
+            if (( held_count > 0 )); then
+                issues+=("$held_count held packages (-5)")
+                ((health_score -= 5))
+            fi
+            # Check outdated
+            local outdated_count
+            outdated_count=$(_pkgs_bulk_apt_policy "$(dpkg-query -W -f='${Package}\n' 2>/dev/null)" 2>/dev/null | wc -l | tr -d ' ')
+            if (( outdated_count > 10 )); then
+                issues+=("$outdated_count outdated packages (-10)")
+                ((health_score -= 10))
+            fi
+            # Check orphans
+            local orphans_count
+            orphans_count=$(apt-mark showmanual 2>/dev/null | while IFS= read -r pkg; do
+                [[ -z "$pkg" ]] && continue
+                deps=$(apt-cache depends --no-recommends --no-suggests --no-conflicts --no-breaks --no-replaces --no-enhances -- "$pkg" 2>/dev/null | grep "Depends:" | awk '{print $2}')
+                if [[ -z "$deps" ]]; then echo "$pkg"; fi
+            done | wc -l | tr -d ' ')
+            if (( orphans_count > 5 )); then
+                issues+=("$orphans_count potential orphans (-5)")
+                ((health_score -= 5))
+            fi
+            # Check apt cache size
+            local cache_size
+            cache_size=$(du -sk "$PREFIX/var/cache/apt/archives" 2>/dev/null | awk '{print $1}')
+            if [[ -n "$cache_size" ]] && (( cache_size > 100000 )); then
+                issues+=("Large apt cache: $(_pkgs_format_size "$cache_size") (-5)")
+                ((health_score -= 5))
+            fi
+            # Clamp score
+            (( health_score < 0 )) && health_score=0
+            # Display
+            if (( health_score >= 80 )); then
+                printf "  ${C_MSG_DONE}Health Score: %d/100 ✓${C_RESET}\n\n" "$health_score"
+            elif (( health_score >= 50 )); then
+                printf "  ${C_MSG_WARN}Health Score: %d/100 ⚠${C_RESET}\n\n" "$health_score"
+            else
+                printf "  ${C_MSG_REMOVE}Health Score: %d/100 ✗${C_RESET}\n\n" "$health_score"
+            fi
+            if (( ${#issues[@]} > 0 )); then
+                printf "  ${C_WHITE}Issues found:${C_RESET}\n"
+                for issue in "${issues[@]}"; do
+                    printf "  ${C_MSG_WARN}  • %s${C_RESET}\n" "$issue"
+                done
+            else
+                printf "  ${C_MSG_DONE}No issues detected!${C_RESET}\n"
+            fi
+            printf "\n  ${C_MSG_INFO}Press Enter to return.${C_RESET}"
+            read -r
+            clear
+            query=""
+            continue
+        fi
+
+        # --- /auto-clean ---
+        if [[ "$query" == /auto-clean ]]; then
+            clear
+            printf "\n  ${C_WHITE}Auto-Clean Setup${C_RESET}\n\n"
+            local cronie_file="$HOME/.config/pkgs/autoclean.cron"
+            mkdir -p "$(dirname "$cronie_file")" 2>/dev/null
+            if [[ -f "$cronie_file" ]]; then
+                printf "  ${C_MSG_DONE}Current schedule:${C_RESET}\n"
+                cat "$cronie_file" | sed 's/^/  /'
+                printf "\n  ${C_TEAL}[d]${C_RESET} Disable  ${C_TEAL}[e]${C_RESET} Edit  ${C_TEAL}[r]${C_RESET} Remove\n"
+                printf "  ${C_MSG_INFO}Choice: ${C_RESET}"
+                local ac_choice; read -q ac_choice; read -r
+                case "$ac_choice" in
+                    d) rm -f "$cronie_file"; printf "\n  ${C_MSG_DONE}Auto-clean disabled.${C_RESET}\n" ;;
+                    r) rm -f "$cronie_file"; printf "\n  ${C_MSG_DONE}Auto-clean removed.${C_RESET}\n" ;;
+                    e) ${EDITOR:-vi} "$cronie_file" 2>/dev/null ;;
+                    *) ;;
+                esac
+            else
+                printf "  ${C_DIM}No auto-clean schedule configured.${C_RESET}\n\n"
+                printf "  ${C_TEAL}[1]${C_RESET} Daily cleanup (3:00 AM)\n"
+                printf "  ${C_TEAL}[2]${C_RESET} Weekly cleanup (Sundays 3:00 AM)\n"
+                printf "  ${C_MSG_INFO}Choice (1-2, or Enter to skip): ${C_RESET}"
+                local ac_choice; read -q ac_choice; read -r
+                case "$ac_choice" in
+                    1) echo "0 3 * * * pkg autoremove -y && apt-get clean" > "$cronie_file"
+                       printf "\n  ${C_MSG_DONE}Daily auto-clean enabled.${C_RESET}\n" ;;
+                    2) echo "0 3 * * 0 pkg autoremove -y && apt-get clean" > "$cronie_file"
+                       printf "\n  ${C_MSG_DONE}Weekly auto-clean enabled.${C_RESET}\n" ;;
+                    *) printf "\n  ${C_DIM}Cancelled.${C_RESET}\n" ;;
+                esac
+            fi
+            printf "\n  ${C_MSG_INFO}Press Enter to return.${C_RESET}"
+            read -r
+            clear
+            query=""
+            continue
+        fi
+
+        # --- /footprint ---
+        if [[ "$query" == /footprint* ]]; then
+            local fp_pkg="${query#/footprint }"
+            [[ "$fp_pkg" == "/footprint" ]] && fp_pkg=""
+            clear
+            if [[ -z "$fp_pkg" ]]; then
+                fp_pkg=$(_pkgs_fzf_pick_pkg "Footprint")
+            else
+                _pkgs_validate_name "$fp_pkg" || { printf "  ${C_MSG_REMOVE}Invalid package name.${C_RESET}\n"; printf "\n  ${C_MSG_INFO}Press Enter to return.${C_RESET}\n"; read -r; continue; }
+            fi
+            if [[ -n "$fp_pkg" ]]; then
+                printf "\n  ${C_WHITE}Footprint analysis: %s${C_RESET}\n\n" "$fp_pkg"
+                # Get direct dependencies recursively
+                local -A all_deps=()
+                local -a queue=("$fp_pkg")
+                while (( ${#queue[@]} > 0 )); do
+                    local cur="${queue[1]}"
+                    queue=("${queue[@]:1}")
+                    [[ -n "${all_deps[$cur]}" ]] && continue
+                    all_deps["$cur"]=1
+                    local deps
+                    deps=$(apt-cache depends --no-recommends --no-suggests --no-conflicts --no-breaks --no-replaces --no-enhances -- "$cur" 2>/dev/null | grep "Depends:" | awk '{print $2}')
+                    while IFS= read -r dep; do
+                        [[ -n "$dep" && -z "${all_deps[$dep]}" ]] && queue+=("$dep")
+                    done <<< "$deps"
+                done
+                # Get sizes
+                local total_new=0 total_installed=0
+                local -a new_pkgs=()
+                for dep in "${(k)all_deps}"; do
+                    local size
+                    size=$(dpkg-query -W -f='${Installed-Size}' -- "$dep" 2>/dev/null)
+                    size="${size:-0}"
+                    if dpkg -s -- "$dep" >/dev/null 2>&1; then
+                        total_installed=$((total_installed + size))
+                    else
+                        total_new=$((total_new + size))
+                        new_pkgs+=("$dep")
+                    fi
+                done
+                printf "  ${C_DIM}%-30s %s${C_RESET}\n" "Package" "Size"
+                printf "  ${C_DIM}%-30s %s${C_RESET}\n" "------------------------------" "---------"
+                printf "  ${C_WHITE}%-30s${C_RESET} %s\n" "$fp_pkg (itself)" "$(_pkgs_format_size "$(dpkg-query -W -f='${Installed-Size}' -- "$fp_pkg" 2>/dev/null || echo 0)")"
+                printf "  ${C_MSG_DONE}%-30s${C_RESET} %s\n" "Already installed deps" "$(_pkgs_format_size "$total_installed")"
+                if (( ${#new_pkgs[@]} > 0 )); then
+                    printf "  ${C_MSG_WARN}%-30s${C_RESET} %s\n" "NEW deps to download" "$(_pkgs_format_size "$total_new")"
+                    printf "\n  ${C_DIM}New packages:${C_RESET}\n"
+                    for np in "${new_pkgs[@]}"; do
+                        local nsize; nsize=$(dpkg-query -W -f='${Installed-Size}' -- "$np" 2>/dev/null || echo 0)
+                        printf "    ${C_AMBER}+ %-28s${C_RESET} %s\n" "$np" "$(_pkgs_format_size "$nsize")"
+                    done
+                fi
+                printf "\n  ${C_WHITE}Total new disk cost: %s${C_RESET}\n" "$(_pkgs_format_size "$total_new")"
+            fi
+            printf "\n  ${C_MSG_INFO}Press Enter to return.${C_RESET}"
+            read -r
+            clear
+            query=""
+            continue
+        fi
+
+        # --- /unused ---
+        if [[ "$query" == /unused ]]; then
+            clear
+            printf "\n  ${C_WHITE}Checking for unused packages...${C_RESET}\n\n"
+            # Get commands from history
+            local -A used_cmds=()
+            local hist_file="${HISTFILE:-$HOME/.zsh_history}"
+            if [[ -f "$hist_file" ]]; then
+                while IFS= read -r cmd; do
+                    [[ -z "$cmd" ]] && continue
+                    cmd="${cmd%% *}"  # first word only
+                    cmd="${cmd##*/}"  # strip path
+                    [[ -n "$cmd" ]] && used_cmds["$cmd"]=1
+                done < <(strings "$hist_file" 2>/dev/null | awk '{print $1}' | sort -u)
+            fi
+            # Check manually installed packages
+            local unused_count=0
+            while IFS= read -r pkg; do
+                [[ -z "$pkg" ]] && continue
+                # Get primary binary from package
+                local binaries
+                binaries=$(dpkg -L -- "$pkg" 2>/dev/null | grep '/bin/' | while read -r f; do echo "${f##*/}"; done)
+                local is_used=0
+                while IFS= read -r bin; do
+                    [[ -n "${used_cmds[$bin]}" ]] && { is_used=1; break; }
+                done <<< "$binaries"
+                if (( is_used == 0 && -n "$binaries" )); then
+                    local bcount; bcount=$(echo "$binaries" | wc -l | tr -d ' ')
+                    printf "  ${C_MSG_WARN}%-30s${C_RESET} ${C_DIM}(%s binaries, none in history)${C_RESET}\n" "$pkg" "$bcount"
+                    ((unused_count++))
+                fi
+            done < <(apt-mark showmanual 2>/dev/null)
+            if (( unused_count == 0 )); then
+                printf "  ${C_MSG_DONE}All manually installed packages appear to be in use.${C_RESET}\n"
+            else
+                printf "\n  ${C_DIM}%d potentially unused packages found${C_RESET}\n" "$unused_count"
+                printf "  ${C_DIM}Review with: /why <pkg> to check before removing${C_RESET}\n"
+            fi
+            printf "\n  ${C_MSG_INFO}Press Enter to return.${C_RESET}"
+            read -r
+            clear
+            query=""
+            continue
+        fi
+
+        # --- /timeline ---
+        if [[ "$query" == /timeline ]]; then
+            clear
+            printf "\n  ${C_WHITE}Package Activity Timeline${C_RESET}\n\n"
+            local hist_dir="${XDG_DATA_HOME:-$HOME/.local/share}/pkgs/history"
+            if [[ -d "$hist_dir" ]]; then
+                printf "  ${C_DIM}%-12s %s${C_RESET}\n" "DATE" "ACTIVITY"
+                printf "  ${C_DIM}%-12s %s${C_RESET}\n" "------------" "--------------------"
+                for f in $(ls -r "$hist_dir"/*.log(N) 2>/dev/null | head -30); do
+                    local fdate="${f:t}"; fdate="${fdate%.log}"
+                    local installs removes
+                    installs=$(grep -c "INSTALL" "$f" 2>/dev/null || echo 0)
+                    removes=$(grep -c "REMOVE" "$f" 2>/dev/null || echo 0)
+                    local bar=""
+                    local i
+                    for (( i=0; i<installs && i<20; i++ )); do bar="${bar}${C_GREEN}█${C_RESET}"; done
+                    for (( i=0; i<removes && i<20; i++ )); do bar="${bar}${C_RED}█${C_RESET}"; done
+                    [[ -z "$bar" ]] && bar="${C_DIM}·${C_RESET}"
+                    printf "  ${C_TEAL}%-12s${C_RESET} %s ${C_DIM}(+%s/-%s)${C_RESET}\n" "$fdate" "$bar" "$installs" "$removes"
+                done
+            else
+                printf "  ${C_DIM}No history data yet.${C_RESET}\n"
+            fi
+            printf "\n  ${C_MSG_INFO}Press Enter to return.${C_RESET}"
+            read -r
+            clear
+            query=""
+            continue
+        fi
+
+        # --- /schedule ---
+        if [[ "$query" == /schedule ]]; then
+            clear
+            printf "\n  ${C_WHITE}Update Reminder Setup${C_RESET}\n\n"
+            if ! command -v termux-notification >/dev/null 2>&1; then
+                printf "  ${C_MSG_WARN}termux-api package required for notifications.${C_RESET}\n"
+                printf "  ${C_DIM}Install with: pkg install termux-api${C_RESET}\n"
+            else
+                local sched_file="$HOME/.config/pkgs/schedule.conf"
+                mkdir -p "$(dirname "$sched_file")" 2>/dev/null
+                if [[ -f "$sched_file" ]]; then
+                    printf "  ${C_MSG_DONE}Current schedule:${C_RESET}\n"
+                    cat "$sched_file" | sed 's/^/  /'
+                    printf "\n  ${C_TEAL}[d]${C_RESET} Disable  ${C_TEAL}[e]${C_RESET} Edit\n"
+                    printf "  ${C_MSG_INFO}Choice: ${C_RESET}"
+                    local sch_choice; read -q sch_choice; read -r
+                    case "$sch_choice" in
+                        d) rm -f "$sched_file"; printf "\n  ${C_MSG_DONE}Reminders disabled.${C_RESET}\n" ;;
+                        e) ${EDITOR:-vi} "$sched_file" 2>/dev/null ;;
+                    esac
+                else
+                    printf "  ${C_TEAL}[1]${C_RESET} Daily reminder (9:00 AM)\n"
+                    printf "  ${C_TEAL}[2]${C_RESET} Weekly reminder (Mondays 9:00 AM)\n"
+                    printf "  ${C_MSG_INFO}Choice (1-2, or Enter to skip): ${C_RESET}"
+                    local sch_choice; read -q sch_choice; read -r
+                    case "$sch_choice" in
+                        1) echo "frequency=daily\ntime=09:00" > "$sched_file"
+                           printf "\n  ${C_MSG_DONE}Daily reminders enabled.${C_RESET}\n" ;;
+                        2) echo "frequency=weekly\ntime=09:00" > "$sched_file"
+                           printf "\n  ${C_MSG_DONE}Weekly reminders enabled.${C_RESET}\n" ;;
+                        *) printf "\n  ${C_DIM}Cancelled.${C_RESET}\n" ;;
+                    esac
+                fi
+            fi
+            printf "\n  ${C_MSG_INFO}Press Enter to return.${C_RESET}"
+            read -r
+            clear
+            query=""
+            continue
+        fi
+
+        # --- /search-providers ---
+        if [[ "$query" == /search-providers* ]]; then
+            local sp_query="${query#/search-providers }"
+            [[ "$sp_query" == "/search-providers" ]] && sp_query=""
+            clear
+            if [[ -z "$sp_query" ]]; then
+                printf "  ${C_MSG_INFO}Enter command/binary name:${C_RESET} "
+                read -r sp_query
+            fi
+            if [[ -n "$sp_query" ]]; then
+                printf "\n  ${C_WHITE}Packages providing '%s':${C_RESET}\n\n" "$sp_query"
+                local sp_results
+                sp_results=$(apt-cache search -- "$sp_query" 2>/dev/null | head -20)
+                if [[ -n "$sp_results" ]]; then
+                    printf "  ${C_DIM}%-30s %-12s %s${C_RESET}\n" "PACKAGE" "SIZE" "DESCRIPTION"
+                    printf "  ${C_DIM}%-30s %-12s %s${C_RESET}\n" "------------------------------" "------------" "--------------------"
+                    echo "$sp_results" | while IFS= read -r line; do
+                        local spkg sdesc
+                        spkg=$(echo "$line" | awk '{print $1}')
+                        sdesc=$(echo "$line" | cut -d' ' -f2-)
+                        local ssize
+                        ssize=$(apt-cache show -- "$spkg" 2>/dev/null | grep "^Installed-Size:" | head -1 | awk '{print $2}')
+                        printf "  ${C_TEAL}%-30s${C_RESET} %-12s ${C_DIM}%s${C_RESET}\n" "$spkg" "$(_pkgs_format_size "${ssize:-0}")" "${sdesc:0:40}"
+                    done
+                else
+                    printf "  ${C_DIM}No packages found.${C_RESET}\n"
+                fi
+            fi
+            printf "\n  ${C_MSG_INFO}Press Enter to return.${C_RESET}"
+            read -r
+            clear
+            query=""
+            continue
+        fi
+
+        # --- /diff-snapshots ---
+        if [[ "$query" == /diff-snapshots ]]; then
+            clear
+            local snap_dir="${XDG_DATA_HOME:-$HOME/.local/share}/pkgs/snapshots"
+            local -a snaps=()
+            for f in "$snap_dir"/*.txt(N); do
+                snaps+=("$f")
+            done
+            if (( ${#snaps[@]} < 2 )); then
+                printf "  ${C_MSG_WARN}Need at least 2 snapshots. Use /snapshot to create them.${C_RESET}\n"
+            else
+                printf "\n  ${C_WHITE}Select first snapshot:${C_RESET}\n"
+                local snap1
+                snap1=$(printf '%s\n' "${snaps[@]##*/}" | fzf --prompt=" Snapshot A> " --height=40% --reverse)
+                printf "\n  ${C_WHITE}Select second snapshot:${C_RESET}\n"
+                local snap2
+                snap2=$(printf '%s\n' "${snaps[@]##*/}" | fzf --prompt=" Snapshot B> " --height=40% --reverse)
+                if [[ -n "$snap1" && -n "$snap2" && "$snap1" != "$snap2" ]]; then
+                    local f1="$snap_dir/$snap1" f2="$snap_dir/$snap2"
+                    printf "\n  ${C_WHITE}Diff: %s → %s${C_RESET}\n\n" "$snap1" "$snap2"
+                    # Extract package names
+                    local -a pkgs1=() pkgs2=()
+                    while IFS=$'\t' read -r p v; do [[ -n "$p" ]] && pkgs1+=("$p"); done < "$f1"
+                    while IFS=$'\t' read -r p v; do [[ -n "$p" ]] && pkgs2+=("$p"); done < "$f2"
+                    # Find added, removed, changed
+                    local added=0 removed=0 changed=0
+                    # Packages in snap2 but not snap1 (added)
+                    for p in "${pkgs2[@]}"; do
+                        if ! printf '%s\n' "${pkgs1[@]}" | grep -qx "$p"; then
+                            printf "  ${C_GREEN}+ %-30s${C_RESET}\n" "$p"
+                            ((added++))
+                        fi
+                    done
+                    # Packages in snap1 but not snap2 (removed)
+                    for p in "${pkgs1[@]}"; do
+                        if ! printf '%s\n' "${pkgs2[@]}" | grep -qx "$p"; then
+                            printf "  ${C_RED}- %-30s${C_RESET}\n" "$p"
+                            ((removed++))
+                        fi
+                    done
+                    printf "\n  ${C_DIM}Summary: +%d added, -%d removed${C_RESET}\n" "$added" "$removed"
+                fi
+            fi
+            printf "\n  ${C_MSG_INFO}Press Enter to return.${C_RESET}"
+            read -r
+            clear
+            query=""
+            continue
+        fi
+
+        # --- /audit ---
+        if [[ "$query" == /audit ]]; then
+            clear
+            printf "\n  ${C_WHITE}Security Audit:${C_RESET}\n\n"
+            local audit_count=0
+            # SUID/SGID files
+            printf "  ${C_TEAL}SUID/SGID files in \$PREFIX:${C_RESET}\n"
+            while IFS= read -r f; do
+                [[ -z "$f" ]] && continue
+                local owner
+                owner=$(dpkg -S -- "$f" 2>/dev/null | head -1 | awk -F: '{print $1}')
+                printf "  ${C_MSG_WARN}  ⚠ %s${C_RESET} ${C_DIM}(owned by: %s)${C_RESET}\n" "$f" "${owner:-unknown}"
+                ((audit_count++))
+            done < <(find "$PREFIX/bin" "$PREFIX/lib" -maxdepth 3 \( -perm -4000 -o -perm -2000 \) -type f 2>/dev/null)
+            # World-writable files
+            printf "\n  ${C_TEAL}World-writable files in \$PREFIX:${C_RESET}\n"
+            local ww_count=0
+            while IFS= read -r f; do
+                [[ -z "$f" ]] && continue
+                printf "  ${C_MSG_WARN}  ⚠ %s${C_RESET}\n" "$f"
+                ((ww_count++))
+                ((audit_count++))
+            done < <(find "$PREFIX" -maxdepth 4 -perm -0002 -type f 2>/dev/null | head -20)
+            (( ww_count == 0 )) && printf "  ${C_MSG_DONE}  None found${C_RESET}\n"
+            if (( audit_count == 0 )); then
+                printf "\n  ${C_MSG_DONE}No security issues found.${C_RESET}\n"
+            else
+                printf "\n  ${C_DIM}%d potential issues found${C_RESET}\n" "$audit_count"
+            fi
+            printf "\n  ${C_MSG_INFO}Press Enter to return.${C_RESET}"
+            read -r
+            clear
+            query=""
+            continue
+        fi
+
+        # --- /repo-check ---
+        if [[ "$query" == /repo-check ]]; then
+            clear
+            printf "\n  ${C_WHITE}Repository Trust Check:${C_RESET}\n\n"
+            # Build list of trusted origins from sources.list
+            local -A trusted_origins=()
+            local sources_file="$PREFIX/etc/apt/sources.list"
+            [[ -f "$sources_file" ]] && while IFS= read -r line; do
+                [[ "$line" == \#* || -z "$line" ]] && continue
+                local origin
+                origin=$(echo "$line" | awk '{print $1}')
+                [[ -n "$origin" ]] && trusted_origins["$origin"]=1
+            done < "$sources_file"
+            # Also check sources.list.d
+            for sf in "$PREFIX/etc/apt/sources.list.d/"*.list(N); do
+                while IFS= read -r line; do
+                    [[ "$line" == \#* || -z "$line" ]] && continue
+                    local origin
+                    origin=$(echo "$line" | awk '{print $1}')
+                    [[ -n "$origin" ]] && trusted_origins["$origin"]=1
+                done < "$sf"
+            done
+            local unknown_count=0
+            printf "  ${C_DIM}%-30s %s${C_RESET}\n" "PACKAGE" "ORIGIN"
+            printf "  ${C_DIM}%-30s %s${C_RESET}\n" "------------------------------" "--------------------"
+            while IFS= read -r pkg; do
+                [[ -z "$pkg" ]] && continue
+                local origin
+                origin=$(apt-cache show -- "$pkg" 2>/dev/null | grep "^Origin:" | head -1 | awk '{print $2}')
+                if [[ -n "$origin" && -z "${trusted_origins[$origin]}" ]]; then
+                    printf "  ${C_MSG_WARN}%-30s${C_RESET} %s\n" "$pkg" "$origin"
+                    ((unknown_count++))
+                fi
+            done < <(dpkg-query -W -f='${Package}\n' 2>/dev/null | head -200)
+            if (( unknown_count == 0 )); then
+                printf "  ${C_MSG_DONE}All checked packages from trusted origins.${C_RESET}\n"
+            else
+                printf "\n  ${C_MSG_WARN}%d packages from untrusted origins${C_RESET}\n" "$unknown_count"
+            fi
+            printf "\n  ${C_MSG_INFO}Press Enter to return.${C_RESET}"
+            read -r
+            clear
+            query=""
+            continue
+        fi
+
+        # --- /popular ---
+        if [[ "$query" == /popular ]]; then
+            clear
+            printf "\n  ${C_WHITE}Popular Termux Packages${C_RESET}\n\n"
+            printf "  ${C_DIM}%-30s %-12s %s${C_RESET}\n" "PACKAGE" "SIZE" "DESCRIPTION"
+            printf "  ${C_DIM}%-30s %-12s %s${C_RESET}\n" "------------------------------" "------------" "--------------------"
+            local -a popular_pkgs=(git vim tmux python nodejs nano jq curl wget htop tree ripgrep fd bat fzf lazygit tig neovim go rust openssh nmap ranger nnn lf micro)
+            for pkg in "${popular_pkgs[@]}"; do
+                if apt-cache show -- "$pkg" >/dev/null 2>&1; then
+                    local desc ssize
+                    desc=$(apt-cache show -- "$pkg" 2>/dev/null | grep "^Description:" | head -1 | sed 's/^Description: //' | cut -c1-35)
+                    ssize=$(apt-cache show -- "$pkg" 2>/dev/null | grep "^Installed-Size:" | head -1 | awk '{print $2}')
+                    local installed_tag=""
+                    dpkg -s -- "$pkg" >/dev/null 2>&1 && installed_tag=" ${C_MSG_DONE}[installed]${C_RESET}"
+                    printf "  ${C_TEAL}%-30s${C_RESET} %-12s ${C_DIM}%s${C_RESET}%s\n" "$pkg" "$(_pkgs_format_size "${ssize:-0}")" "${desc:-...}" "$installed_tag"
+                fi
+            done
+            printf "\n  ${C_MSG_INFO}Press Enter to return.${C_RESET}"
+            read -r
+            clear
+            query=""
+            continue
+        fi
+
+        # --- /boot-time ---
+        if [[ "$query" == /boot-time ]]; then
+            clear
+            printf "\n  ${C_WHITE}Termux Startup Benchmark${C_RESET}\n\n"
+            printf "  ${C_DIM}Measuring cold-start time (3 runs)...${C_RESET}\n\n"
+            local -a times=()
+            local i
+            for (( i=1; i<=3; i++ )); do
+                local elapsed
+                elapsed=$( { time zsh -i -c exit; } 2>&1 | grep real | sed 's/.*0m//;s/s$//' )
+                local ms
+                ms=$(echo "$elapsed" | awk -F'.' '{printf "%d", $1*1000 + $2*100}')
+                times+=("$ms")
+                printf "  ${C_DIM}  Run %d: %dms${C_RESET}\n" "$i" "$ms"
+            done
+            # Average
+            local sum=0
+            for t in "${times[@]}"; do sum=$((sum + t)); done
+            local avg=$((sum / ${#times[@]}))
+            printf "\n  ${C_WHITE}Average startup: %dms${C_RESET}\n" "$avg"
+            # Recommendations
+            printf "\n  ${C_TEAL}Optimization tips:${C_RESET}\n"
+            local zshrc_size
+            zshrc_size=$(wc -c < "$HOME/.zshrc" 2>/dev/null || echo 0)
+            if (( zshrc_size > 5000 )); then
+                printf "  ${C_MSG_WARN}  • .zshrc is %d bytes — consider lazy-loading plugins${C_RESET}\n" "$zshrc_size"
+            fi
+            local pkg_count
+            pkg_count=$(dpkg-query -W -f='${Package}\n' 2>/dev/null | wc -l | tr -d ' ')
+            if (( pkg_count > 500 )); then
+                printf "  ${C_MSG_WARN}  • %d packages installed — PATH scanning may be slow${C_RESET}\n" "$pkg_count"
+            fi
+            printf "  ${C_DIM}  • Use 'compinit -C' to skip security checks${C_RESET}\n"
+            printf "  ${C_DIM}  • Use 'autoload -Uz compinit && compinit' instead of eager compinit${C_RESET}\n"
+            printf "\n  ${C_MSG_INFO}Press Enter to return.${C_RESET}"
+            read -r
+            clear
+            query=""
+            continue
+        fi
+
+        # --- /disk-pressure ---
+        if [[ "$query" == /disk-pressure ]]; then
+            clear
+            printf "\n  ${C_WHITE}Disk Pressure Monitor${C_RESET}\n\n"
+            local avail_kb
+            avail_kb=$(df "$HOME" 2>/dev/null | awk 'NR==2{print $4}')
+            local used_kb
+            used_kb=$(df "$HOME" 2>/dev/null | awk 'NR==2{print $3}')
+            if [[ -n "$avail_kb" && -n "$used_kb" ]]; then
+                local total_kb=$((used_kb + avail_kb))
+                local pct=$((used_kb * 100 / total_kb))
+                printf "  ${C_DIM}%-20s %s${C_RESET}\n" "Used:" "$(_pkgs_format_size "$used_kb")"
+                printf "  ${C_DIM}%-20s %s${C_RESET}\n" "Available:" "$(_pkgs_format_size "$avail_kb")"
+                printf "  ${C_DIM}%-20s %d%%${C_RESET}\n" "Usage:" "$pct"
+                # Simple bar
+                local bar_len=40
+                local filled=$((pct * bar_len / 100))
+                local empty=$((bar_len - filled))
+                printf "\n  ["
+                local j
+                for (( j=0; j<filled; j++ )); do printf "${C_GREEN}█${C_RESET}"; done
+                for (( j=0; j<empty; j++ )); do printf "${C_DIM}░${C_RESET}"; done
+                printf "]\n"
+                # Estimate days until full
+                local hist_dir="${XDG_DATA_HOME:-$HOME/.local/share}/pkgs/history"
+                if [[ -d "$hist_dir" ]]; then
+                    local total_installs=0 total_days=0
+                    for f in "$hist_dir"/*.log(N); do
+                        local cnt; cnt=$(grep -c "INSTALL" "$f" 2>/dev/null || echo 0)
+                        total_installs=$((total_installs + cnt))
+                        ((total_days++))
+                    done
+                    if (( total_days > 0 && total_installs > 0 )); then
+                        local avg_installs_per_day=$((total_installs / total_days))
+                        local est_days="unknown"
+                        # Rough estimate: ~2MB per install average
+                        local daily_growth_kb=$((avg_installs_per_day * 2048))
+                        if (( daily_growth_kb > 0 )); then
+                            est_days=$((avail_kb / daily_growth_kb))
+                        fi
+                        printf "\n  ${C_DIM}Estimated days at current install rate: ~%s days${C_RESET}\n" "$est_days"
+                    fi
+                fi
+                if (( pct > 90 )); then
+                    printf "\n  ${C_MSG_REMOVE}⚠ CRITICAL: Storage nearly full! Run /nuke or /clean.${C_RESET}\n"
+                elif (( pct > 75 )); then
+                    printf "\n  ${C_MSG_WARN}⚠ Warning: Storage getting full. Consider /clean.${C_RESET}\n"
+                fi
+            fi
+            printf "\n  ${C_MSG_INFO}Press Enter to return.${C_RESET}"
+            read -r
+            clear
+            query=""
+            continue
+        fi
+
+        # --- /pkg-impact ---
+        if [[ "$query" == /pkg-impact* ]]; then
+            local pi_pkg="${query#/pkg-impact }"
+            [[ "$pi_pkg" == "/pkg-impact" ]] && pi_pkg=""
+            clear
+            if [[ -z "$pi_pkg" ]]; then
+                pi_pkg=$(_pkgs_fzf_pick_pkg "Impact analysis")
+            else
+                _pkgs_validate_name "$pi_pkg" || { printf "  ${C_MSG_REMOVE}Invalid package name.${C_RESET}\n"; printf "\n  ${C_MSG_INFO}Press Enter to return.${C_RESET}\n"; read -r; continue; }
+            fi
+            if [[ -n "$pi_pkg" ]]; then
+                if ! apt-cache show -- "$pi_pkg" >/dev/null 2>&1; then
+                    printf "  ${C_MSG_REMOVE}Package not found: %s${C_RESET}\n" "$pi_pkg"
+                else
+                    printf "\n  ${C_WHITE}Impact Analysis: %s${C_RESET}\n\n" "$pi_pkg"
+                    # Download size
+                    local dl_size
+                    dl_size=$(apt-cache show -- "$pi_pkg" 2>/dev/null | grep "^Size:" | head -1 | awk '{print $2}')
+                    printf "  ${C_DIM}Download size:${C_RESET}      %s\n" "$(_pkgs_format_size "$(( ${dl_size:-0} / 1024 ))")"
+                    # Installed size
+                    local inst_size
+                    inst_size=$(apt-cache show -- "$pi_pkg" 2>/dev/null | grep "^Installed-Size:" | head -1 | awk '{print $2}')
+                    printf "  ${C_DIM}Installed size:${C_RESET}     %s\n" "$(_pkgs_format_size "${inst_size:-0}")"
+                    # Dependencies
+                    local -A pi_deps=()
+                    local -a pi_queue=("$pi_pkg")
+                    while (( ${#pi_queue[@]} > 0 )); do
+                        local cur="${pi_queue[1]}"
+                        pi_queue=("${pi_queue[@]:1}")
+                        [[ -n "${pi_deps[$cur]}" ]] && continue
+                        pi_deps["$cur"]=1
+                        local deps
+                        deps=$(apt-cache depends --no-recommends --no-suggests --no-conflicts --no-breaks --no-replaces --no-enhances -- "$cur" 2>/dev/null | grep "Depends:" | awk '{print $2}')
+                        while IFS= read -r dep; do
+                            [[ -n "$dep" && -z "${pi_deps[$dep]}" ]] && pi_queue+=("$dep")
+                        done <<< "$deps"
+                    done
+                    # Count new vs existing
+                    local new_count=0 existing_count=0 new_total_kb=0
+                    for dep in "${(k)pi_deps}"; do
+                        local dsize; dsize=$(dpkg-query -W -f='${Installed-Size}' -- "$dep" 2>/dev/null || echo 0)
+                        if dpkg -s -- "$dep" >/dev/null 2>&1; then
+                            ((existing_count++))
+                        else
+                            ((new_count++))
+                            new_total_kb=$((new_total_kb + dsize))
+                        fi
+                    done
+                    printf "  ${C_DIM}Total dependencies:${C_RESET}  %d\n" "$((${#pi_deps[@]} - 1))"
+                    printf "  ${C_MSG_DONE}Already installed:${C_RESET}   %d\n" "$existing_count"
+                    printf "  ${C_MSG_WARN}NEW to install:${C_RESET}      %d\n" "$new_count"
+                    printf "  ${C_WHITE}Total system increase:${C_RESET} %s\n" "$(_pkgs_format_size "$new_total_kb")"
+                    if (( new_total_kb > 100000 )); then
+                        printf "\n  ${C_MSG_WARN}⚠ This will add over 100MB to your system.${C_RESET}\n"
+                    fi
+                fi
+            fi
+            printf "\n  ${C_MSG_INFO}Press Enter to return.${C_RESET}"
+            read -r
+            clear
+            query=""
+            continue
+        fi
+
+        # === END NEW FEATURES ===
+
         [[ ${#lines[@]} -lt 2 ]] && continue
 
         local -a selected_names=()
@@ -4558,7 +5506,7 @@ PREVIEW_EOF
                 if [[ -d "$_PKGS_HISTORY_DIR" ]]; then
                     for f in "${_PKGS_HISTORY_DIR}"/*.log(N); do
                         local matches
-                        matches=$(grep -i "$sh_text" "$f" 2>/dev/null)
+                        matches=$(grep -Fi "$sh_text" "$f" 2>/dev/null)
                         if [[ -n "$matches" ]]; then
                             local fdate="${f:t}"
                             fdate="${fdate%.log}"
@@ -4644,8 +5592,7 @@ PREVIEW_EOF
             clear
             _pkgs_get_cached_list > /dev/null 2>&1
             local fd_pkg
-            fd_pkg=$(fzf < "$_PKGS_CACHE_FILE" --prompt=" Fuzzy dep explorer> " --height=60% --reverse | sed 's/\o033\[[0-9;]*m//g')
-            fd_pkg=$(echo "$fd_pkg" | awk -F'|' '{print $2}' | xargs)
+            fd_pkg=$(_pkgs_fzf_pick_pkg "Fuzzy dep explorer" "60%")
             if [[ -n "$fd_pkg" ]]; then
                 printf "\n  ${C_WHITE}Dependencies of: %s${C_RESET}\n\n" "$fd_pkg"
                 local fd_deps
@@ -4717,15 +5664,18 @@ PREVIEW_EOF
             printf "\n  ${C_WHITE}Security Check:${C_RESET}\n\n"
             printf "  ${C_DIM}Checking for packages with available security updates...${C_RESET}\n\n"
             local sec_count=0
+            # Bulk: single apt-cache policy call for all installed packages
+            local -a all_pkgs=()
             while IFS=$'\t' read -r pkg ver; do
-                [[ -z "$pkg" ]] && continue
-                local cand
-                cand=$(apt-cache policy -- "$pkg" 2>/dev/null | grep 'Candidate:' | head -1 | sed 's/^.*Candidate: //')
-                if [[ -n "$cand" && "$ver" != "$cand" ]]; then
-                    printf "  ${C_AMBER}↻ ${C_WHITE}%-30s${C_RESET} %s → %s\n" "$pkg" "$ver" "$cand"
-                    ((sec_count++))
-                fi
+                [[ -n "$pkg" ]] && all_pkgs+=("$pkg")
             done < <(dpkg-query -W -f='${Package}\t${Version}\n' 2>/dev/null)
+            local bulk_out
+            bulk_out=$(_pkgs_bulk_apt_policy "${all_pkgs[@]}" 2>/dev/null)
+            while read -r pkg cand; do
+                [[ -z "$pkg" ]] && continue
+                printf "  ${C_AMBER}↻ ${C_WHITE}%-30s${C_RESET} → %s\n" "$pkg" "$cand"
+                ((sec_count++))
+            done <<< "$bulk_out"
             if (( sec_count == 0 )); then
                 printf "  ${C_MSG_DONE}All packages are up to date.${C_RESET}\n"
             fi
@@ -4953,6 +5903,24 @@ Interactive Commands (type in search box):
   /size-filter <min> <max>  Filter by installed size (KiB)
   /security             Check for outdated packages
   /duplicate            Find duplicate/virtual packages
+  /profile              Save/restore named package profiles
+  /check-deps           Scan project for missing tools
+  /shell-hook           Generate shell aliases from packages
+  /storage-report       Android-aware storage breakdown
+  /health               System health score (0-100)
+  /auto-clean           Set up scheduled cleanup
+  /footprint <pkg>      Total size incl. all transitive deps
+  /unused               Find packages you never invoke
+  /timeline             Visual install/upgrade activity map
+  /schedule             Set up update reminders
+  /search-providers     Find packages for a command
+  /diff-snapshots       Diff two saved snapshots
+  /audit                Scan for SUID/SGID + world-writable
+  /repo-check           Flag packages from untrusted repos
+  /popular              Curated popular packages list
+  /boot-time            Benchmark Termux startup speed
+  /disk-pressure        Storage pressure + days-till-full
+  /pkg-impact <pkg>     Pre-install impact analysis
   /theme                Switch color scheme
   /help                 Show in-app help
 
