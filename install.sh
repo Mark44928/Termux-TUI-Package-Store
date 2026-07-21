@@ -4,11 +4,11 @@ set -e
 
 # Prevent concurrent runs
 LOCKFILE="${TMPDIR:-/tmp}/pkgs-install.lock"
-exec 200>"$LOCKFILE"
-if ! flock -n 200; then
+if [ -f "$LOCKFILE" ] && kill -0 "$(cat "$LOCKFILE")" 2>/dev/null; then
   echo "  ✗ Another installation is already running."
   exit 1
 fi
+echo $$ > "$LOCKFILE"
 
 BOLD=$(tput bold 2>/dev/null || printf '')
 RESET=$(tput sgr0 2>/dev/null || printf '')
