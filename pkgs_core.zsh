@@ -631,7 +631,7 @@ printf "\n"
 
 maintainer=$(echo "$pkg" | grep "^Maintainer:" | head -1 | sed 's/^Maintainer: //')
 homepage=$(echo "$pkg" | grep "^Homepage:" | head -1 | sed 's/^Homepage: //')
-[ -n "$maintainer" ] && printf "\n  \033[38;5;59mBy:\033[0m %s\n" "$(echo "$maintainer" | cut -c1-48)"
+[ -n "$maintainer" ] && printf "\n  \033[38;5;59mPackage Maintainer:\033[0m %s\n" "$(echo "$maintainer" | cut -c1-48)"
 [ -n "$homepage" ] && printf "  \033[38;5;59mWeb:\033[0m %s\n" "$(echo "$homepage" | cut -c1-48)"
 
 dl_size=$(echo "$pkg" | grep "^Size:" | head -1 | cut -d" " -f2)
