@@ -1,74 +1,28 @@
-<p align="center">
-  <img src="assets/pkgs.png" alt="Termux TUI Package Store interface showing a split-panel layout with a searchable package list on the left and package metadata preview on the right" width="700">
-</p>
+![Termux TUI Package Store interface showing a split-panel layout with a searchable package list on the left and package metadata preview on the right](assets/pkgs.png)
 
-<p align="center">
-  <em>Screenshot may not reflect the latest version. Run <code>pkgs</code> to see the current interface.</em>
-</p>
+*Screenshot may not reflect the latest version. Run `pkgs` to see the current interface.*
 
-<p align="center">
-  <a href="https://github.com/Mark44928/Termux-TUI-Package-Store/releases">
-    <img src="https://img.shields.io/github/v/release/Mark44928/Termux-TUI-Package-Store?style=for-the-badge&logo=github&color=blue" alt="Release">
-  </a>
-  <a href="https://github.com/Mark44928/Termux-TUI-Package-Store/stargazers">
-    <img src="https://img.shields.io/github/stars/Mark44928/Termux-TUI-Package-Store?style=for-the-badge&logo=apachespark&color=yellow" alt="Stars">
-  </a>
-  <a href="https://github.com/Mark44928/Termux-TUI-Package-Store/forks">
-    <img src="https://img.shields.io/github/forks/Mark44928/Termux-TUI-Package-Store?style=for-the-badge&logo=forgejo&color=cyan" alt="Forks">
-  </a>
-  <a href="https://github.com/Mark44928/Termux-TUI-Package-Store/issues">
-    <img src="https://img.shields.io/github/issues/Mark44928/Termux-TUI-Package-Store?style=for-the-badge&logo=gitbook&color=red" alt="Issues">
-  </a>
-  <a href="https://github.com/Mark44928/Termux-TUI-Package-Store/actions">
-    <img src="https://img.shields.io/github/actions/workflow/status/Mark44928/Termux-TUI-Package-Store/ci.yml?style=for-the-badge&logo=githubactions&label=CI" alt="CI">
-  </a>
-</p>
+[![Release](https://img.shields.io/github/v/release/Mark44928/Termux-TUI-Package-Store?style=for-the-badge&logo=github&color=blue)](https://github.com/Mark44928/Termux-TUI-Package-Store/releases)
+[![Stars](https://img.shields.io/github/stars/Mark44928/Termux-TUI-Package-Store?style=for-the-badge&logo=apachespark&color=yellow)](https://github.com/Mark44928/Termux-TUI-Package-Store)
+[![Forks](https://img.shields.io/github/forks/Mark44928/Termux-TUI-Package-Store?style=for-the-badge&logo=forgejo&color=cyan)](https://github.com/Mark44928/Termux-TUI-Package-Store)
+[![Issues](https://img.shields.io/github/issues/Mark44928/Termux-TUI-Package-Store?style=for-the-badge&logo=gitbook&color=red)](https://github.com/Mark44928/Termux-TUI-Package-Store/issues)
+[![License](https://img.shields.io/github/license/Mark44928/Termux-TUI-Package-Store?style=for-the-badge&color=green)](https://github.com/Mark44928/Termux-TUI-Package-Store/blob/main/LICENSE)
+[![Maintained](https://img.shields.io/badge/maintained-yes-brightgreen?style=for-the-badge)](https://github.com/Mark44928/Termux-TUI-Package-Store)
+[![PRs Welcome](https://img.shields.io/badge/PRs-welcome-orange?style=for-the-badge)](https://github.com/Mark44928/Termux-TUI-Package-Store/pulls)
+[![Platform](https://img.shields.io/badge/platform-termux%20%7C%20android-006600?style=for-the-badge)](https://termux.dev)
+[![Shell](https://img.shields.io/badge/shell-zsh-4EA94B?style=for-the-badge&logo=gnubash)](https://www.zsh.org)
 
-<p align="center">
-  <a href="https://github.com/Mark44928/Termux-TUI-Package-Store/blob/main/LICENSE">
-    <img src="https://img.shields.io/github/license/Mark44928/Termux-TUI-Package-Store?style=for-the-badge&color=green" alt="License">
-  </a>
-  <a href="https://github.com/Mark44928/Termux-TUI-Package-Store">
-    <img src="https://img.shields.io/badge/maintained-yes-brightgreen?style=for-the-badge" alt="Maintained">
-  </a>
-  <a href="https://github.com/Mark44928/Termux-TUI-Package-Store/pulls">
-    <img src="https://img.shields.io/badge/PRs-welcome-orange?style=for-the-badge" alt="PRs Welcome">
-  </a>
-  <a href="https://termux.com">
-    <img src="https://img.shields.io/badge/platform-termux%20%7C%20android-006600?style=for-the-badge" alt="Platform">
-  </a>
-  <a href="https://www.zsh.org">
-    <img src="https://img.shields.io/badge/shell-zsh-4EA94B?style=for-the-badge&logo=gnubash" alt="Shell">
-  </a>
-</p>
+# 📦 Termux TUI Package Store
 
-<h1 align="center">📦 Termux TUI Package Store</h1>
+**v1.4.0** — *Interactive fzf-powered terminal UI for browsing, previewing, installing, and removing Termux packages*
 
-<p align="center">
-  <b>v1.4.0</b> ── <em>Interactive fzf-powered terminal UI for browsing, previewing, installing, and removing Termux packages</em>
-</p>
+**⚡ One keystroke · Instant preview · Persistent session · 130+ slash commands**
 
-<br>
+```
+zsh <(curl -fsSL https://raw.githubusercontent.com/Mark44928/Termux-TUI-Package-Store/main/install.sh)
+```
 
-<p align="center">
-  <b>⚡ One keystroke · Instant preview · Persistent session · 132 slash commands</b>
-</p>
-
-<div align="center">
-  <a href="#quick-install"><code>bash -c "$(curl -fsSL https://raw.githubusercontent.com/Mark44928/Termux-TUI-Package-Store/main/install.sh)"</code></a>
-</div>
-
-<br>
-
-<p align="center">
-  <a href="#quick-install"><b>📥 Install</b></a> •
-  <a href="#usage"><b>📖 Usage</b></a> •
-  <a href="./COMMANDS.md"><b>📋 Commands</b></a> •
-  <a href="#configuration"><b>⚙️ Config</b></a> •
-  <a href="#contributing"><b>🤝 Contribute</b></a>
-</p>
-
-<br>
+[📥 Install](#quick-install) • [📖 Usage](#usage) • [📋 Commands](./COMMANDS.md) • [⚙️ Config](#configuration) • [🤝 Contribute](#contributing)
 
 > 💡 **3 seconds to try it:** paste the install command above, run `pkgs`, type `/help`.
 
@@ -84,38 +38,21 @@
 | Session dies after each command | Stays open — keep managing until you press `Esc` |
 | No audit trail | Color-coded `[✓]`/`[ ]`, `/history`, `/undo`, `/timeline` |
 | No bulk cleanup | `/orphans-remove`, `/nuke`, `/clean`, `/disk-pressure` |
-| No package analysis | `/deps`, `/rdeps`, `/dep-graph`, `/compare`, `/why`, `/footprint` |
+| No package analysis | `/deps`, `/rdeps`, `/tree`, `/dep-graph`, `/compare`, `/why`, `/footprint` |
 | No export/backup | `/export-all`, `/snapshot`, `/diff-snapshots`, `/backup` |
-| No dependency insight | `/dep-graph`, `/tree`, `/fuzzy-dep`, `/conflicts-with` |
+| No dependency insight | `/conflicts-with`, `/fuzzy-dep` |
 | Can't undo | `/undo` — reverse last install or remove |
-| Raw terminal output | Beautiful color-coded TUI with live fzf preview |
+| Raw terminal output | Color-coded TUI with live fzf preview |
 
 ---
 
-## 💬 Trusted By
+## 📈 Project Status
 
-<p align="center">
-  <a href="https://github.com/Mark44928/Termux-TUI-Package-Store/stargazers">
-    <img src="https://img.shields.io/github/stars/Mark44928/Termux-TUI-Package-Store?style=for-the-badge&logo=apachespark&color=yellow" alt="Stars">
-  </a>
-  <a href="https://github.com/Mark44928/Termux-TUI-Package-Store/forks">
-    <img src="https://img.shields.io/github/forks/Mark44928/Termux-TUI-Package-Store?style=for-the-badge&logo=forgejo&color=cyan" alt="Forks">
-  </a>
-  <a href="https://github.com/Mark44928/Termux-TUI-Package-Store/graphs/contributors">
-    <img src="https://img.shields.io/github/contributors/Mark44928/Termux-TUI-Package-Store?style=for-the-badge&color=blue" alt="Contributors">
-  </a>
-  <a href="https://github.com/Mark44928/Termux-TUI-Package-Store/commits/main">
-    <img src="https://img.shields.io/github/last-commit/Mark44928/Termux-TUI-Package-Store?style=for-the-badge&logo=git&color=purple" alt="Last Commit">
-  </a>
-</p>
+[![Stars](https://img.shields.io/github/stars/Mark44928/Termux-TUI-Package-Store?style=for-the-badge&logo=apachespark&color=yellow)](https://github.com/Mark44928/Termux-TUI-Package-Store)
+[![Contributors](https://img.shields.io/github/contributors/Mark44928/Termux-TUI-Package-Store?style=for-the-badge&color=blue)](https://github.com/Mark44928/Termux-TUI-Package-Store/graphs/contributors)
+[![Last Commit](https://img.shields.io/github/last-commit/Mark44928/Termux-TUI-Package-Store?style=for-the-badge&logo=git&color=purple)](https://github.com/Mark44928/Termux-TUI-Package-Store/commits/main)
 
-> *"Exactly what Termux was missing. Instantly more productive than juggling pkg commands."* — [Termux Community](https://github.com/termux)
->
-> *"The dependency graph and undo features alone are worth the install. Never going back."* — Early adopter
-
-<p align="center">
-  <b>⭐ 300+ stars · Used by developers worldwide · Active maintenance since 2024</b>
-</p>
+Active maintenance. Issues and PRs welcome.
 
 ---
 
@@ -131,15 +68,13 @@
 ## 📋 Table of Contents
 
 - [Overview](#overview)
-- [Features](#features)
+- [Why pkgs?](#why-not-just-use-pkg)
 - [Capabilities at a Glance](#capabilities-at-a-glance)
 - [Full Command Reference](./COMMANDS.md)
-- [Why pkgs?](#why-not-just-use-pkg)
 - [Requirements](#requirements)
 - [Quick Install](#quick-install)
 - [Manual Installation](#manual-installation)
 - [Usage](#usage)
-  - [Slash Commands](./COMMANDS.md)
 - [Key Bindings](#key-bindings)
 - [How It Works](#how-it-works)
 - [Configuration](#configuration)
@@ -158,34 +93,11 @@
 
 **Termux TUI Package Store** is a terminal UI for managing packages on Termux. It wraps `pkg` with an interactive fuzzy-finder that lets you search, preview, install, and remove packages — all without leaving a single screen.
 
-The tool adapts to your terminal size, color-codes installed vs. available packages, and shows live metadata previews (version, size, dependencies, description) for every package you highlight. Type `/help` in the search box to see all **132** available slash commands.
-
----
-
-## ✨ Features
-
-| Feature | Description |
-|---|---|
-| **🔍 Fuzzy Search** | Filter hundreds of packages instantly as you type |
-| **📋 Live Previews** | See version, installed/download size, dependencies, and description for any package |
-| **🔄 Persistent Session** | Store stays open after install/remove — keep going until you press Esc |
-| **📐 Smart Layout** | Automatically switches between landscape (side-by-side) and portrait (stacked) preview |
-| **🎨 Color-Coded Status** | Installed packages tagged `[✓]`, available packages tagged `[ ]` |
-| **⚡ 132 Slash Commands** | Install, remove, export, search, filter, sort, analyze dependencies, compare packages, manage mirrors, take snapshots, audit security, check health, monitor storage, batch upgrade, track activity, and more — all from the search box |
-| **📦 Batch Operations** | Multi-select with Tab, preview with dry-run, categorized summary with progress |
-| **🛡️ Prerequisite Checks** | Validates fzf, pkg, apt-cache, and dpkg-query on startup |
-| **📊 Disk Usage** | Visual breakdown by section with bar charts |
-| **📝 Package Notes** | Add/edit notes per package, persisted across sessions |
-| **⚖️ Package Comparison** | Side-by-side view of two packages |
-| **💾 Backup & Restore** | Export full package list, reinstall from it later |
-| **🕐 Recent Activity** | Filter packages installed today via dpkg logs |
-| **📜 Operation History** | Daily log of all install/remove/export operations |
-| **↩️ Undo Support** | Reverse last install or remove operation |
-| **⚡ Zero Config** | No config files needed — runs as a single script at `$PREFIX/bin/pkgs` |
+The tool adapts to your terminal size, color-codes installed vs. available packages, and shows live metadata previews (version, size, dependencies, description) for every package you highlight. Type `/help` in the search box to see all **130+** available slash commands.
 
 ## ⚡ Capabilities at a Glance
 
-The store packs **132 slash commands**, but here's what most people use daily:
+The store packs **130+ slash commands**, but here's what most people use daily:
 
 ### 🔍 Find & Install in 3 Seconds
 ```
@@ -214,7 +126,7 @@ pkgs python                   Open pre-filtered for "python"
 /activity-log 30              Package activity for the last month
 ```
 
-> 📖 **Full reference:** All 132 commands documented in [`COMMANDS.md`](COMMANDS.md) — organized by category with descriptions.
+> 📖 **Full reference:** All commands documented in [`COMMANDS.md`](COMMANDS.md) — organized by category with descriptions.
 
 ---
 
@@ -306,7 +218,7 @@ pkgs vim         # Opens with "vim" in the search box
 
 ### 💬 Slash Commands
 
-Type any `/command` directly in the search box. See the full [command reference](./COMMANDS.md) for all 132.
+Type any `/command` directly in the search box. See the full [command reference](./COMMANDS.md) for the complete list.
 
 **Everyday examples:**
 
@@ -469,15 +381,6 @@ No other config files or shell modifications exist. Clean removal with no traces
 
 Contributions are welcome! Every bug fix, feature, or documentation improvement helps.
 
-```mermaid
-flowchart LR
-    A[Fork] --> B[Feature branch]
-    B --> C[Make changes]
-    C --> D[zsh -n pkgs_core.zsh]
-    D --> E[Commit & push]
-    E --> F[Open PR]
-```
-
 1. **Fork** the repository
 2. **Create** a feature branch: `git checkout -b feat/my-change`
 3. **Make** your changes
@@ -510,7 +413,7 @@ This tool runs `pkg install` and `pkg remove` commands that modify your Termux e
 ## 🙏 Acknowledgments
 
 - [junegunn/fzf](https://github.com/junegunn/fzf) — the incredible fuzzy-finder that makes this tool possible
-- The [Termux](https://termux.com/) community for maintaining an excellent Android terminal environment
+- The [Termux](https://termux.dev/) community for maintaining an excellent Android terminal environment
 - **Everyone** who has submitted issues, suggestions, or pull requests
 
 ---
@@ -540,8 +443,5 @@ Every star, issue, and PR makes this project better. **Thank you!** 🙌
 
 ---
 
-<p align="center">
-  <b>Made with ❤️ for the Termux community</b>
-  <br>
-  <sub>v1.4.0 · MIT Licensed · PRs Welcome</sub>
-</p>
+**Made with ❤️ for the Termux community**  
+v1.4.0 · MIT Licensed · PRs Welcome

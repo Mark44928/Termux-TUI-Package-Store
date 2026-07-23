@@ -1,6 +1,6 @@
 # 📖 Slash Commands Reference
 
-**132 unique slash commands** available inside the pkgs TUI. Type `/help` in the search box to see them in-app, or browse them here.
+**130+ unique slash commands** available inside the pkgs TUI. Type `/help` in the search box to see them in-app, or browse them here.
 
 ---
 
@@ -105,8 +105,7 @@
 | `/orphans-remove` | Remove all orphaned packages |
 | `/outdated` | Packages with available updates |
 | `/outdated-top <n>` | Top N packages with updates by size |
-| `/top` | Top 10 largest installed packages |
-| `/top <n>` | Top N largest installed packages |
+| `/top [n]` | Top N largest installed packages (default: 10) |
 | `/usage` | Disk usage breakdown by section |
 | `/usage <pkg>` | Installed files for a package |
 | `/usage-top` | Disk usage bar chart (top packages) |
