@@ -1,10 +1,10 @@
 # 📖 Slash Commands Reference
 
-**130+ unique slash commands** available inside the pkgs TUI. Type `/help` in the search box to see them in-app, or browse them here.
+**140+ unique slash commands** available inside the pkgs TUI. Type `/help` in the search box to see them in-app, or browse them here.
 
 ---
 
-### 📦 Package Operations
+## 📦 Package Operations
 
 | Command | Description |
 |---|---|
@@ -23,7 +23,7 @@
 | `/export-all` | Export all installed packages to a script |
 | `/export-versions` | Export package list with version numbers + sizes |
 
-### 🔍 Search & Filter
+## 🔍 Search & Filter
 
 | Command | Description |
 |---|---|
@@ -45,7 +45,7 @@
 | `/upgradable` | Upgradable packages with version diff |
 | `/size-histogram` | Visual package size distribution |
 
-### 📊 Information & Analysis
+## 📊 Information & Analysis
 
 | Command | Description |
 |---|---|
@@ -77,7 +77,7 @@
 | `/footprint <pkg>` | Total install footprint including deps |
 | `/pkg-impact <pkg>` | Pre-install impact analysis (new deps, disk cost) |
 
-### 🕐 History & Activity
+## 🕐 History & Activity
 
 | Command | Description |
 |---|---|
@@ -96,7 +96,7 @@
 | `/removed` | Packages removed in last upgrade |
 | `/new-pkgs` | Packages installed this week |
 
-### 🛠️ Maintenance & Cleanup
+## 🛠️ Maintenance & Cleanup
 
 | Command | Description |
 |---|---|
@@ -129,7 +129,7 @@
 | `/snapshot-restore` | Restore from a snapshot |
 | `/diff-snapshots` | Diff two saved snapshots |
 
-### 🔗 Mirror & Repository
+## 🔗 Mirror & Repository
 
 | Command | Description |
 |---|---|
@@ -138,7 +138,7 @@
 | `/mirror-latency` | Ping-test mirrors, rank by latency |
 | `/mirror-bandwidth` | Bandwidth-test mirrors, rank by speed |
 
-### ⭐ Favorites & Profiles
+## ⭐ Favorites & Profiles
 
 | Command | Description |
 |---|---|
@@ -150,7 +150,7 @@
 | `/quick` | Quick install popular package sets |
 | `/popular` | Curated list of popular Termux packages |
 
-### 📝 Notes & Docs
+## 📝 Notes & Docs
 
 | Command | Description |
 |---|---|
@@ -159,7 +159,7 @@
 | `/maintainer <name>` | Search packages by maintainer |
 | `/log-search <text>` | Search dpkg/apt history logs |
 
-### ⚙️ System & Utilities
+## ⚙️ System & Utilities
 
 | Command | Description |
 |---|---|

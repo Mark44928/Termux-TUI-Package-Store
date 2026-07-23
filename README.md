@@ -10,13 +10,13 @@
 [![Maintained](https://img.shields.io/badge/maintained-yes-brightgreen?style=for-the-badge)](https://github.com/Mark44928/Termux-TUI-Package-Store)
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-orange?style=for-the-badge)](https://github.com/Mark44928/Termux-TUI-Package-Store/pulls)
 [![Platform](https://img.shields.io/badge/platform-termux%20%7C%20android-006600?style=for-the-badge)](https://termux.dev)
-[![Shell](https://img.shields.io/badge/shell-zsh-4EA94B?style=for-the-badge&logo=gnubash)](https://www.zsh.org)
+[![Shell](https://img.shields.io/badge/shell-zsh-4EA94B?style=for-the-badge)](https://www.zsh.org)
 
 # 📦 Termux TUI Package Store
 
 **v1.4.0** — *Interactive fzf-powered terminal UI for browsing, previewing, installing, and removing Termux packages*
 
-**⚡ One keystroke · Instant preview · Persistent session · 130+ slash commands**
+**⚡ One keystroke · Instant preview · Persistent session · 140+ slash commands**
 
 ```
 zsh <(curl -fsSL https://raw.githubusercontent.com/Mark44928/Termux-TUI-Package-Store/main/install.sh)
@@ -24,7 +24,7 @@ zsh <(curl -fsSL https://raw.githubusercontent.com/Mark44928/Termux-TUI-Package-
 
 [📥 Install](#quick-install) • [📖 Usage](#usage) • [📋 Commands](./COMMANDS.md) • [⚙️ Config](#configuration) • [🤝 Contribute](#contributing)
 
-> 💡 **3 seconds to try it:** paste the install command above, run `pkgs`, type `/help`.
+> 💡 **Try it in seconds:** paste the install command above, run `pkgs`, type `/help`.
 
 ---
 
@@ -48,7 +48,6 @@ zsh <(curl -fsSL https://raw.githubusercontent.com/Mark44928/Termux-TUI-Package-
 
 ## 📈 Project Status
 
-[![Stars](https://img.shields.io/github/stars/Mark44928/Termux-TUI-Package-Store?style=for-the-badge&logo=apachespark&color=yellow)](https://github.com/Mark44928/Termux-TUI-Package-Store)
 [![Contributors](https://img.shields.io/github/contributors/Mark44928/Termux-TUI-Package-Store?style=for-the-badge&color=blue)](https://github.com/Mark44928/Termux-TUI-Package-Store/graphs/contributors)
 [![Last Commit](https://img.shields.io/github/last-commit/Mark44928/Termux-TUI-Package-Store?style=for-the-badge&logo=git&color=purple)](https://github.com/Mark44928/Termux-TUI-Package-Store/commits/main)
 
@@ -68,7 +67,7 @@ Active maintenance. Issues and PRs welcome.
 ## 📋 Table of Contents
 
 - [Overview](#overview)
-- [Why pkgs?](#why-not-just-use-pkg)
+- [Why not just use pkg?](#why-not-just-use-pkg)
 - [Capabilities at a Glance](#capabilities-at-a-glance)
 - [Full Command Reference](./COMMANDS.md)
 - [Requirements](#requirements)
@@ -93,11 +92,11 @@ Active maintenance. Issues and PRs welcome.
 
 **Termux TUI Package Store** is a terminal UI for managing packages on Termux. It wraps `pkg` with an interactive fuzzy-finder that lets you search, preview, install, and remove packages — all without leaving a single screen.
 
-The tool adapts to your terminal size, color-codes installed vs. available packages, and shows live metadata previews (version, size, dependencies, description) for every package you highlight. Type `/help` in the search box to see all **130+** available slash commands.
+The tool adapts to your terminal size, color-codes installed vs. available packages, and shows live metadata previews (version, size, dependencies, description) for every package you highlight. Type `/help` in the search box to see all **140+** available slash commands.
 
 ## ⚡ Capabilities at a Glance
 
-The store packs **130+ slash commands**, but here's what most people use daily:
+The store packs **140+ slash commands**, but here's what most people use daily:
 
 ### 🔍 Find & Install in 3 Seconds
 ```
@@ -144,7 +143,7 @@ pkgs python                   Open pre-filtered for "python"
 | `grep`, `sed` | Text processing in previews | ✅ Yes |
 | `ncurses` | Terminal handling (`tput`) | ✅ Yes |
 | `dpkg` | Package queries (`dpkg-query`) | ✅ Yes |
-| `apt-cache` | Package metadata and search | ✅ Yes |
+| `apt` | Package metadata and search (`apt-cache`) | ✅ Yes |
 | `coreutils` | Human-readable sizes (`numfmt`) | 🔶 Optional |
 | `curl` | Self-update (`/self-update`) | 🔶 Optional |
 
@@ -171,7 +170,7 @@ zsh <(curl -fsSL https://raw.githubusercontent.com/Mark44928/Termux-TUI-Package-
 
    ```sh
    pkg update && pkg upgrade
-   pkg install zsh fzf coreutils gawk grep sed ncurses curl figlet
+   pkg install zsh fzf coreutils gawk grep sed ncurses curl
    ```
 
 2. **Download the script and make it executable:**
@@ -296,7 +295,7 @@ The `--color` flag in `_pkgs_build_fzf_args` uses 256-color ANSI codes. Customiz
 --color='fg:223,bg:-1,hl:114,fg+:223,bg+:235,hl+:109,info:109,prompt:180,pointer:203,marker:114,spinner:139,header:59'
 ```
 
-See the [fzf documentation](https://github.com/junegunn/fzf#color-schemes) for available color slots.
+See the [fzf documentation](https://github.com/junegunn/fzf#customizing-the-look) for available color slots.
 
 ### 🖌️ Message Colors
 
