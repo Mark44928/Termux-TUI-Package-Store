@@ -1,5 +1,6 @@
 #!/data/data/com.termux/files/usr/bin/zsh
-
+export LANG=C.UTF-8
+export LC_ALL=C.UTF-8
 set -e
 
 # Prevent concurrent runs
@@ -19,12 +20,16 @@ CYAN=$(tput setaf 6 2>/dev/null || printf '')
 MAGENTA=$(tput setaf 5 2>/dev/null || printf '')
 
 spinner() {
-  local pid=$1 msg=$2 spin='🌑🌒🌓🌔🌕🌖🌗🌘' i=0
+  local pid=$1 msg=$2
+  local -a spin=(🌑 🌒 🌓 🌔 🌕 🌖 🌗 🌘)
+  local i=1
+
   while kill -0 "$pid" 2>/dev/null; do
-    i=$(( (i+1) % 4 ))
-    printf "\r${YELLOW}  [%c]${RESET} %s ..." "${spin:$i:1}" "$msg"
+    printf "\r${YELLOW}  [%s]${RESET} %s ..." "${spin[i]}" "$msg"
+    (( i = i % ${#spin} + 1 ))
     sleep 0.12
   done
+
   local exit_code=0
   wait "$pid" || exit_code=$?
   if [ "$exit_code" -eq 0 ]; then
@@ -34,7 +39,6 @@ spinner() {
   fi
   return "$exit_code"
 }
-
 cleanup() {
   [[ -n "${INSTALL_PATH:-}" ]] && rm -f "${INSTALL_PATH}.tmp" 2>/dev/null
 }
