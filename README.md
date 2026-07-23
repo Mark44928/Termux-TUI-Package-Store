@@ -55,7 +55,7 @@ Type `pkgs`, fuzzy-search any term, see version/size/deps live in the preview pa
 | Blind install — no context | Live preview: version, size, deps, description |
 | One package at a time | Tab-select multiple, `/install <query>` for batch |
 | Session dies after each command | Stays open until you press `Esc` |
-| No audit trail | Color-coded `[✓]`/`[ ]`, `/history`, `/undo`, `/timeline` |
+| No audit trail | Color-coded `✓`/`○`, `/history`, `/undo`, `/timeline` |
 | No bulk cleanup | `/orphans-remove`, `/nuke`, `/clean`, `/disk-pressure` |
 | No package analysis | `/deps`, `/rdeps`, `/dep-graph`, `/compare`, `/why` |
 | No export/backup | `/export-all`, `/snapshot`, `/diff-snapshots`, `/backup` |
@@ -84,7 +84,7 @@ Active maintenance. Issues and PRs welcome.
 - **Termux power users** — manage 100+ packages with fuzzy search and batch ops instead of typing exact names
 - **Android devs** — set up fresh environments in minutes with `/snapshot restore`
 - **Automation lovers** — `/export-all` generates a runnable install script you can source-control
-- **New Termux users** — `/help` and color-coded `[✓]`/`[ ]` replaces memorizing package names
+- **New Termux users** — `/help` and color-coded `✓`/`○` replaces memorizing package names
 
 ---
 
@@ -315,7 +315,7 @@ Type any `/command` directly in the search box. See the full [command reference]
    The tool measures your terminal with `tput` and decides whether to show the preview alongside the package list (wide terminals) or below it (narrow terminals).
 
 2. **📡 Package Discovery**  
-   An `awk` script cross-references installed packages from `dpkg-query` against every available package from `apt-cache search ".*"`. Each line is tagged `[✓]` (installed) or `[ ]` (not installed).
+   An `awk` script cross-references installed packages from `dpkg-query` against every available package from `apt-cache search ".*"`. Each line is tagged `✓` (installed) or `○` (not installed).
 
 3. **👁️ Live Previews**  
    When you highlight a package, `fzf` runs `apt-cache show` in the background and displays version, section, size, top dependencies, and the description.
@@ -363,8 +363,8 @@ See the [fzf documentation](https://github.com/junegunn/fzf#customizing-the-look
 
 | Variable | Default | Description |
 |---|---|---|
-| `C_INST_PREFIX` | `[✓]` (green) | Tag for installed packages |
-| `C_NOT_INST_PREFIX` | `[ ]` (dim) | Tag for not-installed packages |
+| `C_INST_PREFIX` | `✓` (green) | Tag for installed packages |
+| `C_NOT_INST_PREFIX` | `○` (dim) | Tag for not-installed packages |
 | `C_PKG_NAME` | Green | Package name in list |
 | `C_PKG_DESC` | Dim | Description in list |
 | `C_MSG_INSTALL` | Green | Install success messages |
@@ -425,6 +425,15 @@ A: Re-run the one-liner install command — it overwrites `$PREFIX/bin/pkgs`.
 
 **Q: Can I contribute?**  
 A: Absolutely! See [Contributing](#contributing).
+
+**Q: Is this a real package manager?**  
+A: It's as real as you need it to be. It installs real packages. That's real enough.
+
+**Q: What's the meaning of life?**  
+A: 42. Obviously. But inside pkgs, try `/42` for the full philosophical experience.
+
+**Q: Why are there so many slash commands?**  
+A: Because we couldn't stop. send help.
 
 </details>
 
@@ -510,3 +519,10 @@ Every star, issue, and PR makes this project better. **Thank you!** 🙌
 
 **Made with ❤️ for the Termux community**  
 v1.4.0 · MIT Licensed · PRs Welcome
+
+<!--
+  Congrats, you read the source! You're clearly a person of culture.
+  If you found this, try: pkgs --konami
+  Or type /coffee, /matrix, /potato, /ping, or /42 inside pkgs.
+  There is no /383. We checked.
+-->

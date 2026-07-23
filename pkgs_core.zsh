@@ -28,6 +28,19 @@ pkgs() {
                 echo "pkgs v${_PKGS_VERSION}"
                 return 0
                 ;;
+            --konami)
+                printf "\n  \033[38;5;46m↑\033[38;5;226m↑\033[38;5;202m↓\033[38;5;202m↓\033[38;5;129m←\033[38;5;214m→\033[38;5;129m←\033[38;5;214m→\033[38;5;46m B A \033[38;5;226mStart!\033[0m\n\n"
+                printf "  \033[38;5;226mYou found the secret code!\033[0m\n"
+                printf "  \033[38;5;59m(No extra lives were awarded. Sorry.)\033[0m\n\n"
+                return 0
+                ;;
+            -vv)
+                echo "pkgs v${_PKGS_VERSION} (you asked nicely, so here's the extended version)"
+                echo "  Built with: questionable life choices, fzf, and zsh"
+                echo "  Total slash commands: probably too many"
+                echo "  Author's remaining hair: classified"
+                return 0
+                ;;
         esac
     done
     local PKG_MGR="pkg"
@@ -44,8 +57,8 @@ pkgs() {
     local C_WHITE=$'\033[38;5;223m'
     local C_DIM=$'\033[38;5;59m'
 
-    local C_INST_PREFIX="${C_GREEN}[✓]${C_RESET}"
-    local C_NOT_INST_PREFIX="${C_DIM}[ ]${C_RESET}"
+    local C_INST_PREFIX="${C_GREEN}✓${C_RESET}"
+    local C_NOT_INST_PREFIX="${C_DIM}○${C_RESET}"
     local C_PKG_NAME="${C_GREEN}"
     local C_PKG_DESC="${C_DIM}"
     local C_MSG_INSTALL="${C_GREEN}"
@@ -291,8 +304,8 @@ pkgs() {
                 C_GREEN=$'\033[38;5;114m'; C_TEAL=$'\033[38;5;109m'; C_AMBER=$'\033[38;5;180m'
                 C_RED=$'\033[38;5;203m'; C_WHITE=$'\033[38;5;223m'; C_DIM=$'\033[38;5;59m' ;;
         esac
-        C_INST_PREFIX="${C_GREEN}[✓]${C_RESET}"
-        C_NOT_INST_PREFIX="${C_DIM}[ ]${C_RESET}"
+        C_INST_PREFIX="${C_GREEN}✓${C_RESET}"
+        C_NOT_INST_PREFIX="${C_DIM}○${C_RESET}"
         C_PKG_NAME="${C_GREEN}"
         C_PKG_DESC="${C_DIM}"
         C_MSG_INSTALL="${C_GREEN}"
@@ -373,155 +386,157 @@ pkgs() {
         read -r
     }
 
+    _pkgs_help_print_cols() {
+        local tw=$1 nc=$2
+        shift 2
+        local i=0 row=""
+        if (( nc <= 1 )); then
+            for item in "$@"; do
+                local cmd="${item%%|*}" desc="${item#*|}"
+                printf "    ${C_TEAL}%-28s${C_RESET} ${C_DIM}%s${C_RESET}\n" "$cmd" "$desc"
+            done
+            return
+        fi
+        local sep_w=3
+        local sep_w=3 total=$#
+        local cw=$(( (tw - sep_w * (nc - 1) - 2 * nc) / nc ))
+        for item in "$@"; do
+            ((i++))
+            local cmd="${item%%|*}" desc="${item#*|}"
+            local pad="" gap=2
+            local cmdw=${#cmd} descw=${#desc}
+            pad=$(( cw - cmdw - descw ))
+            (( pad < gap )) && pad=$gap
+            printf -v pad '%*s' "$pad" ''
+            row+="  ${C_TEAL}${cmd}${C_RESET}${pad}${C_DIM}${desc}${C_RESET}"
+            if (( i % nc == 0 )); then
+                printf "%s\n" "$row"
+                row=""
+            elif (( i < total )); then
+                row+="${C_DIM} │ ${C_RESET}"
+            fi
+        done
+        [[ -n "$row" ]] && printf "%s\n" "$row"
+    }
+
     _pkgs_show_help() {
         clear
-        printf "\n  ${C_WHITE}Package Manager - Help${C_RESET}\n"
+        local tw
+        tw=$(tput cols 2>/dev/null || echo 80)
+        if (( tw < 40 )); then
+            printf "\n  ${C_MSG_WARN}Terminal too small (${tw} cols). Need >= 40 columns.${C_RESET}\n"
+            printf "  ${C_MSG_WARN}Resize your terminal or rotate your device.${C_RESET}\n\n"
+            printf "  ${C_MSG_INFO}Press Enter to return.${C_RESET}"
+            read -r
+            return
+        fi
+        local nc=1 shock=""
+        (( tw >= 100 )) && nc=2
+        (( tw >= 150 )) && nc=3
+        (( tw >= 200 )) && nc=4
+        (( tw >= 250 )) && nc=5
+        (( tw >= 300 )) && nc=6
+
+        if (( tw >= 300 )); then
+            shock="${C_MSG_WARN}WH... WHY IS YOUR TERMINAL ${tw} COLUMNS WIDE?!${C_RESET}"
+        elif (( tw >= 250 )); then
+            shock="${C_MSG_WARN}Your terminal is ABSURDLY wide (${tw} cols). Impressive.${C_RESET}"
+        elif (( tw >= 200 )); then
+            shock="${C_MSG_WARN}Okay that's a THICC terminal (${tw} cols). Fine, 4 columns it is.${C_RESET}"
+        elif (( tw >= 150 )); then
+            shock="${C_DIM}Ooh, spacious! ${tw} cols. Here, have ${nc} columns.${C_RESET}"
+        fi
+
+        printf "\n  ${C_WHITE}Package Manager - Help${C_RESET}"
+        printf "  ${C_DIM}(${tw} cols, ${nc}-column mode)${C_RESET}"
+        if [[ -n "$shock" ]]; then
+            printf "\n  ${shock}"
+        fi
+        printf "\n"
+
+        local -a cmds=(
+            "/upgrade|Upgrade all packages" "/export-all|Export all installed"
+            "/install <pkg>|Install by name" "/info <pkg>|Full package info"
+            "/remove <pkg>|Remove by name" "/search <text>|Search packages"
+            "/purge <pkg>|Remove + config files" "/rdeps <pkg>|Reverse dependencies"
+            "/hold <pkg>|Pin (no upgrade)" "/depends-on <pkg>|Installed dependents"
+            "/unhold <pkg>|Unpin package" "/deps <pkg>|Show dependencies"
+            "/export <pkg>|Export install script" "/tree <pkg>|Dependency tree"
+            "/compare <a> <b>|Compare packages" "/note <pkg> <text>|Add/view note"
+            "/orphans|Show orphaned packages" "/orphans-safe|Safe orphans"
+            "/orphans-remove|Remove all orphans" "/outdated|Packages with updates"
+            "/top|Top 10 largest pkgs" "/top <n>|Top N largest pkgs"
+            "/size|Total installed size" "/count|Count packages"
+            "/update|Update apt cache" "/clean|Clean orphans + cache"
+            "/installed|Show only installed" "/available|Show only available"
+            "/recent|Show installed today" "/usage|Disk usage by section"
+            "/usage <pkg>|Per-package file list" "/changelog <pkg>|Show changelog"
+            "/reinstall <pkg>|Reinstall package" "/search-file <text>|Search files"
+            "/download-size <pkg>|Download size" "/check|Verify packages"
+            "/group|Packages by section" "/outdated-top <n>|Top N outdated"
+            "/usage-top <n>|Disk usage bar chart" "/version|System version info"
+            "/all|Reset filter: show all" "/sort name|size|Sort by name/size"
+            "/history|View last 7 days" "/review|Today's activity"
+            "/stats|Today's counts" "/backup|Export package list"
+            "/restore <file>|Install from list" "/undo|Reverse last op"
+            "/mirror|Switch apt mirror" "/fav <pkg>|Toggle favorite"
+            "/fav-list|Show all favorites" "/fav-remove|Remove a favorite"
+            "/import <file>|Install from list" "/why <pkg>|Why installed"
+            "/suggest <pkg>|Recommended packages" "/nuke|Storage cleanup"
+            "/whatsnew|Recent changelogs" "/tips|Termux tips"
+            "/self-update|Update from GitHub" "/search-size <min> <max>|Find by size"
+            "/pkg-history <pkg>|Per-pkg history" "/depends-chain <a> <b>|Dep chain"
+            "/broken|Find broken packages" "/conflicts-with <pkg>|Show conflicts"
+            "/provides <pkg>|Virtual packages" "/manually-installed|Manual only"
+            "/auto-installed|Auto installs" "/upgrade-plan|Simulated upgrade"
+            "/pkg-ages|Package age view" "/unused-libs|Orphaned libraries"
+            "/maintainer <name>|Search by maintainer" "/log-search <text>|Search dpkg logs"
+            "/mirror-backup|Backup/restore mirrors" "/size-histogram|Size distribution"
+            "/deptree <pkg>|Visual dep tree" "/reverse-tree <pkg>|Reverse dep tree"
+            "/upgrade-size|Total upgrade dl size" "/download <pkg>|Download w/o install"
+            "/verify <pkg>|Verify checksums" "/mirror-latency|Ping-test mirrors"
+            "/mirror-bandwidth|Bandwidth-test mirrors" "/pkg-changes|Last apt upgrade diff"
+            "/pkg-recommendations <pkg>|Who recommends" "/pkg-suggests <pkg>|Who suggests"
+            "/pkg-breaks <pkg>|What breaks" "/pkg-replaces <pkg>|What this replaces"
+            "/owner <file>|File owner (dpkg -S)" "/removed|Removed last upgrade"
+            "/new-pkgs|Installed this week" "/same-size|Same-size packages"
+            "/depends-on-list <pkgs>|Shared deps" "/upgradable|Upgradable with diff"
+            "/whatprovides <file>|Find binary provider" "/snap-install <file>|Install local .deb"
+            "/simulate-remove <pkg>|Simulate removal" "/repo-stats|Packages per repo"
+            "/download-est <pkg>|Download+install est." "/diff <pkg>|Changelog diff"
+            "/snapshot|Save snapshot" "/snapshot-list|List snapshots"
+            "/snapshot-restore|Restore snapshot" "/plan <cmd>|Dry-run preview"
+            "/missing|Missing dependencies" "/compact|Toggle compact mode"
+            "/search-history <txt>|Search history" "/quick|Popular package sets"
+            "/fuzzy-dep|Dependency explorer" "/size-filter <min> <max>|Filter by size"
+            "/security|Outdated pkg check" "/duplicate|Duplicate/virtual pkgs"
+        )
         printf "\n  ${C_AMBER}Slash Commands${C_RESET}\n"
-        printf "    ${C_TEAL}/upgrade${C_RESET}          Upgrade all packages\n"
-        printf "    ${C_TEAL}/install <pkg>${C_RESET}      Install by name\n"
-        printf "    ${C_TEAL}/remove <pkg>${C_RESET}       Remove by name\n"
-        printf "    ${C_TEAL}/purge <pkg>${C_RESET}        Remove + config files\n"
-        printf "    ${C_TEAL}/hold <pkg>${C_RESET}         Pin package (no upgrade)\n"
-        printf "    ${C_TEAL}/unhold <pkg>${C_RESET}       Unpin package\n"
-        printf "    ${C_TEAL}/export <pkg>${C_RESET}       Export install script\n"
-        printf "    ${C_TEAL}/info <pkg>${C_RESET}         Full package info\n"
-        printf "    ${C_TEAL}/search <text>${C_RESET}      Search packages\n"
-        printf "    ${C_TEAL}/rdeps <pkg>${C_RESET}        Reverse dependencies\n"
-        printf "    ${C_TEAL}/depends-on <pkg>${C_RESET}   Installed dependents\n"
-        printf "    ${C_TEAL}/compare <a> <b>${C_RESET}   Compare packages\n"
-        printf "    ${C_TEAL}/note <pkg> <text>${C_RESET}  Add/view package note\n"
-        printf "    ${C_TEAL}/deps <pkg>${C_RESET}        Show dependencies\n"
-        printf "    ${C_TEAL}/tree <pkg>${C_RESET}        Dependency tree\n"
-        printf "    ${C_TEAL}/orphans${C_RESET}           Show orphaned packages\n"
-        printf "    ${C_TEAL}/orphans-safe${C_RESET}      Safe orphans (no essential)\n"
-        printf "    ${C_TEAL}/orphans-remove${C_RESET}   Remove all orphans\n"
-        printf "    ${C_TEAL}/outdated${C_RESET}          Packages with updates\n"
-        printf "    ${C_TEAL}/top${C_RESET}              Top 10 largest pkgs\n"
-        printf "    ${C_TEAL}/top <n>${C_RESET}           Top N largest pkgs\n"
-        printf "    ${C_TEAL}/size${C_RESET}             Total installed size\n"
-        printf "    ${C_TEAL}/count${C_RESET}            Count packages\n"
-        printf "    ${C_TEAL}/update${C_RESET}           Update apt cache\n"
-        printf "    ${C_TEAL}/export-all${C_RESET}       Export all installed\n"
-        printf "    ${C_TEAL}/clean${C_RESET}            Clean orphans + cache\n"
-        printf "    ${C_TEAL}/installed${C_RESET}         Show only installed\n"
-        printf "    ${C_TEAL}/available${C_RESET}         Show only available\n"
-        printf "    ${C_TEAL}/recent${C_RESET}            Show installed today\n"
-        printf "    ${C_TEAL}/usage${C_RESET}             Disk usage by section\n"
-        printf "    ${C_TEAL}/usage <pkg>${C_RESET}       Per-package file list\n"
-        printf "    ${C_TEAL}/changelog <pkg>${C_RESET}  Show package changelog\n"
-        printf "    ${C_TEAL}/reinstall <pkg>${C_RESET}  Reinstall package\n"
-        printf "    ${C_TEAL}/search-file <text>${C_RESET} Search installed files\n"
-        printf "    ${C_TEAL}/download-size <pkg>${C_RESET} Show download size\n"
-        printf "    ${C_TEAL}/check${C_RESET}            Verify installed packages\n"
-        printf "    ${C_TEAL}/group${C_RESET}            Packages by section\n"
-        printf "    ${C_TEAL}/outdated-top${C_RESET}     Top N packages with updates\n"
-        printf "    ${C_TEAL}/usage-top${C_RESET}        Disk usage bar chart\n"
-        printf "    ${C_TEAL}/version${C_RESET}          System version info\n"
-        printf "    ${C_TEAL}/all${C_RESET}               Show all packages\n"
-        printf "    ${C_TEAL}/sort name${C_RESET} or ${C_TEAL}/sort size${C_RESET}    Sort packages\n"
-        printf "    ${C_TEAL}/history${C_RESET}           View last 7 days of commands\n"
-        printf "    ${C_TEAL}/review${C_RESET}            Today's activity summary\n"
-        printf "    ${C_TEAL}/stats${C_RESET}             Today's install/remove counts\n"
-        printf "    ${C_TEAL}/backup${C_RESET}            Export full package list\n"
-        printf "    ${C_TEAL}/restore <file>${C_RESET}    Install from list file\n"
-        printf "    ${C_TEAL}/undo${C_RESET}              Undo last operation\n"
-        printf "    ${C_TEAL}/mirror${C_RESET}           Switch apt mirror (termux-tools)\n"
-        printf "    ${C_TEAL}/fav <pkg>${C_RESET}        Toggle package favorite\n"
-        printf "    ${C_TEAL}/fav-list${C_RESET}         Show all favorites\n"
-        printf "    ${C_TEAL}/fav-remove${C_RESET}      Remove a favorite\n"
-        printf "    ${C_TEAL}/import <file>${C_RESET}   Install from package list file\n"
-        printf "    ${C_TEAL}/why <pkg>${C_RESET}       Show why a package is installed\n"
-        printf "    ${C_TEAL}/suggest <pkg>${C_RESET}   Show recommended packages\n"
-        printf "    ${C_TEAL}/nuke${C_RESET}            Interactive storage cleanup\n"
-        printf "    ${C_TEAL}/whatsnew${C_RESET}        Show recent upgrade changelogs\n"
-        printf "    ${C_TEAL}/tips${C_RESET}            Termux tips & tricks\n"
-        printf "    ${C_TEAL}/self-update${C_RESET}     Update pkgs from GitHub\n"
-        printf "    ${C_TEAL}/search-size <min> <max>${C_RESET} Find pkgs by size\n"
-        printf "    ${C_TEAL}/pkg-history <pkg>${C_RESET}  Per-pkg history\n"
-        printf "    ${C_TEAL}/depends-chain <a> <b>${C_RESET} Dep path finder\n"
-        printf "    ${C_TEAL}/broken${C_RESET}           Find broken packages\n"
-        printf "    ${C_TEAL}/conflicts-with <pkg>${C_RESET} Show conflicts\n"
-        printf "    ${C_TEAL}/provides <pkg>${C_RESET}    Virtual packages\n"
-        printf "    ${C_TEAL}/manually-installed${C_RESET} Manual installs only\n"
-        printf "    ${C_TEAL}/auto-installed${C_RESET}    Auto installs only\n"
-        printf "    ${C_TEAL}/upgrade-plan${C_RESET}      Simulated upgrade\n"
-        printf "    ${C_TEAL}/pkg-ages${C_RESET}          Package age view\n"
-        printf "    ${C_TEAL}/unused-libs${C_RESET}       Orphaned libraries\n"
-        printf "    ${C_TEAL}/maintainer <name>${C_RESET} Search by maintainer\n"
-        printf "    ${C_TEAL}/log-search <text>${C_RESET} Search dpkg logs\n"
-        printf "    ${C_TEAL}/mirror-backup${C_RESET}     Backup/restore mirrors\n"
-        printf "    ${C_TEAL}/size-histogram${C_RESET}    Size distribution\n"
-        printf "    ${C_TEAL}/deptree <pkg>${C_RESET}    Visual dependency tree\n"
-        printf "    ${C_TEAL}/reverse-tree <pkg>${C_RESET} Reverse dependency tree\n"
-        printf "    ${C_TEAL}/upgrade-size${C_RESET}      Total upgrade download size\n"
-        printf "    ${C_TEAL}/download <pkg>${C_RESET}    Download pkg without install\n"
-        printf "    ${C_TEAL}/verify <pkg>${C_RESET}      Verify package checksums\n"
-        printf "    ${C_TEAL}/mirror-latency${C_RESET}    Ping-test all mirrors\n"
-        printf "    ${C_TEAL}/mirror-bandwidth${C_RESET}  Bandwidth-test mirrors\n"
-        printf "    ${C_TEAL}/pkg-changes${C_RESET}       Last apt upgrade diff\n"
-        printf "    ${C_TEAL}/pkg-recommendations${C_RESET} Who recommends this pkg\n"
-        printf "    ${C_TEAL}/pkg-suggests <pkg>${C_RESET} Who suggests this pkg\n"
-        printf "    ${C_TEAL}/pkg-breaks <pkg>${C_RESET}  What breaks if installed\n"
-        printf "    ${C_TEAL}/pkg-replaces <pkg>${C_RESET} What does this replace\n"
-        printf "    ${C_TEAL}/owner <file>${C_RESET}      Which pkg owns this file\n"
-        printf "    ${C_TEAL}/removed${C_RESET}           Packages removed last upgrade\n"
-        printf "    ${C_TEAL}/new-pkgs${C_RESET}          Installed this week\n"
-        printf "    ${C_TEAL}/same-size${C_RESET}         Packages with identical size\n"
-        printf "    ${C_TEAL}/depends-on-list${C_RESET}   Shared deps of multiple pkgs\n"
-        printf "    ${C_TEAL}/upgradable${C_RESET}        Upgradable with version diff\n"
-        printf "    ${C_TEAL}/whatprovides <file>${C_RESET} Find binary/file provider\n"
-        printf "    ${C_TEAL}/snap-install <file>${C_RESET} Install from local .deb\n"
-        printf "    ${C_TEAL}/simulate-remove <pkg>${C_RESET} Simulate removal\n"
-        printf "    ${C_TEAL}/repo-stats${C_RESET}        Packages per repository\n"
-        printf "    ${C_TEAL}/download-est <pkg>${C_RESET} Download + installed size\n"
-        printf "    ${C_TEAL}/diff <pkg>${C_RESET}        Changelog diff of last upgrade\n"
-        printf "    ${C_TEAL}/snapshot${C_RESET}         Save installed package snapshot\n"
-        printf "    ${C_TEAL}/snapshot-list${C_RESET}     List saved snapshots\n"
-        printf "    ${C_TEAL}/snapshot-restore${C_RESET}  Restore from a snapshot\n"
-        printf "    ${C_TEAL}/plan <cmd>${C_RESET}       Dry-run preview (install/remove/upgrade)\n"
-        printf "    ${C_TEAL}/missing${C_RESET}          Check for missing dependencies\n"
-        printf "    ${C_TEAL}/compact${C_RESET}          Toggle compact fzf mode\n"
-        printf "    ${C_TEAL}/search-history <text>${C_RESET} Search operation history\n"
-        printf "    ${C_TEAL}/quick${C_RESET}           Quick install popular package sets\n"
-        printf "    ${C_TEAL}/fuzzy-dep${C_RESET}       Interactive dependency explorer\n"
-        printf "    ${C_TEAL}/size-filter <min> <max>${C_RESET} Filter by installed size (KiB)\n"
-        printf "    ${C_TEAL}/security${C_RESET}        Check for outdated packages\n"
-        printf "    ${C_TEAL}/duplicate${C_RESET}       Find duplicate/virtual packages\n"
-        printf "\n  ${C_AMBER}New Features${C_RESET}\n"
-        printf "    ${C_TEAL}/profile${C_RESET}          Save/restore named package profiles\n"
-        printf "    ${C_TEAL}/check-deps${C_RESET}      Scan project for missing tools\n"
-        printf "    ${C_TEAL}/shell-hook${C_RESET}      Generate shell aliases from packages\n"
-        printf "    ${C_TEAL}/storage-report${C_RESET}  Android-aware storage breakdown\n"
-        printf "    ${C_TEAL}/health${C_RESET}          System health score (0-100)\n"
-        printf "    ${C_TEAL}/auto-clean${C_RESET}      Set up scheduled cleanup\n"
-        printf "    ${C_TEAL}/footprint <pkg>${C_RESET} Total size incl. all transitive deps\n"
-        printf "    ${C_TEAL}/unused${C_RESET}          Find packages you never invoke\n"
-        printf "    ${C_TEAL}/timeline${C_RESET}        Visual install/upgrade activity map\n"
-        printf "    ${C_TEAL}/schedule${C_RESET}        Set up update reminders\n"
-        printf "    ${C_TEAL}/search-providers${C_RESET} Find packages for a command\n"
-        printf "    ${C_TEAL}/diff-snapshots${C_RESET}  Diff two saved snapshots\n"
-        printf "    ${C_TEAL}/audit${C_RESET}           Scan for SUID/SGID + world-writable\n"
-        printf "    ${C_TEAL}/repo-check${C_RESET}      Flag packages from untrusted repos\n"
-        printf "    ${C_TEAL}/popular${C_RESET}         Curated popular packages list\n"
-        printf "    ${C_TEAL}/boot-time${C_RESET}       Benchmark Termux startup speed\n"
-        printf "    ${C_TEAL}/disk-pressure${C_RESET}   Storage pressure + days-till-full\n"
-        printf "    ${C_TEAL}/pkg-impact <pkg>${C_RESET} Pre-install impact analysis\n"
-        printf "    ${C_TEAL}/export-versions${C_RESET}  Export package list with versions\n"
-        printf "    ${C_TEAL}/theme-preview${C_RESET}    Preview current color scheme\n"
-        printf "    ${C_TEAL}/keys${C_RESET}             Fzf keybinding reference\n"
-        printf "    ${C_TEAL}/cache-stats${C_RESET}      Cache and stats dashboard\n"
-        printf "    ${C_TEAL}/suggest <pkg>${C_RESET}    Suggest related packages\n"
-        printf "    ${C_TEAL}/dep-graph <pkg>${C_RESET}  Visual dependency tree\n"
-        printf "    ${C_TEAL}/batch-upgrade${C_RESET}    Interactive batch upgrade picker\n"
-        printf "    ${C_TEAL}/activity-log [days]${C_RESET} Package activity history\n"
-        printf "    ${C_TEAL}/compare <pkg1 pkg2>${C_RESET} Compare two packages\n"
-        printf "    ${C_TEAL}/help${C_RESET}              Show this help\n"
-        printf "    ${C_TEAL}/theme${C_RESET}            Switch color scheme\n"
+        _pkgs_help_print_cols "$tw" "$nc" "${cmds[@]}"
+
+        local -a cmds2=(
+            "/profile|Save/restore profiles" "/check-deps|Scan missing tools"
+            "/shell-hook|Shell aliases from pkgs" "/storage-report|Android storage"
+            "/health|System health score" "/auto-clean|Scheduled cleanup"
+            "/footprint <pkg>|Total size+transitive" "/unused|Never invoked packages"
+            "/timeline|Activity map" "/schedule|Update reminders"
+            "/search-providers|Find pkgs for command" "/diff-snapshots|Diff snapshots"
+            "/audit|SUID/SGID scan" "/repo-check|Untrusted repo check"
+            "/popular|Popular packages list" "/boot-time|Benchmark startup"
+            "/disk-pressure|Storage pressure" "/pkg-impact <pkg>|Pre-install analysis"
+            "/export-versions|Export with versions" "/theme-preview|Preview colors"
+            "/keys|Fzf keybinding ref" "/cache-stats|Cache dashboard"
+            "/dep-graph <pkg>|Visual dep tree" "/batch-upgrade|Batch upgrade picker"
+            "/activity-log [days]|Package activity" "/compare <pkg1 pkg2>|Compare packages"
+            "/theme|Switch color scheme" "/help|Show this help"
+        )
+        printf "\n  ${C_AMBER}Extended Commands${C_RESET}\n"
+        _pkgs_help_print_cols "$tw" "$nc" "${cmds2[@]}"
+
+        local -a kbs=("?:Toggle preview" "Tab:Multi-select" "Ctrl-A:Select all visible" "Ctrl-D:Deselect all" "Enter:Confirm selection" "Esc:Exit")
         printf "\n  ${C_AMBER}Keybindings${C_RESET}\n"
-        printf "    ${C_TEAL}?${C_RESET}                Toggle preview\n"
-        printf "    ${C_TEAL}Tab${C_RESET}              Multi-select\n"
-        printf "    ${C_TEAL}Ctrl-A${C_RESET}            Select all visible\n"
-        printf "    ${C_TEAL}Ctrl-D${C_RESET}            Deselect all\n"
+        _pkgs_help_print_cols "$tw" "$nc" "${kbs[@]}"
+
         printf "\n  ${C_MSG_INFO}Press Enter to return.${C_RESET}"
         read -r
     }
@@ -669,7 +684,7 @@ if [ -n "$inst_size" ]; then
 fi
 printf "\n"
 
-printf "\n--- DEPENDENCIES ---\n"
+printf "\n  \033[38;5;180m─── Dependencies ───\033[0m\n"
 deps=$(echo "$pkg" | grep "^Depends:" | cut -d":" -f2 | sed "s/^ //" | tr ',' '\n' | sed 's/|.*//' | sed 's/ *(.*//' | sort -u | head -n 6)
 dep_count=$(echo "$deps" | grep -c . 2>/dev/null)
 if [ -z "$deps" ]; then
@@ -683,26 +698,26 @@ fi
 recs=$(echo "$pkg" | grep "^Recommends:" | cut -d":" -f2 | sed "s/^ //" | tr ',' '\n' | sed 's/|.*//' | sed 's/ *(.*//' | sort -u | head -n 3)
 sugs=$(echo "$pkg" | grep "^Suggests:" | cut -d":" -f2 | sed "s/^ //" | tr ',' '\n' | sed 's/|.*//' | sed 's/ *(.*//' | sort -u | head -n 3)
 if [ -n "$recs" ]; then
-    printf "\n--- RECOMMENDS ---\n"
+    printf "\n  \033[38;5;114m─── Recommends ───\033[0m\n"
     echo "$recs" | while read -r r; do printf "  %s\n" "$r"; done
 fi
 if [ -n "$sugs" ]; then
-    printf "\n--- SUGGESTS ---\n"
+    printf "\n  \033[38;5;139m─── Suggests ───\033[0m\n"
     echo "$sugs" | while read -r s; do printf "  %s\n" "$s"; done
 fi
 
 conflicts=$(echo "$pkg" | grep "^Conflicts:" | cut -d":" -f2 | sed "s/^ //" | tr ',' '\n' | sed 's/ *(.*//' | sort -u | head -n 3)
 replaces=$(echo "$pkg" | grep "^Replaces:" | cut -d":" -f2 | sed "s/^ //" | tr ',' '\n' | sed 's/ *(.*//' | sort -u | head -n 3)
 if [ -n "$conflicts" ]; then
-    printf "\n--- CONFLICTS ---\n"
+    printf "\n  \033[38;5;203m─── Conflicts ───\033[0m\n"
     echo "$conflicts" | while read -r c; do printf "  %s\n" "$c"; done
 fi
 if [ -n "$replaces" ]; then
-    printf "\n--- REPLACES ---\n"
+    printf "\n  \033[38;5;109m─── Replaces ───\033[0m\n"
     echo "$replaces" | while read -r r; do printf "  %s\n" "$r"; done
 fi
 
-printf "\n--- REVERSE DEPS ---\n"
+printf "\n  \033[38;5;180m─── Reverse Deps ───\033[0m\n"
 rdeps_full=$(apt-cache rdepends "$pkg_name" 2>/dev/null | tail -n +3 | grep -v "^$")
 rdeps=$(echo "$rdeps_full" | head -n 6)
 if [ -z "$rdeps" ]; then
@@ -717,12 +732,12 @@ fi
 if dpkg -s -- "$pkg_name" 2>/dev/null | grep -q "^Status: install ok installed"; then
     pkg_files=$(dpkg -L -- "$pkg_name" 2>/dev/null | grep "^/")
     file_count=$(echo "$pkg_files" | grep -c "^/" 2>/dev/null)
-    printf "\n--- INSTALLED FILES (%s) ---\n" "$file_count"
+    printf "\n  \033[38;5;114m─── Installed Files (%s) ───\033[0m\n" "$file_count"
     echo "$pkg_files" | grep -v "^/\\." | grep -v "^/etc/" | tail -n 12 | while read -r f; do printf "  %s\n" "$f"; done
     [ "$file_count" -gt 12 ] && printf "  \033[38;5;59m...%d more files\033[0m\n" "$((file_count - 12))"
 fi
 
-printf "\n--- DESCRIPTION ---\n"
+printf "\n  \033[38;5;223m─── Description ───\033[0m\n"
 echo "$pkg" | sed -n "/^Description:/ { s/^Description: //p; :a; n; /^ / { s/^ //p; ba }; }" | head -8
 PREVIEW_EOF
     }
@@ -750,7 +765,7 @@ PREVIEW_EOF
             --info=inline
             --multi
             --print-query
-            --color='fg:223,bg:-1,hl:114,fg+:223,bg+:235,hl+:109,info:109,prompt:180,pointer:203,marker:114,spinner:139,header:59'
+            --color='fg:223,bg:-1,hl:107,fg+:223,bg+:236,hl+:114,info:109,prompt:180,pointer:203,marker:114,spinner:139,header:59,border:59,separator:59'
             --preview-window="$PREVIEW_LAYOUT"
             --delimiter='[|]'
             --with-nth=2
@@ -825,6 +840,93 @@ PREVIEW_EOF
             continue
         fi
 
+        # ── Easter eggs ──
+        if [[ "$query" == /42 ]]; then
+            printf "\n  \033[38;5;226mThe Answer to the Ultimate Question of Life, the Universe, and Everything.\033[0m\n"
+            printf "  \033[38;5;59m(Still no idea what the question was though.)\033[0m\n"
+            continue
+        fi
+        if [[ "$query" == /coffee ]]; then
+            local _cup="    ( ("
+            _cup+="    ) )"
+            _cup+="  .______."
+            _cup+="  |      |]"
+            _cup+="  \\      /"
+            _cup+="   \`----'\n"
+            printf "\n  \033[38;5;130m%s\033[0m" "$_cup"
+            printf "  \033[38;5;130mCoffee installed. Wait, this isn't a real package manager... or is it?\033[0m\n\n"
+            continue
+        fi
+        if [[ "$query" == /matrix ]]; then
+            local _m_line=""
+            local _m
+            printf "\n"
+            for _m in 1 2 3 4 5; do
+                _m_line=""
+                local _i
+                for _i in $(seq 1 $(( (RANDOM % 40) + 20 ))); do
+                    _m_line+="$(printf '%b' "\\$(printf '%03o' $(( RANDOM % 94 + 33 )))")"
+                done
+                printf "  \033[38;5;46m%s\033[0m\n" "$_m_line"
+            done
+            printf "\n  \033[38;5;46mWake up, Neo...\033[0m\n"
+            printf "  \033[38;5;59m(The apt repository has you.)\033[0m\n\n"
+            continue
+        fi
+        if [[ "$query" == /potato ]]; then
+            printf "\n  \033[38;5;136m"
+            printf "       ___\n"
+            printf "      /   \\\n"
+            printf "     / o o \\\n"
+            printf "    (   >   )\n"
+            printf "     \\  =  /\n"
+            printf "      \\___/\n"
+            printf "        |\n"
+            printf "       /|\\\n"
+            printf "      / | \\\n"
+            printf "\033[0m"
+            printf "  \033[38;5;136mThis is a potato. It has no packages. It is a potato.\033[0m\n\n"
+            continue
+        fi
+        if [[ "$query" == /ping ]]; then
+            local _pings=("Pong!" "Pang!" "Pung!" "Ping!" "Poing!" "Piiiing!")
+            printf "\n  \033[38;5;117m%s\033[0m\n\n" "${_pings[$((RANDOM % ${#_pings[@]} + 1))]}"
+            continue
+        fi
+        if [[ "$query" == /beer ]]; then
+            printf "\n  \033[38;5;214m"
+            printf "          . .\n"
+            printf "       .. . *.\n"
+            printf " - -_ _-__-0oOo\n"
+            printf " _-_ -__ -||||)\n"
+            printf "    ______||||______\n"
+            printf "~~~~~~~~~~\`\"'<\n"
+            printf "\033[0m"
+            printf "  \033[38;5;214mHere's a cold one. You've earned it.\033[0m\n\n"
+            continue
+        fi
+        if [[ "$query" == "/rm -rf /" ]]; then
+            printf "\n  \033[38;5;196mNice try. This is a package manager, not a thermonuclear device.\033[0m\n"
+            printf "  \033[38;5;59mAlso, even if it were, we'd never.\033[0m\n\n"
+            continue
+        fi
+        if [[ "$query" == /hello || "$query" == /hi ]]; then
+            local _greetings=("Hey there!" "Yo!" "Sup!" "Howdy!" "Bonjour!" "Konnichiwa!" "Ahoy!" "Greetings, human.")
+            printf "\n  \033[38;5;123m%s\033[0m\n\n" "${_greetings[$((RANDOM % ${#_greetings[@]} + 1))]}"
+            continue
+        fi
+        if [[ "$query" == /uptime ]]; then
+            local _up=$(uptime -p 2>/dev/null || uptime 2>/dev/null | sed 's/.*up/up/')
+            printf "\n  \033[38;5;109m%s\033[0m\n" "$_up"
+            printf "  \033[38;5;59m(But really, have you tried turning it off and on again?)\033[0m\n\n"
+            continue
+        fi
+        if [[ "$query" == /sudo ]]; then
+            printf "\n  \033[38;5;196mThis is not the sudo you're looking for.\033[0m\n"
+            printf "  \033[38;5;59m(There is no sudo in Termux. There is no spoon either.)\033[0m\n\n"
+            continue
+        fi
+
         if [[ "$query" == /theme* ]]; then
             local theme_arg="${query#/theme }"
             [[ "$theme_arg" == "/theme" ]] && theme_arg=""
@@ -870,12 +972,12 @@ PREVIEW_EOF
                 clear
                 continue
             fi
-            printf "\n${C_MSG_INFO}--- Upgrading all packages... ---${C_RESET}\n"
+            printf "\n${C_MSG_INFO}─── Upgrading all packages... ───${C_RESET}\n"
             if "${PKG_MGR}" upgrade --; then
                 _pkgs_log_history "UPGRADE" "all"
-                printf "${C_MSG_DONE}--- Upgrade completed successfully ---${C_RESET}\n"
+                printf "${C_MSG_DONE}─── Upgrade completed successfully ───${C_RESET}\n"
             else
-                printf "${C_MSG_REMOVE}--- Upgrade encountered errors ---${C_RESET}\n"
+                printf "${C_MSG_REMOVE}─── Upgrade encountered errors ───${C_RESET}\n"
             fi
             _pkgs_invalidate_cache
             printf "\n  ${C_MSG_INFO}Press Enter to return.${C_RESET}"
@@ -1022,7 +1124,7 @@ PREVIEW_EOF
             if ! apt-cache show -- "$deps_pkg" >/dev/null 2>&1; then
                 printf "${C_MSG_REMOVE}Package not found: %s${C_RESET}\n" "$deps_pkg"
             else
-                printf "\n${C_MSG_INFO}--- Dependencies of %s ---${C_RESET}\n\n" "$deps_pkg"
+                printf "\n${C_MSG_INFO}─── Dependencies of %s ───${C_RESET}\n\n" "$deps_pkg"
                 local deps_out
                 deps_out=$(apt-cache depends --no-recommends --no-suggests --no-conflicts --no-breaks --no-replaces --no-enhances -- "$deps_pkg" 2>/dev/null | grep "Depends:" | sed 's/.*Depends: //' | tr -d '<>' | awk '{print $1}' | sort -u)
                 if [[ -z "$deps_out" ]]; then
@@ -1044,7 +1146,7 @@ PREVIEW_EOF
             if ! apt-cache show -- "$tree_pkg" >/dev/null 2>&1; then
                 printf "${C_MSG_REMOVE}Package not found: %s${C_RESET}\n" "$tree_pkg"
             else
-                printf "\n${C_MSG_INFO}--- Dependency tree for %s ---${C_RESET}\n\n" "$tree_pkg"
+                printf "\n${C_MSG_INFO}─── Dependency tree for %s ───${C_RESET}\n\n" "$tree_pkg"
                 local tree_output
                 tree_output=$(apt-cache depends --recurse --no-recommends --no-suggests --no-conflicts --no-breaks --no-replaces --no-enhances -- "$tree_pkg" 2>/dev/null)
                 print -r -- "$tree_output" | head -50
@@ -1061,7 +1163,7 @@ PREVIEW_EOF
 
         if [[ "$query" == /orphans ]]; then
             clear
-            printf "\n${C_MSG_INFO}--- Orphaned Packages (auto-installed, no dependents) ---${C_RESET}\n\n"
+            printf "\n${C_MSG_INFO}─── Orphaned Packages (auto-installed, no dependents) ───${C_RESET}\n\n"
             local orphans_out
             orphans_out=$(apt-cache showpkg 2>/dev/null | awk '/^Package:/{pkg=$2} /^ReverseDependencies:/{if(NF==1) print pkg}' | sort -u)
             if [[ -z "$orphans_out" ]]; then
@@ -1119,7 +1221,7 @@ PREVIEW_EOF
 
         if [[ "$query" == /size ]]; then
             clear
-            printf "\n${C_MSG_INFO}--- Total Installed Size ---${C_RESET}\n\n"
+            printf "\n${C_MSG_INFO}─── Total Installed Size ───${C_RESET}\n\n"
             local total_size_kb
             total_size_kb=$(dpkg-query -W -f='${Installed-Size}\n' 2>/dev/null | awk '{s+=$1}END{print s}')
             local total_pkgs
@@ -1142,7 +1244,7 @@ PREVIEW_EOF
 
         if [[ "$query" == /count ]]; then
             clear
-            printf "\n${C_MSG_INFO}--- Package Counts ---${C_RESET}\n\n"
+            printf "\n${C_MSG_INFO}─── Package Counts ───${C_RESET}\n\n"
             local count_installed count_available count_total
             count_installed=$(dpkg-query -W -f='${Package}\n' 2>/dev/null | wc -l | tr -d ' ')
             count_total=$(apt-cache search ".*" 2>/dev/null | wc -l | tr -d ' ')
@@ -1159,7 +1261,7 @@ PREVIEW_EOF
 
         if [[ "$query" == /update ]]; then
             clear
-            printf "\n${C_MSG_INFO}--- Updating package cache... ---${C_RESET}\n\n"
+            printf "\n${C_MSG_INFO}─── Updating package cache... ───${C_RESET}\n\n"
             if "${PKG_MGR}" update 2>&1; then
                 _pkgs_invalidate_cache
                 printf "\n${C_MSG_DONE}Cache updated successfully.${C_RESET}\n"
@@ -1507,7 +1609,7 @@ PREVIEW_EOF
 
         if [[ "$query" == /clean ]]; then
             clear
-            printf "\n${C_MSG_INFO}--- Cleaning apt cache and unused dependencies ---${C_RESET}\n\n"
+            printf "\n${C_MSG_INFO}─── Cleaning apt cache and unused dependencies ───${C_RESET}\n\n"
             printf "${C_MSG_WARN}Run autoremove + clean? (y/N) ${C_RESET}"
             read -q confirm; read -r
             if [[ "$confirm" == "y" ]]; then
@@ -1609,7 +1711,7 @@ PREVIEW_EOF
             if ! apt-cache show -- "$depson_pkg" >/dev/null 2>&1; then
                 printf "${C_MSG_REMOVE}Package not found: %s${C_RESET}\n" "$depson_pkg"
             else
-                printf "\n${C_MSG_INFO}--- Installed packages that depend on %s ---${C_RESET}\n\n" "$depson_pkg"
+                printf "\n${C_MSG_INFO}─── Installed packages that depend on %s ───${C_RESET}\n\n" "$depson_pkg"
                 local depson_out
                 depson_out=$(apt-cache rdepends -- "$depson_pkg" 2>/dev/null | tail -n +3)
                 if [[ -z "$depson_out" ]]; then
@@ -1635,7 +1737,7 @@ PREVIEW_EOF
 
         if [[ "$query" == /outdated ]]; then
             clear
-            printf "\n${C_MSG_INFO}--- Outdated Packages (updates available) ---${C_RESET}\n\n"
+            printf "\n${C_MSG_INFO}─── Outdated Packages (updates available) ───${C_RESET}\n\n"
             local outdated_count=0
             # Bulk: get all installed packages, then batch apt-cache policy
             local -a all_pkgs=()
@@ -1664,7 +1766,7 @@ PREVIEW_EOF
 
         if [[ "$query" == /orphans-safe ]]; then
             clear
-            printf "\n${C_MSG_INFO}--- Orphaned Packages (safe to remove) ---${C_RESET}\n\n"
+            printf "\n${C_MSG_INFO}─── Orphaned Packages (safe to remove) ───${C_RESET}\n\n"
             local osafe_out
             osafe_out=$(apt-cache showpkg 2>/dev/null | awk '/^Package:/{pkg=$2} /^ReverseDependencies:/{if(NF==1) print pkg}' | sort -u | while read -r opkg; do
                 [[ -z "$opkg" ]] && continue
@@ -2158,7 +2260,7 @@ PREVIEW_EOF
                 continue
             fi
             clear
-            printf "\n${C_MSG_INFO}--- Searching descriptions for \"%s\"... ---${C_RESET}\n\n" "$search_text"
+            printf "\n${C_MSG_INFO}─── Searching descriptions for \"%s\"... ───${C_RESET}\n\n" "$search_text"
             local -a desc_matches=()
             local -a desc_texts=()
             local match_limit=50
@@ -2197,7 +2299,7 @@ PREVIEW_EOF
             if ! apt-cache show -- "$rdeps_pkg" >/dev/null 2>&1; then
                 printf "${C_MSG_REMOVE}Package not found: %s${C_RESET}\n" "$rdeps_pkg"
             else
-                printf "\n${C_MSG_INFO}--- Reverse dependencies of %s ---${C_RESET}\n\n" "$rdeps_pkg"
+                printf "\n${C_MSG_INFO}─── Reverse dependencies of %s ───${C_RESET}\n\n" "$rdeps_pkg"
                 local rdeps_out
                 rdeps_out=$(apt-cache rdepends -- "$rdeps_pkg" 2>/dev/null | tail -n +3)
                 if [[ -z "$rdeps_out" ]]; then
@@ -2243,7 +2345,7 @@ PREVIEW_EOF
             done < <(apt-cache search -n "$search_term" 2>/dev/null)
 
             if [[ ${#match_pkgs[@]} -eq 0 ]]; then
-                printf "\n${C_MSG_REMOVE}--- No packages matching \"%s\" ---${C_RESET}\n\n" "$search_term"
+                printf "\n${C_MSG_REMOVE}─── No packages matching \"%s\" ───${C_RESET}\n\n" "$search_term"
                 continue
             fi
 
@@ -2259,7 +2361,7 @@ PREVIEW_EOF
                     local batch_choice
                     read -q batch_choice; read -r
                     if [[ "$batch_choice" == "y" ]]; then
-                        printf "\n${C_MSG_INFO}--- Dry run: ${cmd} ---${C_RESET}\n"
+                        printf "\n${C_MSG_INFO}─── Dry run: ${cmd} ───${C_RESET}\n"
                         for pkg in "${match_pkgs[@]}"; do
                             if [[ "$cmd" == "install" ]]; then
                                 local dep_count
@@ -2298,7 +2400,7 @@ PREVIEW_EOF
                             chmod 700 "$export_file" 2>/dev/null
                             printf "\n${C_MSG_DONE}Exported %d packages to: %s${C_RESET}\n" "${#match_pkgs[@]}" "$export_file"
                         else
-                            printf "${C_MSG_REMOVE}--- Invalid or unsafe file path ---${C_RESET}\n"
+                            printf "${C_MSG_REMOVE}─── Invalid or unsafe file path ───${C_RESET}\n"
                         fi
                         printf "\n  ${C_MSG_INFO}Press Enter to return.${C_RESET}"
                         read -r
@@ -2354,15 +2456,15 @@ PREVIEW_EOF
                             } > "$export_file"
                             chmod 700 "$export_file" 2>/dev/null
                             if [[ -f "$export_file" ]]; then
-                                printf "\n${C_MSG_INFO}--- Saved: ${C_RESET}%s${C_MSG_INFO} ---${C_RESET}\n" "$export_file"
+                                printf "\n${C_MSG_INFO}─── Saved: ${C_RESET}%s${C_MSG_INFO} ───${C_RESET}\n" "$export_file"
                             else
-                                printf "${C_MSG_REMOVE}--- Failed to create export file ---${C_RESET}\n"
+                                printf "${C_MSG_REMOVE}─── Failed to create export file ───${C_RESET}\n"
                             fi
                         else
-                            printf "${C_MSG_REMOVE}--- Invalid file path ---${C_RESET}\n"
+                            printf "${C_MSG_REMOVE}─── Invalid file path ───${C_RESET}\n"
                         fi
                     else
-                        printf "${C_MSG_REMOVE}--- Invalid or unsafe file path ---${C_RESET}\n"
+                        printf "${C_MSG_REMOVE}─── Invalid or unsafe file path ───${C_RESET}\n"
                     fi
                     printf "\n"
                     ;;
@@ -2373,7 +2475,7 @@ PREVIEW_EOF
             continue
         fi
 
-        # --- /mirror ---
+        # ─── /mirror ───
         if [[ "$query" == /mirror ]]; then
             clear
             local mirror_base="${PREFIX}/etc/termux/mirrors"
@@ -2442,7 +2544,7 @@ PREVIEW_EOF
             continue
         fi
 
-        # --- /fav ---
+        # ─── /fav ───
         if [[ "$query" == /fav-list ]]; then
             clear
             mkdir -p "$(dirname "$_PKGS_FAVORITES_FILE")" 2>/dev/null
@@ -2525,7 +2627,7 @@ PREVIEW_EOF
             continue
         fi
 
-        # --- /import ---
+        # ─── /import ───
         if [[ "$query" == /import* ]]; then
             local import_file="${query#/import }"
             [[ "$import_file" == "/import" ]] && import_file=""
@@ -2578,7 +2680,7 @@ PREVIEW_EOF
             continue
         fi
 
-        # --- /why ---
+        # ─── /why ───
         if [[ "$query" == /why* ]]; then
             local why_pkg="${query#/why }"
             [[ "$why_pkg" == "/why" ]] && why_pkg=""
@@ -2646,7 +2748,7 @@ PREVIEW_EOF
             continue
         fi
 
-        # --- /nuke ---
+        # ─── /nuke ───
         if [[ "$query" == /nuke ]]; then
             clear
             printf "\n  ${C_WHITE}Termux Storage Cleanup${C_RESET}\n\n"
@@ -2781,7 +2883,7 @@ PREVIEW_EOF
             continue
         fi
 
-        # --- /whatsnew ---
+        # ─── /whatsnew ───
         if [[ "$query" == /whatsnew ]]; then
             clear
             printf "\n  ${C_WHITE}Recently Upgraded Packages${C_RESET}\n\n"
@@ -2824,7 +2926,7 @@ PREVIEW_EOF
             continue
         fi
 
-        # --- /tips ---
+        # ─── /tips ───
         if [[ "$query" == /tips ]]; then
             clear
             local -a tips=(
@@ -2869,7 +2971,7 @@ PREVIEW_EOF
             continue
         fi
 
-        # --- /self-update ---
+        # ─── /self-update ───
         if [[ "$query" == /self-update ]]; then
             clear
             printf "\n  ${C_MSG_INFO}Checking for updates...${C_RESET}\n"
@@ -2906,7 +3008,7 @@ PREVIEW_EOF
             continue
         fi
 
-        # --- /search-size ---
+        # ─── /search-size ───
         if [[ "$query" == /search-size* ]]; then
             local ss_args="${query#/search-size }"
             [[ "$ss_args" == "/search-size" ]] && ss_args=""
@@ -2946,7 +3048,7 @@ PREVIEW_EOF
             continue
         fi
 
-        # --- /pkg-history ---
+        # ─── /pkg-history ───
         if [[ "$query" == /pkg-history* ]]; then
             local ph_pkg="${query#/pkg-history }"
             [[ "$ph_pkg" == "/pkg-history" ]] && ph_pkg=""
@@ -2976,7 +3078,7 @@ PREVIEW_EOF
             continue
         fi
 
-        # --- /depends-chain ---
+        # ─── /depends-chain ───
         if [[ "$query" == /depends-chain* ]]; then
             local dc_args="${query#/depends-chain }"
             [[ "$dc_args" == "/depends-chain" ]] && dc_args=""
@@ -3046,7 +3148,7 @@ PREVIEW_EOF
             continue
         fi
 
-        # --- /broken ---
+        # ─── /broken ───
         if [[ "$query" == /broken ]]; then
             clear
             printf "\n  ${C_MSG_INFO}Checking for broken packages...${C_RESET}\n\n"
@@ -3069,7 +3171,7 @@ PREVIEW_EOF
             continue
         fi
 
-        # --- /conflicts-with ---
+        # ─── /conflicts-with ───
         if [[ "$query" == /conflicts-with* ]]; then
             local cw_pkg="${query#/conflicts-with }"
             [[ "$cw_pkg" == "/conflicts-with" ]] && cw_pkg=""
@@ -3104,7 +3206,7 @@ PREVIEW_EOF
             continue
         fi
 
-        # --- /provides ---
+        # ─── /provides ───
         if [[ "$query" == /provides* ]]; then
             local pv_pkg="${query#/provides }"
             [[ "$pv_pkg" == "/provides" ]] && pv_pkg=""
@@ -3133,7 +3235,7 @@ PREVIEW_EOF
             continue
         fi
 
-        # --- /manually-installed ---
+        # ─── /manually-installed ───
         if [[ "$query" == /manually-installed ]]; then
             clear
             printf "\n  ${C_WHITE}Manually Installed Packages${C_RESET}\n\n"
@@ -3171,7 +3273,7 @@ PREVIEW_EOF
             continue
         fi
 
-        # --- /auto-installed ---
+        # ─── /auto-installed ───
         if [[ "$query" == /auto-installed ]]; then
             clear
             printf "\n  ${C_WHITE}Auto-Installed Packages${C_RESET}\n\n"
@@ -3214,7 +3316,7 @@ PREVIEW_EOF
             continue
         fi
 
-        # --- /upgrade-plan ---
+        # ─── /upgrade-plan ───
         if [[ "$query" == /upgrade-plan ]]; then
             clear
             printf "\n  ${C_MSG_INFO}Simulating upgrade...${C_RESET}\n\n"
@@ -3226,7 +3328,7 @@ PREVIEW_EOF
             continue
         fi
 
-        # --- /pkg-ages ---
+        # ─── /pkg-ages ───
         if [[ "$query" == /pkg-ages ]]; then
             clear
             printf "\n  ${C_WHITE}Package Ages${C_RESET}\n\n"
@@ -3252,7 +3354,7 @@ PREVIEW_EOF
             continue
         fi
 
-        # --- /unused-libs ---
+        # ─── /unused-libs ───
         if [[ "$query" == /unused-libs ]]; then
             clear
             printf "\n  ${C_MSG_INFO}Scanning for orphaned libraries...${C_RESET}\n\n"
@@ -3278,7 +3380,7 @@ PREVIEW_EOF
             continue
         fi
 
-        # --- /maintainer ---
+        # ─── /maintainer ───
         if [[ "$query" == /maintainer* ]]; then
             local mt_query="${query#/maintainer }"
             [[ "$mt_query" == "/maintainer" ]] && mt_query=""
@@ -3306,7 +3408,7 @@ PREVIEW_EOF
             continue
         fi
 
-        # --- /log-search ---
+        # ─── /log-search ───
         if [[ "$query" == /log-search* ]]; then
             local ls_query="${query#/log-search }"
             [[ "$ls_query" == "/log-search" ]] && ls_query=""
@@ -3327,7 +3429,7 @@ PREVIEW_EOF
             continue
         fi
 
-        # --- /mirror-backup ---
+        # ─── /mirror-backup ───
         if [[ "$query" == /mirror-backup ]]; then
             clear
             local src_list="${PREFIX}/etc/apt/sources.list"
@@ -3379,7 +3481,7 @@ PREVIEW_EOF
             continue
         fi
 
-        # --- /size-histogram ---
+        # ─── /size-histogram ───
         if [[ "$query" == /size-histogram ]]; then
             clear
             printf "\n  ${C_WHITE}Package Size Distribution${C_RESET}\n\n"
@@ -3419,7 +3521,7 @@ PREVIEW_EOF
             continue
         fi
 
-        # --- /deptree ---
+        # ─── /deptree ───
         if [[ "$query" == /deptree* ]]; then
             local dt_pkg="${query#/deptree }"
             [[ "$dt_pkg" == "/deptree" ]] && dt_pkg=""
@@ -3458,7 +3560,7 @@ PREVIEW_EOF
             continue
         fi
 
-        # --- /reverse-tree ---
+        # ─── /reverse-tree ───
         if [[ "$query" == /reverse-tree* ]]; then
             local rt_pkg="${query#/reverse-tree }"
             [[ "$rt_pkg" == "/reverse-tree" ]] && rt_pkg=""
@@ -3495,7 +3597,7 @@ PREVIEW_EOF
             continue
         fi
 
-        # --- /upgrade-size ---
+        # ─── /upgrade-size ───
         if [[ "$query" == /upgrade-size ]]; then
             clear
             printf "\n  ${C_MSG_INFO}Calculating upgrade download size...${C_RESET}\n\n"
@@ -3519,7 +3621,7 @@ PREVIEW_EOF
             continue
         fi
 
-        # --- /download ---
+        # ─── /download ───
         if [[ "$query" == /download* && "$query" != /download-size* && "$query" != /download-est* ]]; then
             local dl_pkg="${query#/download }"
             [[ "$dl_pkg" == "/download" ]] && dl_pkg=""
@@ -3546,7 +3648,7 @@ PREVIEW_EOF
             continue
         fi
 
-        # --- /verify ---
+        # ─── /verify ───
         if [[ "$query" == /verify* ]]; then
             local vr_pkg="${query#/verify }"
             [[ "$vr_pkg" == "/verify" ]] && vr_pkg=""
@@ -3576,7 +3678,7 @@ PREVIEW_EOF
             continue
         fi
 
-        # --- /mirror-latency ---
+        # ─── /mirror-latency ───
         if [[ "$query" == /mirror-latency ]]; then
             clear
             printf "\n  ${C_MSG_INFO}Testing mirror latency (top 10)...${C_RESET}\n\n"
@@ -3614,7 +3716,7 @@ PREVIEW_EOF
             continue
         fi
 
-        # --- /mirror-bandwidth ---
+        # ─── /mirror-bandwidth ───
         if [[ "$query" == /mirror-bandwidth ]]; then
             clear
             printf "\n  ${C_MSG_INFO}Testing mirror bandwidth (downloading Release file)...${C_RESET}\n\n"
@@ -3670,7 +3772,7 @@ PREVIEW_EOF
             continue
         fi
 
-        # --- /pkg-changes ---
+        # ─── /pkg-changes ───
         if [[ "$query" == /pkg-changes ]]; then
             clear
             printf "\n  ${C_MSG_INFO}Last apt upgrade changes:${C_RESET}\n\n"
@@ -3685,7 +3787,7 @@ PREVIEW_EOF
             continue
         fi
 
-        # --- /pkg-recommendations ---
+        # ─── /pkg-recommendations ───
         if [[ "$query" == /pkg-recommendations* ]]; then
             local pr_pkg="${query#/pkg-recommendations }"
             [[ "$pr_pkg" == "/pkg-recommendations" ]] && pr_pkg=""
@@ -3711,7 +3813,7 @@ PREVIEW_EOF
             continue
         fi
 
-        # --- /pkg-suggests ---
+        # ─── /pkg-suggests ───
         if [[ "$query" == /pkg-suggests* ]]; then
             local ps_pkg="${query#/pkg-suggests }"
             [[ "$ps_pkg" == "/pkg-suggests" ]] && ps_pkg=""
@@ -3737,7 +3839,7 @@ PREVIEW_EOF
             continue
         fi
 
-        # --- /pkg-breaks ---
+        # ─── /pkg-breaks ───
         if [[ "$query" == /pkg-breaks* ]]; then
             local pb_pkg="${query#/pkg-breaks }"
             [[ "$pb_pkg" == "/pkg-breaks" ]] && pb_pkg=""
@@ -3765,7 +3867,7 @@ PREVIEW_EOF
             continue
         fi
 
-        # --- /pkg-replaces ---
+        # ─── /pkg-replaces ───
         if [[ "$query" == /pkg-replaces* ]]; then
             local prr_pkg="${query#/pkg-replaces }"
             [[ "$prr_pkg" == "/pkg-replaces" ]] && prr_pkg=""
@@ -3793,7 +3895,7 @@ PREVIEW_EOF
             continue
         fi
 
-        # --- /owner ---
+        # ─── /owner ───
         if [[ "$query" == /owner* ]]; then
             local ow_file="${query#/owner }"
             [[ "$ow_file" == "/owner" ]] && ow_file=""
@@ -3822,7 +3924,7 @@ PREVIEW_EOF
             continue
         fi
 
-        # --- /removed ---
+        # ─── /removed ───
         if [[ "$query" == /removed ]]; then
             clear
             printf "\n  ${C_WHITE}Packages removed in last upgrade:${C_RESET}\n\n"
@@ -3844,7 +3946,7 @@ PREVIEW_EOF
             continue
         fi
 
-        # --- /new-pkgs ---
+        # ─── /new-pkgs ───
         if [[ "$query" == /new-pkgs ]]; then
             clear
             printf "\n  ${C_WHITE}Packages installed this week:${C_RESET}\n\n"
@@ -3869,7 +3971,7 @@ PREVIEW_EOF
             continue
         fi
 
-        # --- /same-size ---
+        # ─── /same-size ───
         if [[ "$query" == /same-size ]]; then
             clear
             printf "\n  ${C_WHITE}Packages with identical installed size (possible duplicates):${C_RESET}\n\n"
@@ -3891,7 +3993,7 @@ PREVIEW_EOF
             continue
         fi
 
-        # --- /depends-on-list ---
+        # ─── /depends-on-list ───
         if [[ "$query" == /depends-on-list* ]]; then
             local dol_list="${query#/depends-on-list }"
             [[ "$dol_list" == "/depends-on-list" ]] && dol_list=""
@@ -3929,7 +4031,7 @@ PREVIEW_EOF
             continue
         fi
 
-        # --- /upgradable ---
+        # ─── /upgradable ───
         if [[ "$query" == /upgradable ]]; then
             clear
             printf "\n  ${C_WHITE}Upgradable packages with version diff:${C_RESET}\n\n"
@@ -3973,7 +4075,7 @@ PREVIEW_EOF
             continue
         fi
 
-        # --- /whatprovides ---
+        # ─── /whatprovides ───
         if [[ "$query" == /whatprovides* ]]; then
             local wp_file="${query#/whatprovides }"
             [[ "$wp_file" == "/whatprovides" ]] && wp_file=""
@@ -4004,7 +4106,7 @@ PREVIEW_EOF
             continue
         fi
 
-        # --- /snap-install ---
+        # ─── /snap-install ───
         if [[ "$query" == /snap-install* ]]; then
             local si_file="${query#/snap-install }"
             [[ "$si_file" == "/snap-install" ]] && si_file=""
@@ -4044,7 +4146,7 @@ PREVIEW_EOF
             continue
         fi
 
-        # --- /simulate-remove ---
+        # ─── /simulate-remove ───
         if [[ "$query" == /simulate-remove* ]]; then
             local sr_pkg="${query#/simulate-remove }"
             [[ "$sr_pkg" == "/simulate-remove" ]] && sr_pkg=""
@@ -4071,7 +4173,7 @@ PREVIEW_EOF
             continue
         fi
 
-        # --- /repo-stats ---
+        # ─── /repo-stats ───
         if [[ "$query" == /repo-stats ]]; then
             clear
             printf "\n  ${C_WHITE}Packages per repository:${C_RESET}\n\n"
@@ -4102,7 +4204,7 @@ PREVIEW_EOF
             continue
         fi
 
-        # --- /download-est ---
+        # ─── /download-est ───
         if [[ "$query" == /download-est* ]]; then
             local de_pkg="${query#/download-est }"
             [[ "$de_pkg" == "/download-est" ]] && de_pkg=""
@@ -4149,7 +4251,7 @@ PREVIEW_EOF
             continue
         fi
 
-        # --- /diff ---
+        # ─── /diff ───
         if [[ "$query" == /diff* ]]; then
             local df_pkg="${query#/diff }"
             [[ "$df_pkg" == "/diff" ]] && df_pkg=""
@@ -4182,7 +4284,7 @@ PREVIEW_EOF
 
         # === NEW FEATURES (18) ===
 
-        # --- /profile ---
+        # ─── /profile ───
         if [[ "$query" == /profile* ]]; then
             local prof_action="${query#/profile }"
             [[ "$prof_action" == "/profile" ]] && prof_action=""
@@ -4257,7 +4359,7 @@ PREVIEW_EOF
             continue
         fi
 
-        # --- /check-deps ---
+        # ─── /check-deps ───
         if [[ "$query" == /check-deps* ]]; then
             local cd_path="${query#/check-deps }"
             [[ "$cd_path" == "/check-deps" ]] && cd_path=""
@@ -4314,7 +4416,7 @@ PREVIEW_EOF
             continue
         fi
 
-        # --- /shell-hook ---
+        # ─── /shell-hook ───
         if [[ "$query" == /shell-hook ]]; then
             clear
             printf "\n  ${C_WHITE}Generating shell hooks from installed packages...${C_RESET}\n\n"
@@ -4350,7 +4452,7 @@ PREVIEW_EOF
             continue
         fi
 
-        # --- /storage-report ---
+        # ─── /storage-report ───
         if [[ "$query" == /storage-report ]]; then
             clear
             printf "\n  ${C_WHITE}Storage Report:${C_RESET}\n\n"
@@ -4391,7 +4493,7 @@ PREVIEW_EOF
             continue
         fi
 
-        # --- /health ---
+        # ─── /health ───
         if [[ "$query" == /health ]]; then
             clear
             printf "\n  ${C_WHITE}Termux Health Check${C_RESET}\n\n"
@@ -4468,7 +4570,7 @@ PREVIEW_EOF
             continue
         fi
 
-        # --- /auto-clean ---
+        # ─── /auto-clean ───
         if [[ "$query" == /auto-clean ]]; then
             clear
             printf "\n  ${C_WHITE}Auto-Clean Setup${C_RESET}\n\n"
@@ -4507,7 +4609,7 @@ PREVIEW_EOF
             continue
         fi
 
-        # --- /footprint ---
+        # ─── /footprint ───
         if [[ "$query" == /footprint* ]]; then
             local fp_pkg="${query#/footprint }"
             [[ "$fp_pkg" == "/footprint" ]] && fp_pkg=""
@@ -4570,7 +4672,7 @@ PREVIEW_EOF
             continue
         fi
 
-        # --- /unused ---
+        # ─── /unused ───
         if [[ "$query" == /unused ]]; then
             clear
             printf "\n  ${C_WHITE}Checking for unused packages...${C_RESET}\n\n"
@@ -4615,7 +4717,7 @@ PREVIEW_EOF
             continue
         fi
 
-        # --- /timeline ---
+        # ─── /timeline ───
         if [[ "$query" == /timeline ]]; then
             clear
             printf "\n  ${C_WHITE}Package Activity Timeline${C_RESET}\n\n"
@@ -4645,7 +4747,7 @@ PREVIEW_EOF
             continue
         fi
 
-        # --- /schedule ---
+        # ─── /schedule ───
         if [[ "$query" == /schedule ]]; then
             clear
             printf "\n  ${C_WHITE}Update Reminder Setup${C_RESET}\n\n"
@@ -4686,7 +4788,7 @@ PREVIEW_EOF
             continue
         fi
 
-        # --- /search-providers ---
+        # ─── /search-providers ───
         if [[ "$query" == /search-providers* ]]; then
             local sp_query="${query#/search-providers }"
             [[ "$sp_query" == "/search-providers" ]] && sp_query=""
@@ -4721,7 +4823,7 @@ PREVIEW_EOF
             continue
         fi
 
-        # --- /diff-snapshots ---
+        # ─── /diff-snapshots ───
         if [[ "$query" == /diff-snapshots ]]; then
             clear
             local snap_dir="${XDG_DATA_HOME:-$HOME/.local/share}/pkgs/snapshots"
@@ -4771,7 +4873,7 @@ PREVIEW_EOF
             continue
         fi
 
-        # --- /audit ---
+        # ─── /audit ───
         if [[ "$query" == /audit ]]; then
             clear
             printf "\n  ${C_WHITE}Security Audit:${C_RESET}\n\n"
@@ -4807,7 +4909,7 @@ PREVIEW_EOF
             continue
         fi
 
-        # --- /repo-check ---
+        # ─── /repo-check ───
         if [[ "$query" == /repo-check ]]; then
             clear
             printf "\n  ${C_WHITE}Repository Trust Check:${C_RESET}\n\n"
@@ -4853,7 +4955,7 @@ PREVIEW_EOF
             continue
         fi
 
-        # --- /popular ---
+        # ─── /popular ───
         if [[ "$query" == /popular ]]; then
             clear
             printf "\n  ${C_WHITE}Popular Termux Packages${C_RESET}\n\n"
@@ -4877,7 +4979,7 @@ PREVIEW_EOF
             continue
         fi
 
-        # --- /boot-time ---
+        # ─── /boot-time ───
         if [[ "$query" == /boot-time ]]; then
             clear
             printf "\n  ${C_WHITE}Termux Startup Benchmark${C_RESET}\n\n"
@@ -4918,7 +5020,7 @@ PREVIEW_EOF
             continue
         fi
 
-        # --- /disk-pressure ---
+        # ─── /disk-pressure ───
         if [[ "$query" == /disk-pressure ]]; then
             clear
             printf "\n  ${C_WHITE}Disk Pressure Monitor${C_RESET}\n\n"
@@ -4974,7 +5076,7 @@ PREVIEW_EOF
             continue
         fi
 
-        # --- /pkg-impact ---
+        # ─── /pkg-impact ───
         if [[ "$query" == /pkg-impact* ]]; then
             local pi_pkg="${query#/pkg-impact }"
             [[ "$pi_pkg" == "/pkg-impact" ]] && pi_pkg=""
@@ -5040,7 +5142,7 @@ PREVIEW_EOF
             continue
         fi
 
-        # --- /export-versions ---
+        # ─── /export-versions ───
         if [[ "$query" == /export-versions ]]; then
             clear
             printf "\n  ${C_WHITE}Export installed packages with versions${C_RESET}\n\n"
@@ -5076,14 +5178,14 @@ PREVIEW_EOF
             continue
         fi
 
-        # --- /theme-preview ---
+        # ─── /theme-preview ───
         if [[ "$query" == /theme-preview ]]; then
             clear
             printf "\n  ${C_WHITE}Color Scheme Preview${C_RESET}\n\n"
             printf "  ${C_GREEN}■ ${C_RESET}C_GREEN   ${C_TEAL}■ ${C_RESET}C_TEAL    ${C_AMBER}■ ${C_RESET}C_AMBER  ${C_RED}■ ${C_RESET}C_RED   ${C_WHITE}■ ${C_RESET}C_WHITE  ${C_DIM}■ ${C_RESET}C_DIM\n"
             printf "\n"
-            printf "  ${C_GREEN}[✓]${C_RESET} ${C_GREEN}pkgs-installed${C_RESET}     ${C_INST_PREFIX} via C_INST_PREFIX\n"
-            printf "  ${C_DIM}[ ]${C_RESET} ${C_DIM}pkgs-not-installed${C_RESET}   ${C_NOT_INST_PREFIX} via C_NOT_INST_PREFIX\n"
+            printf "  ${C_GREEN}✓${C_RESET} ${C_GREEN}pkgs-installed${C_RESET}     ${C_INST_PREFIX} via C_INST_PREFIX\n"
+            printf "  ${C_DIM}○${C_RESET} ${C_DIM}pkgs-not-installed${C_RESET}   ${C_NOT_INST_PREFIX} via C_NOT_INST_PREFIX\n"
             printf "\n"
             printf "  ${C_PKG_NAME}package-name${C_RESET}       ${C_PKG_DESC}description text${C_RESET}\n"
             printf "  ${C_MSG_INSTALL}Install text${C_RESET}     ${C_MSG_REMOVE}Remove text${C_RESET}   ${C_MSG_INFO}Info text${C_RESET}   ${C_MSG_DONE}Done text${C_RESET}\n"
@@ -5108,7 +5210,7 @@ PREVIEW_EOF
             continue
         fi
 
-        # --- /keys ---
+        # ─── /keys ───
         if [[ "$query" == /keys ]]; then
             clear
             printf "\n  ${C_WHITE}Fzf Keybing Reference${C_RESET}\n\n"
@@ -5143,7 +5245,7 @@ PREVIEW_EOF
             continue
         fi
 
-        # --- /cache-stats ---
+        # ─── /cache-stats ───
         if [[ "$query" == /cache-stats ]]; then
             clear
             printf "\n  ${C_WHITE}Cache & Stats Dashboard${C_RESET}\n\n"
@@ -5187,7 +5289,7 @@ PREVIEW_EOF
             continue
         fi
 
-        # --- /suggest ---
+        # ─── /suggest ───
         if [[ "$query" == /suggest* ]]; then
             local sug_pkg="${query#/suggest }"
             [[ "$sug_pkg" == "/suggest" ]] && sug_pkg=""
@@ -5254,7 +5356,7 @@ PREVIEW_EOF
             continue
         fi
 
-        # --- /dep-graph ---
+        # ─── /dep-graph ───
         if [[ "$query" == /dep-graph* ]]; then
             local dg_pkg="${query#/dep-graph }"
             [[ "$dg_pkg" == "/dep-graph" ]] && dg_pkg=""
@@ -5306,7 +5408,7 @@ PREVIEW_EOF
             continue
         fi
 
-        # --- /batch-upgrade ---
+        # ─── /batch-upgrade ───
         if [[ "$query" == /batch-upgrade ]]; then
             clear
             printf "\n  ${C_WHITE}Batch Upgrade Picker${C_RESET}\n\n"
@@ -5377,7 +5479,7 @@ PREVIEW_EOF
             continue
         fi
 
-        # --- /activity-log ---
+        # ─── /activity-log ───
         if [[ "$query" == /activity-log* ]]; then
             local al_days="${query#/activity-log }"
             [[ "$al_days" == "/activity-log" ]] && al_days="7"
@@ -5458,7 +5560,7 @@ PREVIEW_EOF
             continue
         fi
 
-        # --- /compare ---
+        # ─── /compare ───
         if [[ "$query" == /compare* ]]; then
             local cmp_args="${query#/compare }"
             [[ "$cmp_args" == "/compare" ]] && cmp_args=""
@@ -5684,7 +5786,7 @@ PREVIEW_EOF
             continue
         fi
 
-        # --- /snapshot ---
+        # ─── /snapshot ───
         if [[ "$query" == /snapshot ]]; then
             clear
             local snap_dir="${XDG_DATA_HOME:-$HOME/.local/share}/pkgs/snapshots"
@@ -5702,7 +5804,7 @@ PREVIEW_EOF
             continue
         fi
 
-        # --- /snapshot-list ---
+        # ─── /snapshot-list ───
         if [[ "$query" == /snapshot-list ]]; then
             clear
             local snap_dir="${XDG_DATA_HOME:-$HOME/.local/share}/pkgs/snapshots"
@@ -5730,7 +5832,7 @@ PREVIEW_EOF
             continue
         fi
 
-        # --- /snapshot-restore ---
+        # ─── /snapshot-restore ───
         if [[ "$query" == /snapshot-restore ]]; then
             clear
             local snap_dir="${XDG_DATA_HOME:-$HOME/.local/share}/pkgs/snapshots"
@@ -5795,7 +5897,7 @@ PREVIEW_EOF
             continue
         fi
 
-        # --- /plan ---
+        # ─── /plan ───
         if [[ "$query" == /plan* ]]; then
             local plan_cmd="${query#/plan }"
             [[ "$plan_cmd" == "/plan" ]] && plan_cmd=""
@@ -5856,7 +5958,7 @@ PREVIEW_EOF
             continue
         fi
 
-        # --- /missing ---
+        # ─── /missing ───
         if [[ "$query" == /missing ]]; then
             clear
             printf "\n  ${C_WHITE}Checking for missing dependencies...${C_RESET}\n\n"
@@ -5881,7 +5983,7 @@ PREVIEW_EOF
             continue
         fi
 
-        # --- /compact ---
+        # ─── /compact ───
         if [[ "$query" == /compact ]]; then
             clear
             local fzf_opts="$FZF_DEFAULT_OPTS"
@@ -5900,7 +6002,7 @@ PREVIEW_EOF
             continue
         fi
 
-        # --- /search-history ---
+        # ─── /search-history ───
         if [[ "$query" == /search-history* ]]; then
             local sh_text="${query#/search-history }"
             [[ "$sh_text" == "/search-history" ]] && sh_text=""
@@ -5937,7 +6039,7 @@ PREVIEW_EOF
             continue
         fi
 
-        # --- /quick ---
+        # ─── /quick ───
         if [[ "$query" == /quick ]]; then
             clear
             printf "\n  ${C_WHITE}Quick Install — Popular Packages${C_RESET}\n\n"
@@ -5994,7 +6096,7 @@ PREVIEW_EOF
             continue
         fi
 
-        # --- /fuzzy-dep ---
+        # ─── /fuzzy-dep ───
         if [[ "$query" == /fuzzy-dep ]]; then
             clear
             _pkgs_get_cached_list > /dev/null 2>&1
@@ -6031,7 +6133,7 @@ PREVIEW_EOF
             continue
         fi
 
-        # --- /size-filter ---
+        # ─── /size-filter ───
         if [[ "$query" == /size-filter* ]]; then
             local sf_args="${query#/size-filter }"
             [[ "$sf_args" == "/size-filter" ]] && sf_args=""
@@ -6065,7 +6167,7 @@ PREVIEW_EOF
             continue
         fi
 
-        # --- /security ---
+        # ─── /security ───
         if [[ "$query" == /security ]]; then
             clear
             printf "\n  ${C_WHITE}Security Check:${C_RESET}\n\n"
@@ -6093,7 +6195,7 @@ PREVIEW_EOF
             continue
         fi
 
-        # --- /duplicate ---
+        # ─── /duplicate ───
         if [[ "$query" == /duplicate ]]; then
             clear
             printf "\n  ${C_WHITE}Checking for duplicate/conflicting packages...${C_RESET}\n\n"
@@ -6190,169 +6292,130 @@ PREVIEW_EOF
 }
 
 _pkgs_usage() {
-    cat <<'USAGE'
-Usage: pkgs [OPTIONS] [QUERY]
+    local tw
+    tw=$(tput cols 2>/dev/null || echo 80)
+    local nc=1
+    (( tw >= 100 )) && nc=2
+    (( tw >= 150 )) && nc=3
+    (( tw >= 200 )) && nc=4
+    (( tw >= 250 )) && nc=5
+    (( tw >= 300 )) && nc=6
 
-Interactive TUI package manager for Termux.
+    printf "Usage: pkgs [OPTIONS] [QUERY]\n"
+    printf "Interactive TUI package manager for Termux.\n\n"
+    printf "Options:\n"
+    printf "  -h, --help       Show this help message\n"
+    printf "  -v, --version    Show version\n\n"
+    printf "Interactive Commands (type in search box):\n"
 
-Options:
-  -h, --help       Show this help message
-  -v, --version    Show version
+    local -a cmds=(
+        "/upgrade|Upgrade all packages" "/export-all|Export all installed"
+        "/install <pkg>|Install by name" "/info <pkg>|Full package info"
+        "/remove <pkg>|Remove by name" "/search <text>|Search packages"
+        "/purge <pkg>|Remove + config files" "/rdeps <pkg>|Reverse dependencies"
+        "/hold <pkg>|Pin (no upgrade)" "/depends-on <pkg>|Installed dependents"
+        "/unhold <pkg>|Unpin package" "/deps <pkg>|Show dependencies"
+        "/export <pkg>|Export install script" "/tree <pkg>|Dependency tree"
+        "/compare <a> <b>|Compare packages" "/note <pkg> <text>|Add/view note"
+        "/orphans|Show orphaned packages" "/orphans-safe|Safe orphans"
+        "/orphans-remove|Remove all orphans" "/outdated|Packages with updates"
+        "/top|Top 10 largest pkgs" "/top <n>|Top N largest pkgs"
+        "/size|Total installed size" "/count|Count packages"
+        "/update|Update apt cache" "/clean|Clean orphans + cache"
+        "/installed|Show only installed" "/available|Show only available"
+        "/recent|Show installed today" "/usage|Disk usage by section"
+        "/usage <pkg>|Per-package file list" "/changelog <pkg>|Show changelog"
+        "/reinstall <pkg>|Reinstall package" "/search-file <text>|Search files"
+        "/download-size <pkg>|Download size" "/check|Verify packages"
+        "/group|Packages by section" "/outdated-top <n>|Top N outdated"
+        "/usage-top <n>|Disk usage bar chart" "/version|System version info"
+        "/all|Reset filter: show all" "/sort name|size|Sort by name/size"
+        "/history|View last 7 days" "/review|Today's activity"
+        "/stats|Today's counts" "/backup|Export package list"
+        "/restore <file>|Install from list" "/undo|Reverse last op"
+        "/mirror|Switch apt mirror" "/fav <pkg>|Toggle favorite"
+        "/fav-list|Show all favorites" "/fav-remove|Remove a favorite"
+        "/import <file>|Install from list" "/why <pkg>|Why installed"
+        "/suggest <pkg>|Recommended packages" "/nuke|Storage cleanup"
+        "/whatsnew|Recent changelogs" "/tips|Termux tips"
+        "/self-update|Update from GitHub" "/search-size <min> <max>|Find by size"
+        "/pkg-history <pkg>|Per-pkg history" "/depends-chain <a> <b>|Dep chain"
+        "/broken|Find broken packages" "/conflicts-with <pkg>|Show conflicts"
+        "/provides <pkg>|Virtual packages" "/manually-installed|Manual only"
+        "/auto-installed|Auto installs" "/upgrade-plan|Simulated upgrade"
+        "/pkg-ages|Package age view" "/unused-libs|Orphaned libraries"
+        "/maintainer <name>|Search by maintainer" "/log-search <text>|Search dpkg logs"
+        "/mirror-backup|Backup/restore mirrors" "/size-histogram|Size distribution"
+        "/deptree <pkg>|Visual dep tree" "/reverse-tree <pkg>|Reverse dep tree"
+        "/upgrade-size|Total upgrade dl size" "/download <pkg>|Download w/o install"
+        "/verify <pkg>|Verify checksums" "/mirror-latency|Ping-test mirrors"
+        "/mirror-bandwidth|Bandwidth-test mirrors" "/pkg-changes|Last apt upgrade diff"
+        "/pkg-recommendations <pkg>|Who recommends" "/pkg-suggests <pkg>|Who suggests"
+        "/pkg-breaks <pkg>|What breaks" "/pkg-replaces <pkg>|What this replaces"
+        "/owner <file>|File owner (dpkg -S)" "/removed|Removed last upgrade"
+        "/new-pkgs|Installed this week" "/same-size|Same-size packages"
+        "/depends-on-list <pkgs>|Shared deps" "/upgradable|Upgradable with diff"
+        "/whatprovides <file>|Find binary provider" "/snap-install <file>|Install local .deb"
+        "/simulate-remove <pkg>|Simulate removal" "/repo-stats|Packages per repo"
+        "/download-est <pkg>|Download+install est." "/diff <pkg>|Changelog diff"
+        "/snapshot|Save snapshot" "/snapshot-list|List snapshots"
+        "/snapshot-restore|Restore snapshot" "/plan <cmd>|Dry-run preview"
+        "/missing|Missing dependencies" "/compact|Toggle compact mode"
+        "/search-history <txt>|Search history" "/quick|Popular package sets"
+        "/fuzzy-dep|Dependency explorer" "/size-filter <min> <max>|Filter by size"
+        "/security|Outdated pkg check" "/duplicate|Duplicate/virtual pkgs"
+        "/profile|Save/restore profiles" "/check-deps|Scan missing tools"
+        "/shell-hook|Shell aliases from pkgs" "/storage-report|Android storage"
+        "/health|System health score" "/auto-clean|Scheduled cleanup"
+        "/footprint <pkg>|Total size+transitive" "/unused|Never invoked packages"
+        "/timeline|Activity map" "/schedule|Update reminders"
+        "/search-providers|Find pkgs for command" "/diff-snapshots|Diff snapshots"
+        "/audit|SUID/SGID scan" "/repo-check|Untrusted repo check"
+        "/popular|Popular packages list" "/boot-time|Benchmark startup"
+        "/disk-pressure|Storage pressure" "/pkg-impact <pkg>|Pre-install analysis"
+        "/export-versions|Export with versions" "/theme-preview|Preview colors"
+        "/keys|Fzf keybinding ref" "/cache-stats|Cache dashboard"
+        "/dep-graph <pkg>|Visual dep tree" "/batch-upgrade|Batch upgrade picker"
+        "/activity-log [days]|Package activity" "/compare <pkg1 pkg2>|Compare packages"
+        "/theme|Switch color scheme" "/help|Show this help"
+    )
 
-Interactive Commands (type in search box):
-  /upgrade              Upgrade all packages
-  /install <pkg>        Install package by name
-  /remove <pkg>         Remove package by name
-  /purge <pkg>          Remove package + config files
-  /hold <pkg>           Pin package (prevent upgrades)
-  /unhold <pkg>         Unpin package
-  /export <pkg>         Export install script to .sh file
-  /export-all           Export all installed packages
-  /info <pkg>           Show full package details
-  /search <text>        Search package descriptions
-  /rdeps <pkg>          Show reverse dependencies
-  /depends-on <pkg>     Show installed packages depending on this
-  /deps <pkg>           Show dependencies
-  /tree <pkg>           Show dependency tree
-  /compare <a> <b>      Compare two packages side by side
-  /note <pkg> <text>    Add/view package note
-  /orphans              Show orphaned packages
-  /orphans-safe         Show safe orphans (exclude essential)
-  /orphans-remove       Remove all orphaned packages
-  /outdated             Show installed packages with updates
-  /top                  Top 10 largest packages
-  /top <n>              Top N largest packages
-  /size                 Total installed size
-  /count                Count installed/available packages
-  /update               Update apt cache
-  /clean                Remove orphaned packages and cache
-  /installed            Filter: show only installed
-  /available            Filter: show only available
-  /recent               Filter: show installed today
-  /usage                Disk usage by section
-  /usage <pkg>          Per-package file list
-  /changelog <pkg>      Show package changelog
-  /reinstall <pkg>      Reinstall package
-  /search-file <text>   Search inside installed files
-  /download-size <pkg>  Show download + installed size
-  /check                Verify all installed packages
-  /group                Group packages by section
-  /outdated-top <n>     Top N outdated packages
-  /usage-top <n>        Disk usage bar chart (top N)
-  /version              System version info
-  /all                  Reset filter: show everything
-  /sort name or /sort size  Sort by name or size
-  /history              View last 7 days of commands
-  /review               Today's activity summary
-  /stats                Today's install/remove counts
-  /backup               Export full package list to file
-  /restore <file>       Install packages from list file
-  /undo                 Reverse last install/remove
-  /mirror               Switch apt mirror (termux-tools)
-  /fav <pkg>            Toggle package favorite
-  /fav-list             Show all favorites
-  /fav-remove           Remove a favorite
-  /import <file>        Install from package list file
-  /why <pkg>            Show why a package is installed
-  /suggest <pkg>        Show recommended packages
-  /nuke                 Interactive storage cleanup
-  /whatsnew             Show recent upgrade changelogs
-  /tips                 Termux tips & tricks
-  /self-update          Update pkgs from GitHub
-  /search-size <min> <max>  Find packages by size (KiB)
-  /pkg-history <pkg>    Per-package install/upgrade/remove history
-  /depends-chain <a> <b> Show dependency chain between two packages
-  /broken               Find broken/half-installed packages
-  /conflicts-with <pkg> Show conflicting packages
-  /provides <pkg>       Show virtual packages provided
-  /manually-installed   Show only manually installed packages
-  /auto-installed       Show only auto-installed packages
-  /upgrade-plan         Simulate upgrade, show what would change
-  /pkg-ages             Show age of each installed package
-  /unused-libs          Find orphaned .so libraries
-  /maintainer <name>    Search packages by maintainer
-  /log-search <text>    Search dpkg/apt history logs
-  /mirror-backup        Backup/restore sources.list snapshots
-  /size-histogram       Visual package size distribution
-  /deptree <pkg>        Visual dependency tree (ASCII art)
-  /reverse-tree <pkg>   Reverse dependency tree
-  /upgrade-size         Total download size before upgrading
-  /download <pkg>       Download package without installing
-  /verify <pkg>         Verify package checksums/integrity
-  /mirror-latency       Ping-test all mirrors, rank by latency
-  /mirror-bandwidth     Bandwidth-test mirrors, rank by speed
-  /pkg-changes          Show what changed in last apt upgrade
-  /pkg-recommendations <pkg>  Show who recommends this package
-  /pkg-suggests <pkg>   Show who suggests this package
-  /pkg-breaks <pkg>     Show what breaks if this is installed
-  /pkg-replaces <pkg>   Show what this package replaces
-  /owner <file>         Which package owns this file (dpkg -S)
-  /removed              Packages removed in last upgrade
-  /new-pkgs             Packages installed this week
-  /same-size            Packages with identical installed size
-  /depends-on-list <pkgs>  Shared dependencies of multiple pkgs
-  /upgradable           Upgradable packages with version diff
-  /whatprovides <file>  Find which package provides a binary
-  /snap-install <file>  Install from local .deb file
-  /simulate-remove <pkg>  Simulate removal, show consequences
-  /repo-stats           Packages per repository breakdown
-  /download-est <pkg>   Download size + installed size estimate
-  /diff <pkg>           Changelog diff of last upgrade
-  /snapshot             Save installed package snapshot
-  /snapshot-list        List saved snapshots
-  /snapshot-restore     Restore from a snapshot
-  /plan <cmd>           Dry-run preview (install/remove/upgrade)
-  /missing              Check for missing dependencies
-  /compact              Toggle compact fzf mode
-  /search-history <txt> Search operation history
-  /quick                Quick install popular package sets
-  /fuzzy-dep            Interactive dependency explorer
-  /size-filter <min> <max>  Filter by installed size (KiB)
-  /security             Check for outdated packages
-  /duplicate            Find duplicate/virtual packages
-  /profile              Save/restore named package profiles
-  /check-deps           Scan project for missing tools
-  /shell-hook           Generate shell aliases from packages
-  /storage-report       Android-aware storage breakdown
-  /health               System health score (0-100)
-  /auto-clean           Set up scheduled cleanup
-  /footprint <pkg>      Total size incl. all transitive deps
-  /unused               Find packages you never invoke
-  /timeline             Visual install/upgrade activity map
-  /schedule             Set up update reminders
-  /search-providers     Find packages for a command
-  /diff-snapshots       Diff two saved snapshots
-  /audit                Scan for SUID/SGID + world-writable
-  /repo-check           Flag packages from untrusted repos
-  /popular              Curated popular packages list
-  /boot-time            Benchmark Termux startup speed
-  /disk-pressure        Storage pressure + days-till-full
-  /pkg-impact <pkg>     Pre-install impact analysis
-  /export-versions      Export package list with versions
-  /theme-preview        Preview current color scheme
-  /keys                 Fzf keybinding reference
-  /cache-stats          Cache and stats dashboard
-  /suggest <pkg>        Suggest related packages
-  /dep-graph <pkg>      Visual dependency tree
-  /batch-upgrade        Interactive batch upgrade picker
-  /activity-log [days]  Package activity history
-  /compare <pkg1 pkg2>  Compare two packages
-  /theme                Switch color scheme
-  /help                 Show in-app help
+    local cw i row cmd desc pad cmdw descw gap=2
+    if (( nc <= 1 )); then
+        for item in "${cmds[@]}"; do
+            cmd="${item%%|*}"; desc="${item#*|}"
+            printf "    %-28s %s\n" "$cmd" "$desc"
+        done
+    else
+        local sep_w=3 total=${#cmds[@]}
+        cw=$(( (tw - sep_w * (nc - 1) - 2 * nc) / nc ))
+        i=0; row=""
+        for item in "${cmds[@]}"; do
+            ((i++))
+            cmd="${item%%|*}"; desc="${item#*|}"
+            cmdw=${#cmd}; descw=${#desc}
+            pad=$(( cw - cmdw - descw ))
+            (( pad < gap )) && pad=$gap
+            printf -v pad '%*s' "$pad" ''
+            row+="  ${cmd}${pad}${desc}"
+            if (( i % nc == 0 )); then
+                printf "%s\n" "$row"
+                row=""
+            elif (( i < total )); then
+                row+=" │ "
+            fi
+        done
+        [[ -n "$row" ]] && printf "%s\n" "$row"
+    fi
 
-Keybindings:
-  ?                     Toggle preview panel
-  Tab                   Multi-select packages
-  Ctrl-A                Select all visible packages
-  Ctrl-D                Deselect all packages
-  Enter                 Confirm selection
-  Esc                   Exit
-
-Examples:
-  pkgs                  Launch with no filter
-  pkgs vim              Launch pre-filtered for "vim"
-  pkgs -h               Show this help
-USAGE
+    printf "\nKeybindings:\n"
+    printf "  ?       Toggle preview     Tab     Multi-select\n"
+    printf "  Ctrl-A  Select all visible Ctrl-D  Deselect all\n"
+    printf "  Enter   Confirm selection  Esc     Exit\n\n"
+    printf "Examples:\n"
+    printf "  pkgs              Launch with no filter\n"
+    printf "  pkgs vim          Launch pre-filtered for 'vim'\n"
+    printf "  pkgs -h           Show this help\n"
 }
 
 pkgs "$@"

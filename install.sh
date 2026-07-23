@@ -204,6 +204,31 @@ box 6 "Termux TUI Package Store"
 boxf 6 "fzf-powered interactive package browser"
 echo
 
+# ── Easter eggs ──
+HOUR=$(date +%H 2>/dev/null || echo "")
+DAY=$(date +%u 2>/dev/null || echo "")
+if [ "$HOUR" = "03" ] && [ "$(date +%M 2>/dev/null)" = "33" ]; then
+  echo "  ${YELLOW}You're installing at 3:33 AM? That's either dedication or insomnia.${RESET}"
+  echo "  ${DIM}Either way, we respect the grind.${RESET}"
+  echo
+elif [ "$DAY" = "7" ]; then
+  echo "  ${DIM}Installing on a Sunday? Touch some grass after this.${RESET}"
+  echo
+elif [ "$DAY" = "1" ]; then
+  echo "  ${DIM}Monday installs hit different. Let's go.${RESET}"
+  echo
+fi
+if [ "$(date +%m%d 2>/dev/null)" = "1031" ]; then
+  echo "  ${MAGENTA}Happy Halloween! Installing packages... if you dare. 🎃${RESET}"
+  echo
+elif [ "$(date +%m%d 2>/dev/null)" = "1225" ]; then
+  echo "  ${GREEN}Merry Christmas! Santa left you a fresh apt cache. 🎄${RESET}"
+  echo
+elif [ "$(date +%m%d 2>/dev/null)" = "0101" ]; then
+  echo "  ${CYAN}New Year's resolution: more packages. Excellent choice.${RESET}"
+  echo
+fi
+
 # ── Validate env vars ──────────────────────────────────────
 REPO="${REPO:-Mark44928/Termux-TUI-Package-Store}"
 BRANCH="${BRANCH:-main}"
@@ -240,6 +265,18 @@ chmod +x "$INSTALL_PATH" || {
 
 ok "Installed to ${BOLD}$INSTALL_PATH${RESET}"
 echo
+
+# ── More easter eggs ──
+_INSTALL_COUNT=$(ls -1 "$PREFIX/bin/" 2>/dev/null | wc -l)
+if [ "$_INSTALL_COUNT" -gt 100 ]; then
+  echo "  ${DIM}You have ${_INSTALL_COUNT} scripts in your bin. You might have a problem.${RESET}"
+  echo
+fi
+
+if [ "$(date +%H 2>/dev/null)" = "04" ] && [ "$(date +%M 2>/dev/null)" = "20" ]; then
+  echo "  ${MAGENTA}4:20? Nice.${RESET}"
+  echo
+fi
 
 # ── Complete ────────────────────────────────────────────────
 echo
