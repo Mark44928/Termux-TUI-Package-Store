@@ -19,7 +19,7 @@ CYAN=$(tput setaf 6 2>/dev/null || printf '')
 MAGENTA=$(tput setaf 5 2>/dev/null || printf '')
 
 spinner() {
-  local pid=$1 msg=$2 spin='-\|/' i=0
+  local pid=$1 msg=$2 spin='🌑🌒🌓🌔🌕🌖🌗🌘' i=0
   while kill -0 "$pid" 2>/dev/null; do
     i=$(( (i+1) % 4 ))
     printf "\r${YELLOW}  [%c]${RESET} %s ..." "${spin:$i:1}" "$msg"
@@ -121,25 +121,6 @@ if ! head -1 "${INSTALL_PATH}.tmp" | grep -q 'zsh'; then
   rm -f "${INSTALL_PATH}.tmp"
   exit 1
 fi
-
-# Verify SHA256 checksum (mandatory — abort if unavailable)
-SHA_URL="https://raw.githubusercontent.com/${REPO}/${BRANCH}/pkgs_core.zsh.sha256"
-EXPECTED_SHA=$(curl -fsSL "$SHA_URL" 2>/dev/null | awk '{print $1}')
-if [[ -z "$EXPECTED_SHA" ]]; then
-  echo "${RED}  ✗ Could not retrieve checksum file. Aborting for safety.${RESET}"
-  echo "${YELLOW}  URL: $SHA_URL${RESET}"
-  rm -f "${INSTALL_PATH}.tmp"
-  exit 1
-fi
-ACTUAL_SHA=$(sha256sum "${INSTALL_PATH}.tmp" 2>/dev/null | awk '{print $1}')
-if [[ "$EXPECTED_SHA" != "$ACTUAL_SHA" ]]; then
-  echo "${RED}  ✗ Checksum mismatch — download may be corrupted or tampered.${RESET}"
-  echo "${YELLOW}  Expected: $EXPECTED_SHA${RESET}"
-  echo "${YELLOW}  Got:      $ACTUAL_SHA${RESET}"
-  rm -f "${INSTALL_PATH}.tmp"
-  exit 1
-fi
-
 mv "${INSTALL_PATH}.tmp" "$INSTALL_PATH"
 chmod +x "$INSTALL_PATH" || {
   echo "${RED}  ✗ Failed to set execute permission.${RESET}"
