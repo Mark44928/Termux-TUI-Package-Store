@@ -54,7 +54,7 @@
 </p>
 
 <p align="center">
-   <b>v1.3.0</b>
+   <b>v1.4.0</b>
 </p>
 
 <p align="center">
@@ -122,7 +122,7 @@
 
 Termux TUI Package Store is a terminal UI for managing packages on Termux. It wraps `pkg` with an interactive fuzzy-finder that lets you search, preview, install, and remove packages — all without leaving a single screen.
 
-The tool adapts to your terminal size, color-codes installed vs. available packages, and shows live metadata previews (version, size, dependencies, description) for every package you highlight. Type `/help` in the search box to see all 112 available slash commands.
+The tool adapts to your terminal size, color-codes installed vs. available packages, and shows live metadata previews (version, size, dependencies, description) for every package you highlight. Type `/help` in the search box to see all 130 available slash commands.
 
 ---
 
@@ -135,7 +135,7 @@ The tool adapts to your terminal size, color-codes installed vs. available packa
 | **🔄 Persistent Session** | Store stays open after install/remove — keep going until you press Esc |
 | **📐 Smart Layout** | Automatically switches between landscape (side-by-side) and portrait (stacked) preview |
 | **🎨 Color-Coded Status** | Installed packages tagged `[✓]`, available packages tagged `[ ]` |
-| **⚡ 130 Slash Commands** | Bulk install/remove/export, filters, sorting, notes, comparison, backup/restore, dependency analysis, hold/unhold, changelogs, file search, mirror management, themes, snapshots, quick install, security checks, profiles, health checks, storage monitoring, and more |
+| **⚡ 140 Slash Commands** | Bulk install/remove/export, filters, sorting, notes, comparison, backup/restore, dependency analysis, hold/unhold, changelogs, file search, mirror management, themes, snapshots, quick install, security checks, profiles, health checks, storage monitoring, cache dashboard, batch upgrade, activity log, dependency graph, and more |
 | **📦 Batch Operations** | Multi-select with Tab, preview with dry-run, categorized summary with progress |
 | **🛡️ Prerequisite Checks** | Validates fzf, pkg, apt-cache, and dpkg-query on startup |
 | **📊 Disk Usage** | Visual breakdown by section with bar charts |
@@ -147,7 +147,7 @@ The tool adapts to your terminal size, color-codes installed vs. available packa
 | **↩️ Undo Support** | Reverse last install or remove operation |
 | **⚡ Zero Config** | No config files needed — runs as a single script at `$PREFIX/bin/pkgs` |
 
-### Slash Commands (130 total)
+### Slash Commands (140 total)
 
 | Command | Description |
 |---|---|
@@ -255,6 +255,15 @@ The tool adapts to your terminal size, color-codes installed vs. available packa
 | `/snapshot-restore` | Restore from a snapshot |
 | `/plan <cmd>` | Dry-run preview (install/remove/upgrade) |
 | `/missing` | Check for missing dependencies |
+| `/export-versions` | Export installed package list with version numbers and sizes |
+| `/theme-preview` | Preview current color scheme in use |
+| `/keys` | Fzf keybinding reference overlay |
+| `/cache-stats` | Cache and stats dashboard (validity, counts, history, disk usage) |
+| `/suggest <pkg>` | Show suggested/recommended/depending packages for any package |
+| `/dep-graph <pkg>` | Visual ASCII dependency tree (3 levels, circular ref detection) |
+| `/batch-upgrade` | Interactive fzf multi-select of upgradable packages with batch processing |
+| `/activity-log [days]` | Activity summary with per-action counts and recent entries |
+| `/compare <pkg1> <pkg2>` | Side-by-side field comparison plus dependency overlap analysis |
 | `/compact` | Toggle compact fzf mode |
 | `/search-history <text>` | Search operation history |
 | `/quick` | Quick install popular package sets |
@@ -382,7 +391,7 @@ Examples:
    When you highlight a package, `fzf` runs `apt-cache show` in the background and displays version, section, size, top dependencies, and the description.
 
 4. **Slash Commands**  
-   Typing `/install <query>`, `/remove <query>`, `/export <query>`, or any of the 100 slash commands in the search box triggers bulk operations instead of package selection. Packages are validated against `apt-cache` before any action runs.
+   Typing `/install <query>`, `/remove <query>`, `/export <query>`, or any of the 130 slash commands in the search box triggers bulk operations instead of package selection. Packages are validated against `apt-cache` before any action runs.
 
 5. **Action & Loop**  
    Pressing Enter shows a batch summary of selected packages with install/remove categorization. Choose `y` to process, `d` for a dry-run preview, `e` to export to a script, or press Enter to cancel. After processing, the store refreshes and re-opens — no need to relaunch.
