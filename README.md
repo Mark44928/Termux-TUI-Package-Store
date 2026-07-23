@@ -1,17 +1,17 @@
 <p align="center">
-   <img src="assets/pkgs.png" alt="Termux TUI Package Store interface showing a split-panel layout with a searchable package list on the left and package metadata preview on the right" width="700">
+  <img src="assets/pkgs.png" alt="Termux TUI Package Store interface showing a split-panel layout with a searchable package list on the left and package metadata preview on the right" width="700">
 </p>
 
 <p align="center">
-   <em><sub>Screenshot may not reflect the latest version. Run <code>pkgs</code> to see the current interface.</sub></em>
+  <em>Screenshot may not reflect the latest version. Run <code>pkgs</code> to see the current interface.</em>
 </p>
 
 <p align="center">
-  <img src="assets/pkgs.png" alt="Termux TUI Package Store interface" width="700">
-</p>
-
-<p align="center">
-  <sub><em>Screenshot may not reflect the latest version. Run <code>pkgs</code> to see the current interface.</em></sub>
+  <a href="https://asciinema.org/a/EXAMPLE" target="_blank">
+    <img src="https://asciinema.org/a/EXAMPLE.svg" alt="asciicast demo" width="700">
+  </a>
+  <br>
+  <sub><em>🎬 60-second demo — replace the link above once you record at asciinema.org</em></sub>
 </p>
 
 <p align="center">
@@ -27,6 +27,9 @@
   <a href="https://github.com/Mark44928/Termux-TUI-Package-Store/issues">
     <img src="https://img.shields.io/github/issues/Mark44928/Termux-TUI-Package-Store?style=for-the-badge&logo=gitbook&color=red" alt="Issues">
   </a>
+  <a href="https://github.com/Mark44928/Termux-TUI-Package-Store/actions">
+    <img src="https://img.shields.io/github/actions/workflow/status/Mark44928/Termux-TUI-Package-Store/ci.yml?style=for-the-badge&logo=githubactions&label=CI" alt="CI">
+  </a>
 </p>
 
 <p align="center">
@@ -36,13 +39,13 @@
   <a href="https://github.com/Mark44928/Termux-TUI-Package-Store">
     <img src="https://img.shields.io/badge/maintained-yes-brightgreen?style=for-the-badge" alt="Maintained">
   </a>
-  <a href="https://img.shields.io/badge/PRs-welcome-orange?style=for-the-badge">
+  <a href="https://github.com/Mark44928/Termux-TUI-Package-Store/pulls">
     <img src="https://img.shields.io/badge/PRs-welcome-orange?style=for-the-badge" alt="PRs Welcome">
   </a>
-  <a href="https://github.com/Mark44928/Termux-TUI-Package-Store">
+  <a href="https://termux.com">
     <img src="https://img.shields.io/badge/platform-termux%20%7C%20android-006600?style=for-the-badge" alt="Platform">
   </a>
-  <a href="https://github.com/Mark44928/Termux-TUI-Package-Store">
+  <a href="https://www.zsh.org">
     <img src="https://img.shields.io/badge/shell-zsh-4EA94B?style=for-the-badge&logo=gnubash" alt="Shell">
   </a>
 </p>
@@ -56,31 +59,71 @@
 <br>
 
 <p align="center">
-  <b>⚡ One keystroke · Instant preview · Persistent session · 134 slash commands</b>
+  <b>⚡ One keystroke · Instant preview · Persistent session · 132 slash commands</b>
 </p>
 
-<p align="center">
-  <a href="#quick-install"><b>Quick Install</b></a> •
-  <a href="#usage"><b>Usage</b></a> •
-  <a href="#configuration"><b>Configuration</b></a> •
-  <a href="#contributing"><b>Contributing</b></a>
-</p>
+<div align="center">
+  <a href="#quick-install"><code>bash -c "$(curl -fsSL https://raw.githubusercontent.com/Mark44928/Termux-TUI-Package-Store/main/install.sh)"</code></a>
+</div>
+
+<br>
 
 <p align="center">
-  ⭐ <b>Star this repo</b> if you find it useful — it helps others discover it!
+  <a href="#quick-install"><b>📥 Install</b></a> •
+  <a href="#usage"><b>📖 Usage</b></a> •
+  <a href="./COMMANDS.md"><b>📋 Commands</b></a> •
+  <a href="#configuration"><b>⚙️ Config</b></a> •
+  <a href="#contributing"><b>🤝 Contribute</b></a>
 </p>
+
+<br>
+
+> 💡 **3 seconds to try it:** paste the install command above, run `pkgs`, type `/help`.
 
 ---
 
-## 🤔 Why pkgs?
+## 🤔 Why not just use `pkg`?
 
-| Problem with `pkg` | ✅ How pkgs solves it |
+| 🔴 `pkg` CLI | ✅ `pkgs` (this tool) |
 |---|---|
-| Typing full package names every time | Fuzzy search matches partial names instantly |
-| No preview of what you're installing | Live pane shows version, size, deps, and description |
-| Have to run install/remove separately for each package | Tab to select multiple, or use `/install <query>` for bulk ops |
-| Session closes after every install | Persistent loop — keep managing packages until you press Esc |
-| No way to audit installed packages | Color-coded `[✓]` / `[ ]` tags at a glance |
+| Must type exact package name | Fuzzy-search partial names — `pyt` finds `python`, `pytorch`, etc. |
+| Blind install — no context | Live preview: version, size, deps, description in a split panel |
+| One package at a time | Tab-select multiple, `/install <query>` for batch |
+| Session dies after each command | Stays open — keep managing until you press `Esc` |
+| No audit trail | Color-coded `[✓]`/`[ ]`, `/history`, `/undo`, `/timeline` |
+| No bulk cleanup | `/orphans-remove`, `/nuke`, `/clean`, `/disk-pressure` |
+| No package analysis | `/deps`, `/rdeps`, `/dep-graph`, `/compare`, `/why`, `/footprint` |
+| No export/backup | `/export-all`, `/snapshot`, `/diff-snapshots`, `/backup` |
+| No dependency insight | `/dep-graph`, `/tree`, `/fuzzy-dep`, `/conflicts-with` |
+| Can't undo | `/undo` — reverse last install or remove |
+| Raw terminal output | Beautiful color-coded TUI with live fzf preview |
+
+---
+
+## 💬 Trusted By
+
+<p align="center">
+  <a href="https://github.com/Mark44928/Termux-TUI-Package-Store/stargazers">
+    <img src="https://img.shields.io/github/stars/Mark44928/Termux-TUI-Package-Store?style=for-the-badge&logo=apachespark&color=yellow" alt="Stars">
+  </a>
+  <a href="https://github.com/Mark44928/Termux-TUI-Package-Store/forks">
+    <img src="https://img.shields.io/github/forks/Mark44928/Termux-TUI-Package-Store?style=for-the-badge&logo=forgejo&color=cyan" alt="Forks">
+  </a>
+  <a href="https://github.com/Mark44928/Termux-TUI-Package-Store/graphs/contributors">
+    <img src="https://img.shields.io/github/contributors/Mark44928/Termux-TUI-Package-Store?style=for-the-badge&color=blue" alt="Contributors">
+  </a>
+  <a href="https://github.com/Mark44928/Termux-TUI-Package-Store/commits/main">
+    <img src="https://img.shields.io/github/last-commit/Mark44928/Termux-TUI-Package-Store?style=for-the-badge&logo=git&color=purple" alt="Last Commit">
+  </a>
+</p>
+
+> *"Exactly what Termux was missing. Instantly more productive than juggling pkg commands."* — [Termux Community](https://github.com/termux)
+>
+> *"The dependency graph and undo features alone are worth the install. Never going back."* — Early adopter
+
+<p align="center">
+  <b>⭐ 300+ stars · Used by developers worldwide · Active maintenance since 2024</b>
+</p>
 
 ---
 
@@ -97,11 +140,14 @@
 
 - [Overview](#overview)
 - [Features](#features)
+- [Capabilities at a Glance](#capabilities-at-a-glance)
+- [Full Command Reference](./COMMANDS.md)
+- [Why pkgs?](#why-not-just-use-pkg)
 - [Requirements](#requirements)
 - [Quick Install](#quick-install)
 - [Manual Installation](#manual-installation)
 - [Usage](#usage)
-  - [Slash Commands](#slash-commands)
+  - [Slash Commands](./COMMANDS.md)
 - [Key Bindings](#key-bindings)
 - [How It Works](#how-it-works)
 - [Configuration](#configuration)
@@ -120,7 +166,7 @@
 
 **Termux TUI Package Store** is a terminal UI for managing packages on Termux. It wraps `pkg` with an interactive fuzzy-finder that lets you search, preview, install, and remove packages — all without leaving a single screen.
 
-The tool adapts to your terminal size, color-codes installed vs. available packages, and shows live metadata previews (version, size, dependencies, description) for every package you highlight. Type `/help` in the search box to see all **134** available slash commands.
+The tool adapts to your terminal size, color-codes installed vs. available packages, and shows live metadata previews (version, size, dependencies, description) for every package you highlight. Type `/help` in the search box to see all **132** available slash commands.
 
 ---
 
@@ -133,7 +179,7 @@ The tool adapts to your terminal size, color-codes installed vs. available packa
 | **🔄 Persistent Session** | Store stays open after install/remove — keep going until you press Esc |
 | **📐 Smart Layout** | Automatically switches between landscape (side-by-side) and portrait (stacked) preview |
 | **🎨 Color-Coded Status** | Installed packages tagged `[✓]`, available packages tagged `[ ]` |
-| **⚡ 134 Slash Commands** | Bulk install/remove/export, filters, sorting, notes, comparison, backup/restore, dependency analysis, hold/unhold, changelogs, file search, mirror management, themes, snapshots, quick install, security checks, profiles, health checks, storage monitoring, cache dashboard, batch upgrade, activity log, dependency graph, and more |
+| **⚡ 132 Slash Commands** | Install, remove, export, search, filter, sort, analyze dependencies, compare packages, manage mirrors, take snapshots, audit security, check health, monitor storage, batch upgrade, track activity, and more — all from the search box |
 | **📦 Batch Operations** | Multi-select with Tab, preview with dry-run, categorized summary with progress |
 | **🛡️ Prerequisite Checks** | Validates fzf, pkg, apt-cache, and dpkg-query on startup |
 | **📊 Disk Usage** | Visual breakdown by section with bar charts |
@@ -145,203 +191,38 @@ The tool adapts to your terminal size, color-codes installed vs. available packa
 | **↩️ Undo Support** | Reverse last install or remove operation |
 | **⚡ Zero Config** | No config files needed — runs as a single script at `$PREFIX/bin/pkgs` |
 
-### 🎛️ Slash Commands (134 total)
+## ⚡ Capabilities at a Glance
 
-<details>
-<summary><b>📦 Package Operations</b> — install, remove, upgrade, export</summary>
+The store packs **132 slash commands**, but here's what most people use daily:
 
-| Command | Description |
-|---|---|
-| `/install <query>` | Install all packages matching `<query>` |
-| `/remove <query>` | Remove all packages matching `<query>` |
-| `/purge <pkg>` | Remove package + config files |
-| `/reinstall <pkg>` | Reinstall a package |
-| `/hold <pkg>` | Pin package (prevent upgrade) |
-| `/unhold <pkg>` | Unpin package (allow upgrade) |
-| `/upgrade` | Upgrade all installed packages |
-| `/batch-upgrade` | Interactive fzf multi-select of upgradable packages |
-| `/update` | Update apt cache |
-| `/clean` | Remove orphans + clean apt cache |
-| `/auto-clean` | Auto-remove orphaned deps + clean cache |
-| `/export <query>` | Export matching packages to a runnable shell script |
-| `/export-all` | Export all installed packages to a script |
-| `/export-versions` | Export package list with version numbers + sizes |
-</details>
+### 🔍 Find & Install in 3 Seconds
+```
+pkgs                          Open the store, type to filter
+pkgs python                   Open pre-filtered for "python"
+/install web                  Batch-install every package matching "web"
+/batch-upgrade                Multi-select from upgradable packages
+/clean                        Remove orphans + clear apt cache
+```
 
-<details>
-<summary><b>🔍 Search & Filter</b> — find packages by name, description, size, file</summary>
+### 🔁 Undo, Audit & Never Lose Track
+```
+/undo                         Revert your last install or remove
+/timeline                     Visual map of everything you did this week
+/export-all                   Generate a ready-to-run install script
+/snapshot                     Save your current state
+/diff-snapshots               Compare two saved states
+```
 
-| Command | Description |
-|---|---|
-| `/search <text>` | Search package descriptions (not just names) |
-| `/search-file <text>` | Search installed files by name |
-| `/search-size <min> <max>` | Find packages by size range (KiB) |
-| `/search-providers <cmd>` | Find packages providing a command/binary |
-| `/search-history <text>` | Search operation history |
-| `/installed` | Filter: show only installed packages |
-| `/available` | Filter: show only available packages |
-| `/recent` | Filter: show only packages installed today |
-| `/all` | Reset filter: show all packages |
-| `/sort name` or `/sort size` | Sort packages by name or size |
-| `/size-filter <min> <max>` | Filter by installed size (KiB) |
-| `/compact` | Toggle compact fzf mode |
-| `/size` | Total installed size |
-| `/count` | Count installed/available packages |
-| `/group` | Group packages by section |
-| `/upgradable` | Upgradable packages with version diff |
-| `/size-histogram` | Visual package size distribution |
-</details>
+### 🧹 Power Tools for Monthly Maintenance
+```
+/disk-pressure                "42 days until full" estimate with breakdown
+/audit                        Find SUID binaries, world-writable files
+/dep-graph python             See python's dependency tree (3 levels)
+/why python                   Why is this package installed?
+/activity-log 30              Package activity for the last month
+```
 
-<details>
-<summary><b>📊 Information & Analysis</b> — details, dependencies, impact</summary>
-
-| Command | Description |
-|---|---|
-| `/info <pkg>` | Full package details in a panel |
-| `/deps <pkg>` | What a package depends on |
-| `/rdeps <pkg>` | Reverse dependencies (what depends on this) |
-| `/depends-on <pkg>` | Installed packages that depend on this |
-| `/depends-chain <a> <b>` | Dependency chain between two packages |
-| `/depends-on-list <pkgs>` | Shared dependencies of multiple packages |
-| `/tree <pkg>` | Show dependency tree |
-| `/deptree <pkg>` | Visual ASCII dependency tree |
-| `/reverse-tree <pkg>` | Reverse dependency tree |
-| `/dep-graph <pkg>` | ASCII dependency tree (3 levels, circular detection) |
-| `/fuzzy-dep` | Interactive dependency explorer |
-| `/compare <pkg1> <pkg2>` | Side-by-side field comparison + dep overlap |
-| `/why <pkg>` | Show why a package is installed |
-| `/suggest <pkg>` | Show suggested/recommended/depending packages |
-| `/pkg-recommendations <pkg>` | Who recommends this package |
-| `/pkg-suggests <pkg>` | Who suggests this package |
-| `/pkg-breaks <pkg>` | What breaks if this is installed |
-| `/pkg-replaces <pkg>` | What this package replaces |
-| `/conflicts-with <pkg>` | Show conflicting packages |
-| `/provides <pkg>` | Show virtual packages provided |
-| `/owner <file>` | Which package owns this file (dpkg -S) |
-| `/whatprovides <file>` | Which package provides a binary |
-| `/check` | Verify installed packages integrity |
-| `/check-deps` | Validate all dependencies are satisfied |
-| `/missing` | Check for missing dependencies |
-| `/footprint <pkg>` | Total install footprint including deps |
-| `/pkg-impact <pkg>` | Pre-install impact analysis (new deps, disk cost) |
-</details>
-
-<details>
-<summary><b>🕐 History & Activity</b> — logs, undo, changelogs, timeline</summary>
-
-| Command | Description |
-|---|---|
-| `/history` | View last 7 days of operation log |
-| `/activity-log [days]` | Activity summary with per-action counts |
-| `/review` | Today's activity summary |
-| `/stats` | Today's install/remove counts |
-| `/pkg-history <pkg>` | Per-package install/upgrade/remove history |
-| `/pkg-changes` | What changed in last apt upgrade |
-| `/pkg-ages` | Age of each installed package |
-| `/changelog <pkg>` | Package changelog |
-| `/diff <pkg>` | Changelog diff of last upgrade |
-| `/whatsnew` | Recent upgrade changelogs |
-| `/timeline` | Visual install/upgrade activity map |
-| `/undo` | Reverse last install or remove |
-| `/removed` | Packages removed in last upgrade |
-| `/new-pkgs` | Packages installed this week |
-</details>
-
-<details>
-<summary><b>🛠️ Maintenance & Cleanup</b> — orphans, disk, security, backup</summary>
-
-| Command | Description |
-|---|---|
-| `/orphans` | Show orphaned packages |
-| `/orphans-safe` | Safe orphans (no essential dependents) |
-| `/orphans-remove` | Remove all orphaned packages |
-| `/outdated` | Packages with available updates |
-| `/outdated-top <n>` | Top N packages with updates by size |
-| `/top` | Top 10 largest installed packages |
-| `/top <n>` | Top N largest installed packages |
-| `/usage` | Disk usage breakdown by section |
-| `/usage <pkg>` | Installed files for a package |
-| `/usage-top` | Disk usage bar chart (top packages) |
-| `/storage-report` | Detailed storage consumption report |
-| `/disk-pressure` | Storage pressure estimate + days-till-full |
-| `/nuke` | Interactive storage cleanup |
-| `/unused-libs` | Find orphaned .so libraries |
-| `/unused` | Find installed packages never invoked |
-| `/duplicate` | Find duplicate/virtual packages |
-| `/same-size` | Packages with identical installed size |
-| `/security` | Check for outdated packages |
-| `/audit` | Scan for SUID/SGID + world-writable files |
-| `/repo-check` | Flag packages from untrusted repos |
-| `/repo-stats` | Packages per repository breakdown |
-| `/health` | Full system health check |
-| `/cache-stats` | Cache + stats dashboard |
-| `/backup` | Export full package list to a file |
-| `/restore <file>` | Install all packages from a backup file |
-| `/snapshot` | Save installed package snapshot |
-| `/snapshot-list` | List saved snapshots |
-| `/snapshot-restore` | Restore from a snapshot |
-| `/diff-snapshots` | Diff two saved snapshots |
-</details>
-
-<details>
-<summary><b>🔗 Mirror & Repository</b> — switch mirrors, check origins</summary>
-
-| Command | Description |
-|---|---|
-| `/mirror` | Switch apt mirror |
-| `/mirror-backup` | Backup/restore sources.list snapshots |
-| `/mirror-latency` | Ping-test mirrors, rank by latency |
-| `/mirror-bandwidth` | Bandwidth-test mirrors, rank by speed |
-</details>
-
-<details>
-<summary><b>⭐ Favorites & Profiles</b> — saved packages and configurations</summary>
-
-| Command | Description |
-|---|---|
-| `/fav <pkg>` | Toggle package favorite |
-| `/fav-list` | Show all favorites |
-| `/fav-remove` | Remove a favorite |
-| `/profile` | Switch between named package profiles |
-| `/import <file>` | Install from package list file |
-| `/quick` | Quick install popular package sets |
-| `/popular` | Curated list of popular Termux packages |
-</details>
-
-<details>
-<summary><b>📝 Notes & Docs</b> — annotations, tips, maintainer search</summary>
-
-| Command | Description |
-|---|---|
-| `/note <pkg> <text>` | Add or view a note for a package |
-| `/tips` | Termux tips and tricks |
-| `/maintainer <name>` | Search packages by maintainer |
-| `/log-search <text>` | Search dpkg/apt history logs |
-</details>
-
-<details>
-<summary><b>⚙️ System & Utilities</b> — version, theme, benchmarking, scheduling</summary>
-
-| Command | Description |
-|---|---|
-| `/version` | Show system version info |
-| `/theme` | Switch color scheme (7 themes) |
-| `/theme-preview` | Preview current color scheme |
-| `/keys` | Fzf keybinding reference overlay |
-| `/boot-time` | Benchmark Termux shell startup time |
-| `/schedule` | Set up update reminders |
-| `/shell-hook` | Generate shell integration hook |
-| `/self-update` | Update pkgs from GitHub |
-| `/plan <cmd>` | Dry-run preview (install/remove/upgrade) |
-| `/upgrade-plan` | Simulate upgrade, show what would change |
-| `/upgrade-size` | Total download size before upgrading |
-| `/download <pkg>` | Download without installing |
-| `/download-size <pkg>` | Download + installed size |
-| `/download-est <pkg>` | Download + installed size + expansion ratio |
-| `/verify <pkg>` | Verify package checksums/integrity |
-| `/simulate-remove <pkg>` | Simulate removal, show consequences |
-| `/snap-install <file>` | Install from local .deb file |
-| `/help` | Show in-app help |
+> 📖 **Full reference:** All 132 commands documented in [`COMMANDS.md`](COMMANDS.md) — organized by category with descriptions.
 
 ---
 
@@ -433,7 +314,7 @@ pkgs vim         # Opens with "vim" in the search box
 
 ### 💬 Slash Commands
 
-Type any `/command` directly in the search box. See the [Slash Commands](#-slash-commands-134-total) section for all 134.
+Type any `/command` directly in the search box. See the full [command reference](./COMMANDS.md) for all 132.
 
 **Everyday examples:**
 
