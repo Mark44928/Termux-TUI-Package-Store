@@ -7,14 +7,6 @@
 </p>
 
 <p align="center">
-  <a href="https://asciinema.org/a/EXAMPLE" target="_blank">
-    <img src="https://asciinema.org/a/EXAMPLE.svg" alt="asciicast demo" width="700">
-  </a>
-  <br>
-  <sub><em>🎬 60-second demo — replace the link above once you record at asciinema.org</em></sub>
-</p>
-
-<p align="center">
   <a href="https://github.com/Mark44928/Termux-TUI-Package-Store/releases">
     <img src="https://img.shields.io/github/v/release/Mark44928/Termux-TUI-Package-Store?style=for-the-badge&logo=github&color=blue" alt="Release">
   </a>
