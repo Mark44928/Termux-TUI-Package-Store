@@ -18,31 +18,52 @@
 
 **⚡ One keystroke · Instant preview · Persistent session · 140+ slash commands**
 
+Your phone runs Linux. Why still managing packages like it's 1995?
+
 ```
 zsh <(curl -fsSL https://raw.githubusercontent.com/Mark44928/Termux-TUI-Package-Store/main/install.sh)
 ```
 
-[📥 Install](#quick-install) • [📖 Usage](#usage) • [📋 Commands](./COMMANDS.md) • [⚙️ Config](#configuration) • [🤝 Contribute](#contributing)
+Zero risk: `rm "$PREFIX/bin/pkgs"` to uninstall.
+
+[📖 Usage](#usage) · [📋 Commands](./COMMANDS.md) · [⚙️ Config](#configuration) · [🤝 Contribute](#contributing)
 
 > 💡 **Try it in seconds:** paste the install command above, run `pkgs`, type `/help`.
 
 ---
 
-## 🤔 Why not just use `pkg`?
+## 🎯 What Can pkgs Do For You?
 
-| 🔴 `pkg` CLI | ✅ `pkgs` (this tool) |
+### 🚀 Find & Install in Seconds
+Type `pkgs`, fuzzy-search any term, see version/size/deps live in the preview pane. Press Enter. Done.
+
+### 🧹 Reclaim Storage
+`/disk-pressure` tells you days until full. `/nuke` cleans cache + orphans in one sweep. `/orphans-remove` safely removes unused deps.
+
+### 🔍 Understand Every Package
+`/why python` — manual install or just a dependency? `/dep-graph python` — full transitive tree. `/footprint python` — total size including recursive deps.
+
+### 💾 Never Lose a Setup
+`/snapshot` saves all installed packages. `/diff-snapshots` compares states. `/export-all` generates a ready-to-run install script.
+
+<details>
+<summary><b>vs pkg — side-by-side comparison</b> (click to expand)</summary>
+
+| 🔴 `pkg` CLI | ✅ `pkgs` |
 |---|---|
-| Must type exact package name | Fuzzy-search partial names — `pyt` finds `python`, `pytorch`, etc. |
-| Blind install — no context | Live preview: version, size, deps, description in a split panel |
+| Must type exact package name | Fuzzy-search partial names |
+| Blind install — no context | Live preview: version, size, deps, description |
 | One package at a time | Tab-select multiple, `/install <query>` for batch |
-| Session dies after each command | Stays open — keep managing until you press `Esc` |
+| Session dies after each command | Stays open until you press `Esc` |
 | No audit trail | Color-coded `[✓]`/`[ ]`, `/history`, `/undo`, `/timeline` |
 | No bulk cleanup | `/orphans-remove`, `/nuke`, `/clean`, `/disk-pressure` |
-| No package analysis | `/deps`, `/rdeps`, `/tree`, `/dep-graph`, `/compare`, `/why`, `/footprint` |
+| No package analysis | `/deps`, `/rdeps`, `/dep-graph`, `/compare`, `/why` |
 | No export/backup | `/export-all`, `/snapshot`, `/diff-snapshots`, `/backup` |
 | No dependency insight | `/conflicts-with`, `/fuzzy-dep` |
 | Can't undo | `/undo` — reverse last install or remove |
 | Raw terminal output | Color-coded TUI with live fzf preview |
+
+</details>
 
 ---
 
@@ -50,6 +71,7 @@ zsh <(curl -fsSL https://raw.githubusercontent.com/Mark44928/Termux-TUI-Package-
 
 [![Contributors](https://img.shields.io/github/contributors/Mark44928/Termux-TUI-Package-Store?style=for-the-badge&color=blue)](https://github.com/Mark44928/Termux-TUI-Package-Store/graphs/contributors)
 [![Last Commit](https://img.shields.io/github/last-commit/Mark44928/Termux-TUI-Package-Store?style=for-the-badge&logo=git&color=purple)](https://github.com/Mark44928/Termux-TUI-Package-Store/commits/main)
+[![Packaging status](https://repology.org/badge/tiny-repos/termux-tui-package-store.svg)](https://repology.org/project/termux-tui-package-store)
 
 Active maintenance. Issues and PRs welcome.
 
@@ -57,22 +79,22 @@ Active maintenance. Issues and PRs welcome.
 
 ## 🎯 Perfect For
 
-- **Termux power users** who manage dozens of packages regularly
-- **Android developers** setting up fresh Termux environments
-- **Automation lovers** who want to export install scripts in one click
-- **New Termux users** overwhelmed by typing `pkg install` repeatedly
+- **Termux power users** — manage 100+ packages with fuzzy search and batch ops instead of typing exact names
+- **Android devs** — set up fresh environments in minutes with `/snapshot restore`
+- **Automation lovers** — `/export-all` generates a runnable install script you can source-control
+- **New Termux users** — `/help` and color-coded `[✓]`/`[ ]` replaces memorizing package names
 
 ---
 
 ## 📋 Table of Contents
 
 - [Overview](#overview)
-- [Why not just use pkg?](#why-not-just-use-pkg)
+- [What Can pkgs Do For You?](#what-can-pkgs-do-for-you)
 - [Capabilities at a Glance](#capabilities-at-a-glance)
+- [Power User Workflows](#power-user-workflows)
 - [Full Command Reference](./COMMANDS.md)
 - [Requirements](#requirements)
-- [Quick Install](#quick-install)
-- [Manual Installation](#manual-installation)
+- [Installation](#installation)
 - [Usage](#usage)
 - [Key Bindings](#key-bindings)
 - [How It Works](#how-it-works)
@@ -129,6 +151,31 @@ pkgs python                   Open pre-filtered for "python"
 
 ---
 
+## 🔥 Power User Workflows
+
+### "I just set up a new phone — restore my setup"
+```
+pkgs                    # Open the store
+/snapshot               # Save current state first
+/import pkg-list.txt    # Then restore from backup
+```
+
+### "My storage is running low — find the fat"
+```
+/disk-pressure           # How long until I'm out of space?
+/usage-top               # Bar chart of the biggest packages
+/nuke                    # Interactive storage cleanup
+```
+
+### "What actually depends on python?"
+```
+/why python              # Manual or auto-installed?
+/rdeps python            # What other installed packages need it?
+/dep-graph python        # See the full dependency tree
+```
+
+---
+
 ## 📦 Requirements
 
 - **Termux** (Android 7+) — [Get it from F-Droid](https://f-droid.org/en/packages/com.termux/) or [GitHub](https://github.com/termux/termux-app)
@@ -151,20 +198,16 @@ pkgs python                   Open pre-filtered for "python"
 
 ---
 
-## 🚀 Quick Install
+## 📥 Installation
 
 ```sh
 zsh <(curl -fsSL https://raw.githubusercontent.com/Mark44928/Termux-TUI-Package-Store/main/install.sh)
 ```
 
-> **💡 Prerequisite:** The installer requires `zsh`. If it's not installed, run `pkg install zsh` first.
-
----
-
-## 📥 Manual Installation
+> **💡 Prerequisite:** Requires `zsh`. Run `pkg install zsh` first if not installed.
 
 <details>
-<summary><b>Step-by-step setup</b> (click to expand)</summary>
+<summary><b>Manual installation</b> (click to expand)</summary>
 
 1. **Install dependencies:**
 
@@ -205,6 +248,21 @@ pkgs
 - **Press Enter** on a package to install (if not installed) or remove (if installed)
 - **Press Esc / Ctrl+C** to exit
 - The store **re-opens automatically** after every operation
+
+### 🔥 Top 10 Slash Commands
+
+| Command | What it does |
+|---|---|
+| `/install <query>` | Install all packages matching `<query>` |
+| `/remove <query>` | Remove all matching packages |
+| `/upgrade` | Upgrade all installed packages |
+| `/batch-upgrade` | Multi-select from upgradable packages |
+| `/search <text>` | Search package descriptions |
+| `/info <pkg>` | Full package details in a panel |
+| `/why <pkg>` | Why is this package installed? |
+| `/clean` | Remove orphans + clear apt cache |
+| `/undo` | Reverse last install or remove |
+| `/help` | Show all commands in-app |
 
 ### 🎯 Pre-Filtered Launch
 
@@ -248,7 +306,8 @@ Type any `/command` directly in the search box. See the full [command reference]
 
 ---
 
-## 🔧 How It Works
+<details>
+<summary><b>🔧 How It Works</b> (click to expand)</summary>
 
 1. **📐 Layout Detection**  
    The tool measures your terminal with `tput` and decides whether to show the preview alongside the package list (wide terminals) or below it (narrow terminals).
@@ -265,9 +324,10 @@ Type any `/command` directly in the search box. See the full [command reference]
 5. **🔄 Action & Loop**  
    Pressing Enter shows a batch summary with install/remove categorization. Choose `y` to process, `d` for dry-run, `e` to export, or Enter to cancel. After processing, the store refreshes automatically.
 
----
+</details>
 
-## ⚙️ Configuration
+<details>
+<summary><b>⚙️ Configuration</b> (click to expand)</summary>
 
 > **Note:** `$PREFIX` is Termux's installation prefix, typically `/data/data/com.termux/files/usr`.
 
@@ -330,9 +390,10 @@ See the [fzf documentation](https://github.com/junegunn/fzf#customizing-the-look
 | Hide preview by default | Change `--preview-window` to `...:hidden` (press `?` to toggle) |
 | Keep search query across ops | Store the query before fzf exits and pass it back on re-entry |
 
----
+</details>
 
-## 🔍 Troubleshooting
+<details>
+<summary><b>🔍 Troubleshooting</b> (click to expand)</summary>
 
 | Problem | Likely Cause | Fix |
 |---|---|---|
@@ -343,9 +404,10 @@ See the [fzf documentation](https://github.com/junegunn/fzf#customizing-the-look
 | Colors look wrong | Terminal lacks 256-color support | Simplify the `--color` flag to basic 16-color ANSI codes. |
 | Preview shows nothing | `apt-cache show` failed for that package | Try `apt-cache show <package>` manually to verify. |
 
----
+</details>
 
-## ❓ FAQ
+<details>
+<summary><b>❓ FAQ</b> (click to expand)</summary>
 
 **Q: Why does the store re-open after I install something?**  
 A: The tool loops back so you can manage multiple packages in one session. Press `Esc` or `Ctrl+C` to quit.
@@ -361,6 +423,8 @@ A: Re-run the one-liner install command — it overwrites `$PREFIX/bin/pkgs`.
 
 **Q: Can I contribute?**  
 A: Absolutely! See [Contributing](#contributing).
+
+</details>
 
 ---
 
