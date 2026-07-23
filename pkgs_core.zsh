@@ -16,7 +16,7 @@ pkgs() {
     fi
 
     # Configuration
-    local _PKGS_VERSION="1.3.0"
+    local _PKGS_VERSION="1.4.0"
 
     for arg in "$@"; do
         case "$arg" in
@@ -67,7 +67,6 @@ pkgs() {
     local _PKGS_THEME=""
     local _PKGS_FAVORITES_FILE="${XDG_DATA_HOME:-$HOME/.local/share}/pkgs/favorites"
     local _PKGS_SELF_URL="https://raw.githubusercontent.com/Mark44928/Termux-TUI-Package-Store/refs/heads/main/pkgs_core.zsh"
-    local _PKGS_SELF_SHA_URL="https://raw.githubusercontent.com/Mark44928/Termux-TUI-Package-Store/refs/heads/main/pkgs_core.zsh.sha256"
 
     _pkgs_validate_name() {
         [[ "$1" =~ ^[a-zA-Z][a-zA-Z0-9._+\-~]*$ ]]
@@ -625,7 +624,6 @@ pkgs() {
         cat <<'PREVIEW_EOF'
 pkg_name={1}
 pkg_name="${pkg_name%%[[:space:]]*}"
-pkg_name="${pkg_name//[^a-zA-Z0-9.+\-~]/_}"
 pkg=$(apt-cache show "$pkg_name" 2>/dev/null) || { echo "  Package not found"; exit 0; }
 
 pkg_status="not installed"
@@ -1302,66 +1300,6 @@ PREVIEW_EOF
             continue
         fi
 
-        if [[ "$query" == /compare* ]]; then
-            local cmp_args="${query#* }"
-            if [[ -z "$cmp_args" || "$cmp_args" != *" "* ]]; then
-                printf "${C_MSG_WARN}Usage: /compare <pkg1> <pkg2>${C_RESET}\n"
-                sleep 1
-                query=""
-                continue
-            fi
-            local cmp_p1="${cmp_args%% *}"
-            local cmp_p2="${cmp_args#* }"
-            _pkgs_validate_name "$cmp_p1" || { printf "${C_MSG_REMOVE}Invalid package name: %s${C_RESET}\n" "$cmp_p1"; sleep 1; query=""; continue; }
-            _pkgs_validate_name "$cmp_p2" || { printf "${C_MSG_REMOVE}Invalid package name: %s${C_RESET}\n" "$cmp_p2"; sleep 1; query=""; continue; }
-            local info1 info2
-            info1=$(apt-cache show -- "$cmp_p1" 2>/dev/null)
-            info2=$(apt-cache show -- "$cmp_p2" 2>/dev/null)
-            if [[ -z "$info1" ]]; then
-                printf "${C_MSG_REMOVE}Package not found: %s${C_RESET}\n" "$cmp_p1"
-                sleep 1
-                query=""
-                continue
-            fi
-            if [[ -z "$info2" ]]; then
-                printf "${C_MSG_REMOVE}Package not found: %s${C_RESET}\n" "$cmp_p2"
-                sleep 1
-                query=""
-                continue
-            fi
-            clear
-            printf "\n  ${C_GREEN}Compare Packages${C_RESET}\n\n"
-            local v1 s1 d1 sz1
-            v1=$(_pkgs_apt_field "$info1" Version)
-            s1=$(_pkgs_apt_field "$info1" Section)
-            d1=$(_pkgs_apt_field "$info1" Description)
-            sz1=$(_pkgs_apt_field "$info1" Installed-Size)
-            local v2 s2 d2 sz2
-            v2=$(_pkgs_apt_field "$info2" Version)
-            s2=$(_pkgs_apt_field "$info2" Section)
-            d2=$(_pkgs_apt_field "$info2" Description)
-            sz2=$(_pkgs_apt_field "$info2" Installed-Size)
-            printf "  ${C_DIM}%-16s${C_RESET} ${C_WHITE}%-20s${C_RESET} ${C_WHITE}%s${C_RESET}\n" "" "$cmp_p1" "$cmp_p2"
-            printf "  ${C_DIM}%-16s${C_RESET} ${C_TEAL}%-20s${C_RESET} ${C_TEAL}%s${C_RESET}\n" "Version" "${v1:-?}" "${v2:-?}"
-            printf "  ${C_DIM}%-16s${C_RESET} ${C_TEAL}%-20s${C_RESET} ${C_TEAL}%s${C_RESET}\n" "Section" "${s1:-?}" "${s2:-?}"
-            printf "  ${C_DIM}%-16s${C_RESET} ${C_TEAL}%-20s${C_RESET} ${C_TEAL}%s${C_RESET}\n" "Size" "${sz1:-?} KiB" "${sz2:-?} KiB"
-            local inst1="no" inst2="no"
-            dpkg -s -- "$cmp_p1" 2>/dev/null | grep -q '^Status: install ok installed' && inst1="yes"
-            dpkg -s -- "$cmp_p2" 2>/dev/null | grep -q '^Status: install ok installed' && inst2="yes"
-            printf "  ${C_DIM}%-16s${C_RESET} ${C_TEAL}%-20s${C_RESET} ${C_TEAL}%s${C_RESET}\n" "Installed" "$inst1" "$inst2"
-            printf "\n  ${C_WHITE}Description:${C_RESET}\n"
-            local d1 trunc1="${d1:0:36}" d2 trunc2="${d2:0:36}"
-            (( ${#d1} > 36 )) && trunc1="${trunc1}..."
-            (( ${#d2} > 36 )) && trunc2="${trunc2}..."
-            printf "  ${C_WHITE}%-20s${C_RESET} %s\n" "$cmp_p1" "${trunc1:-?}"
-            printf "  ${C_WHITE}%-20s${C_RESET} %s\n" "$cmp_p2" "${trunc2:-?}"
-            printf "\n  ${C_MSG_INFO}Press Enter to return.${C_RESET}"
-            read -r
-            clear
-            query=""
-            continue
-        fi
-
         if [[ "$query" == /backup ]]; then
             clear
             local backup_file="pkg-backup-$(date +%Y%m%d-%H%M%S%N).txt"
@@ -2012,8 +1950,8 @@ PREVIEW_EOF
                 printf "\n  ${C_GREEN}Download Size: %s${C_RESET}\n\n" "$ds_pkg"
                 printf "  ${C_WHITE}Version:${C_RESET}      %s\n" "${ds_ver:-unknown}"
                 if (( _HAS_NUMFMT )); then
-                    printf "  ${C_WHITE}Download:${C_RESET}     %s\n" "$(printf "%s" "$((ds_dl * 1))" | numfmt --to=iec --suffix=B 2>/dev/null || echo "${ds_dl} B")"
-                    printf "  ${C_WHITE}Installed:${C_RESET}    %s\n" "$(printf "%s" "$((ds_inst * 1024))" | numfmt --to=iec --suffix=B 2>/dev/null || echo "${ds_inst} KiB")"
+                    printf "  ${C_WHITE}Download:${C_RESET}     %s\n" "$(printf "%s" "$(( ${ds_dl:-0} * 1 ))" | numfmt --to=iec --suffix=B 2>/dev/null || echo "${ds_dl:-0} B")"
+                    printf "  ${C_WHITE}Installed:${C_RESET}    %s\n" "$(printf "%s" "$(( ${ds_inst:-0} * 1024 ))" | numfmt --to=iec --suffix=B 2>/dev/null || echo "${ds_inst:-0} KiB")"
                 else
                     printf "  ${C_WHITE}Download:${C_RESET}     %s bytes\n" "${ds_dl:-unknown}"
                     printf "  ${C_WHITE}Installed:${C_RESET}    %s KiB\n" "${ds_inst:-unknown}"
@@ -2438,7 +2376,7 @@ PREVIEW_EOF
         # --- /mirror ---
         if [[ "$query" == /mirror ]]; then
             clear
-            local mirror_base="/data/data/com.termux/files/usr/etc/termux/mirrors"
+            local mirror_base="${PREFIX}/etc/termux/mirrors"
             if [[ ! -d "$mirror_base" ]]; then
                 printf "\n  ${C_MSG_REMOVE}Mirror directory not found.${C_RESET}\n"
                 printf "  ${C_MSG_WARN}Install termux-tools: pkg install termux-tools${C_RESET}\n"
@@ -2491,7 +2429,7 @@ PREVIEW_EOF
             printf "\n  ${C_MSG_WARN}Apply this mirror? (y/N) ${C_RESET}"
             read -q confirm; read -r
             if [[ "$confirm" == "y" ]]; then
-                if ln -sf "$selected_file" "/data/data/com.termux/files/usr/etc/termux/chosen_mirrors" 2>/dev/null; then
+                if ln -sf "$selected_file" "${PREFIX}/etc/termux/chosen_mirrors" 2>/dev/null; then
                     printf "\n  ${C_MSG_DONE}Mirror set to: %s${C_RESET}\n" "$(basename "$selected_file")"
                     _pkgs_log_history "MIRROR" "$(basename "$selected_file")"
                 else
@@ -2701,57 +2639,6 @@ PREVIEW_EOF
                     fi
                 else
                     printf "  ${C_MSG_WARN}%s is not installed.${C_RESET}\n" "$why_pkg"
-                fi
-            fi
-            printf "\n  ${C_MSG_INFO}Press Enter to return.${C_RESET}"
-            read -r
-            continue
-        fi
-
-        # --- /suggest ---
-        if [[ "$query" == /suggest* ]]; then
-            local sug_pkg="${query#/suggest }"
-            [[ "$sug_pkg" == "/suggest" ]] && sug_pkg=""
-            clear
-            if [[ -z "$sug_pkg" ]]; then
-                _pkgs_fzf_pick_pkg "Suggest for"; sug_pkg=$_PKGS_FZF_PICKED
-            else
-                _pkgs_validate_name "$sug_pkg" || { printf "  ${C_MSG_REMOVE}Invalid package name.${C_RESET}\n"; printf "\n  ${C_MSG_INFO}Press Enter to return.${C_RESET}\n"; read -r; continue; }
-            fi
-            if [[ -n "$sug_pkg" ]]; then
-                printf "\n  ${C_WHITE}Suggested packages for %s:${C_RESET}\n\n" "$sug_pkg"
-                local -a suggestions=()
-                while IFS= read -r line; do
-                    local pkg_name
-                    pkg_name=$(echo "$line" | sed -n 's/.*: //p')
-                    [[ -z "$pkg_name" ]] && continue
-                    if ! dpkg -s -- "$pkg_name" 2>/dev/null | grep -q '^Status: install ok installed'; then
-                        local pkg_desc
-                        pkg_desc=$(apt-cache show "$pkg_name" 2>/dev/null | sed -n 's/^Description: //p' | head -1)
-                        printf "    ${C_TEAL}%-30s${C_RESET} %s\n" "$pkg_name" "${pkg_desc:0:50}"
-                        suggestions+=("$pkg_name")
-                    fi
-                done < <(apt-cache depends "$sug_pkg" 2>/dev/null | grep -E "^\s+(Recommends|Suggests):")
-                if (( ${#suggestions[@]} == 0 )); then
-                    printf "  ${C_DIM}No additional suggestions.${C_RESET}\n"
-                else
-                    printf "\n  ${C_MSG_WARN}Install suggested? (y/N) ${C_RESET}"
-                    read -q sug_confirm; read -r
-                    if [[ "$sug_confirm" == "y" ]]; then
-                        local sug_ok=0 sug_fail=0
-                        for sp in "${suggestions[@]}"; do
-                            printf "  ${C_MSG_INFO}Installing %s...${C_RESET}" "$sp"
-                            if "${PKG_MGR}" install -y -- "$sp" >/dev/null 2>&1; then
-                                printf "\r${C_MSG_DONE}✓ %s${C_RESET}\n" "$sp"
-                                _pkgs_log_history "INSTALL" "$sp"
-                                ((sug_ok++))
-                            else
-                                printf "\r${C_MSG_REMOVE}✗ %s failed${C_RESET}\n" "$sp"
-                                ((sug_fail++))
-                            fi
-                        done
-                        printf "\n  ${C_MSG_DONE}Done:${C_RESET} %d ok, %d failed\n" "$sug_ok" "$sug_fail"
-                    fi
                 fi
             fi
             printf "\n  ${C_MSG_INFO}Press Enter to return.${C_RESET}"
@@ -2985,13 +2872,6 @@ PREVIEW_EOF
         # --- /self-update ---
         if [[ "$query" == /self-update ]]; then
             clear
-            if ! command -v sha256sum &>/dev/null; then
-                printf "\n  ${C_MSG_REMOVE}sha256sum is required for safe updates.${C_RESET}\n"
-                printf "  ${C_MSG_WARN}Install coreutils: pkg install coreutils${C_RESET}\n"
-                printf "\n  ${C_MSG_INFO}Press Enter to return.${C_RESET}"
-                read -r
-                continue
-            fi
             printf "\n  ${C_MSG_INFO}Checking for updates...${C_RESET}\n"
             local current_ver="$_PKGS_VERSION"
             local latest_ver
@@ -3008,31 +2888,16 @@ PREVIEW_EOF
                     local target="${PREFIX}/bin/pkgs"
                     local tmp_file
                     tmp_file=$(mktemp "${target}.XXXXXX") || { printf "\n  ${C_MSG_REMOVE}Failed to create temp file.${C_RESET}\n"; query=""; continue; }
-                    local expected_sha
-                    expected_sha=$(curl -fsSL "$_PKGS_SELF_SHA_URL" 2>/dev/null | awk '{print $1}')
-                    if ! curl -fsSL "$_PKGS_SELF_URL" -o "$tmp_file" 2>/dev/null; then
-                        printf "\n  ${C_MSG_REMOVE}Download failed.${C_RESET}\n"
-                        rm -f "$tmp_file" 2>/dev/null
-                    elif [[ -n "$expected_sha" ]]; then
-                        local actual_sha
-                        actual_sha=$(sha256sum "$tmp_file" 2>/dev/null | awk '{print $1}')
-                        if [[ "$actual_sha" != "$expected_sha" ]]; then
-                            printf "\n  ${C_MSG_REMOVE}Checksum mismatch. Aborting.${C_RESET}\n"
-                            rm -f "$tmp_file" 2>/dev/null
-                        elif head -1 "$tmp_file" | grep -q '^#!/'; then
-                            chmod +x "$tmp_file"
-                            local bak_file="${target}.bak"
-                            [[ -f "$bak_file" ]] && rm -f "$bak_file" 2>/dev/null
-                            mv "$target" "$bak_file" 2>/dev/null
-                            mv "$tmp_file" "$target"
-                            printf "\n  ${C_MSG_DONE}Updated to v%s! Restart pkgs to use.${C_RESET}\n" "$latest_ver"
-                        else
-                            rm -f "$tmp_file"
-                            printf "\n  ${C_MSG_REMOVE}Downloaded file invalid. Aborting.${C_RESET}\n"
-                        fi
+                    if curl -fsSL "$_PKGS_SELF_URL" -o "$tmp_file" 2>/dev/null && head -1 "$tmp_file" | grep -q '^#!/'; then
+                        chmod +x "$tmp_file"
+                        local bak_file="${target}.bak"
+                        [[ -f "$bak_file" ]] && rm -f "$bak_file" 2>/dev/null
+                        mv "$target" "$bak_file" 2>/dev/null
+                        mv "$tmp_file" "$target"
+                        printf "\n  ${C_MSG_DONE}Updated to v%s! Restart pkgs to use.${C_RESET}\n" "$latest_ver"
                     else
-                        rm -f "$tmp_file"
-                        printf "\n  ${C_MSG_REMOVE}Checksum file not available. Aborting.${C_RESET}\n"
+                        rm -f "$tmp_file" 2>/dev/null
+                        printf "\n  ${C_MSG_REMOVE}Download failed or file invalid.${C_RESET}\n"
                     fi
                 fi
             fi
@@ -3971,7 +3836,7 @@ PREVIEW_EOF
                         printf "  ${C_RED}- %s${C_RESET}\n" "$rpkg"
                         found_removed=1
                     fi
-                done < <(tac "$apt_log" 2>/dev/null | head -500)
+                done < <(tail -r "$apt_log" 2>/dev/null || tail -$(($(wc -l < "$apt_log" 2>/dev/null || echo 0) + 1)) "$apt_log" 2>/dev/null | head -500)
                 (( found_removed == 0 )) && printf "  ${C_DIM}No packages removed recently.${C_RESET}\n"
             fi
             printf "\n  ${C_MSG_INFO}Press Enter to return.${C_RESET}"
@@ -4497,7 +4362,8 @@ PREVIEW_EOF
                 local dpath="${dir_pair#*:}"
                 if [[ -d "$dpath" ]]; then
                     local dsize
-                    dsize=$(du -sk "$dpath" 2>/dev/null | awk '{print $1}')
+                    dsize=$(timeout 5 du -sk "$dpath" 2>/dev/null | awk '{print $1}')
+                    [[ -z "$dsize" ]] && dsize=0
                     printf "  %-25s %s\n" "$label" "$(_pkgs_format_size "${dsize:-0}")"
                     total=$((total + ${dsize:-0}))
                 else
@@ -4656,11 +4522,13 @@ PREVIEW_EOF
                 # Get direct dependencies recursively
                 local -A all_deps=()
                 local -a queue=("$fp_pkg")
-                while (( ${#queue[@]} > 0 )); do
+                local iter_count=0
+                while (( ${#queue[@]} > 0 && iter_count < 1000 )); do
                     local cur="${queue[1]}"
                     queue=("${queue[@]:1}")
                     [[ -n "${all_deps[$cur]}" ]] && continue
                     all_deps["$cur"]=1
+                    ((iter_count++))
                     local deps
                     deps=$(apt-cache depends --no-recommends --no-suggests --no-conflicts --no-breaks --no-replaces --no-enhances -- "$cur" 2>/dev/null | grep "Depends:" | awk '{print $2}')
                     while IFS= read -r dep; do
@@ -4715,7 +4583,7 @@ PREVIEW_EOF
                     cmd="${cmd%% *}"  # first word only
                     cmd="${cmd##*/}"  # strip path
                     [[ -n "$cmd" ]] && used_cmds["$cmd"]=1
-                done < <(strings "$hist_file" 2>/dev/null | awk '{print $1}' | sort -u)
+                done < <(command -v strings &>/dev/null && strings "$hist_file" 2>/dev/null | awk '{print $1}' | sort -u || cat "$hist_file" 2>/dev/null | tr -c '[:print:]' '\n' | awk '{print $1}' | sort -u)
             fi
             # Check manually installed packages
             local unused_count=0
@@ -4755,7 +4623,7 @@ PREVIEW_EOF
             if [[ -d "$hist_dir" ]]; then
                 printf "  ${C_DIM}%-12s %s${C_RESET}\n" "DATE" "ACTIVITY"
                 printf "  ${C_DIM}%-12s %s${C_RESET}\n" "------------" "--------------------"
-                for f in $(ls -r "$hist_dir"/*.log(N) 2>/dev/null | head -30); do
+                for f in "$hist_dir"/*.log(N-om[1,30]); do
                     local fdate="${f:t}"; fdate="${fdate%.log}"
                     local installs removes
                     installs=$(grep -c "INSTALL" "$f" 2>/dev/null || echo 0)
@@ -5132,11 +5000,13 @@ PREVIEW_EOF
                     # Dependencies
                     local -A pi_deps=()
                     local -a pi_queue=("$pi_pkg")
-                    while (( ${#pi_queue[@]} > 0 )); do
+                    local pi_iter=0
+                    while (( ${#pi_queue[@]} > 0 && pi_iter < 1000 )); do
                         local cur="${pi_queue[1]}"
                         pi_queue=("${pi_queue[@]:1}")
                         [[ -n "${pi_deps[$cur]}" ]] && continue
                         pi_deps["$cur"]=1
+                        ((pi_iter++))
                         local deps
                         deps=$(apt-cache depends --no-recommends --no-suggests --no-conflicts --no-breaks --no-replaces --no-enhances -- "$cur" 2>/dev/null | grep "Depends:" | awk '{print $2}')
                         while IFS= read -r dep; do
@@ -5396,7 +5266,7 @@ PREVIEW_EOF
             fi
             _pkgs_validate_name "$dg_pkg" || { printf "  ${C_MSG_REMOVE}Invalid package name.${C_RESET}\n"; printf "\n  ${C_MSG_INFO}Press Enter to return.${C_RESET}"; read -r; clear; query=""; continue; }
             printf "\n  ${C_WHITE}Dependency tree for ${C_TEAL}%s${C_RESET}\n\n" "$dg_pkg"
-            visited=()
+            local -a visited=()
             _pkgs_dep_tree() {
                 local pkg="$1" depth="$2"
                 (( depth > 3 )) && return
@@ -6014,13 +5884,15 @@ PREVIEW_EOF
         # --- /compact ---
         if [[ "$query" == /compact ]]; then
             clear
-            if [[ "$FZF_DEFAULT_OPTS" == *"--height"* ]]; then
-                FZF_DEFAULT_OPTS="${FZF_DEFAULT_OPTS//--height=[0-9]*%/}"
+            local fzf_opts="$FZF_DEFAULT_OPTS"
+            if [[ "$fzf_opts" == *"--height"* ]]; then
+                fzf_opts="${fzf_opts//--height=[0-9]*%?(-reverse)/}"
                 printf "\n  ${C_MSG_DONE}Compact mode OFF${C_RESET} — full screen\n"
             else
-                FZF_DEFAULT_OPTS="--height=60% --reverse ${FZF_DEFAULT_OPTS}"
+                fzf_opts="--height=60% --reverse ${fzf_opts}"
                 printf "\n  ${C_MSG_DONE}Compact mode ON${C_RESET} — 60%% height\n"
             fi
+            FZF_DEFAULT_OPTS="$fzf_opts"
             printf "\n  ${C_MSG_INFO}Press Enter to return.${C_RESET}"
             read -r
             clear

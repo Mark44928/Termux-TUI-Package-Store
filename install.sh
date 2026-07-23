@@ -3,7 +3,7 @@ export LANG=C.UTF-8
 export LC_ALL=C.UTF-8
 set -e
 
-# Prevent concurrent runs
+# ── Lock ────────────────────────────────────────────────────
 LOCKFILE="${TMPDIR:-/tmp}/pkgs-install.lock"
 if [ -f "$LOCKFILE" ] && kill -0 "$(cat "$LOCKFILE")" 2>/dev/null; then
   echo "  ✗ Another installation is already running."
@@ -11,6 +11,7 @@ if [ -f "$LOCKFILE" ] && kill -0 "$(cat "$LOCKFILE")" 2>/dev/null; then
 fi
 echo $$ > "$LOCKFILE"
 
+# ── Terminal colors ─────────────────────────────────────────
 BOLD=$(tput bold 2>/dev/null || printf '')
 RESET=$(tput sgr0 2>/dev/null || printf '')
 GREEN=$(tput setaf 2 2>/dev/null || printf '')
@@ -19,9 +20,10 @@ RED=$(tput setaf 1 2>/dev/null || printf '')
 CYAN=$(tput setaf 6 2>/dev/null || printf '')
 MAGENTA=$(tput setaf 5 2>/dev/null || printf '')
 
+# ── Spinner ─────────────────────────────────────────────────
 spinner() {
   local pid=$1 msg=$2
-  local -a spin=(🌑 🌒 🌓 🌔 🌕 🌖 🌗 🌘)
+  local -a spin=(▰▱▱▱ ▰▰▱▱ ▰▰▰▱ ▰▰▰▰ ▱▰▰▰ ▱▱▰▰ ▱▱▱▰ ▱▱▱▱)
   local i=1
 
   while kill -0 "$pid" 2>/dev/null; do
@@ -39,6 +41,7 @@ spinner() {
   fi
   return "$exit_code"
 }
+
 cleanup() {
   [[ -n "${INSTALL_PATH:-}" ]] && rm -f "${INSTALL_PATH}.tmp" 2>/dev/null
 }
@@ -52,14 +55,12 @@ if [ -z "$PREFIX" ]; then
 fi
 
 echo
-echo "${BOLD}  📋 Pre-flight check${RESET}"
-echo "  ─────────────────"
-echo "  ${GREEN}✓${RESET} Termux detected at $PREFIX"
-echo ""
+echo "${BOLD}  ═══ Pre-flight check ═══${RESET}"
+echo "  ${GREEN}✓${RESET} Termux detected at ${BOLD}$PREFIX${RESET}"
+echo
 
-# ── Install dependencies (including figlet for the banner) ──
-echo "${BOLD}  🔧 Installing dependencies${RESET}"
-echo "  ─────────────────────────"
+# ── Install dependencies ────────────────────────────────────
+echo "${BOLD}  ═══ Installing dependencies ═══${RESET}"
 (
   pkg update -y >/dev/null 2>&1 && \
   pkg install -y zsh fzf coreutils gawk grep sed ncurses curl figlet -- >/dev/null 2>&1
@@ -80,21 +81,20 @@ if [ -n "$missing" ]; then
   echo "${YELLOW}     Run: pkg install$missing${RESET}"
   echo "${RED}  ✗ Cannot continue without required dependencies.${RESET}"
   exit 1
-else
-  echo "  ${GREEN}✓${RESET} All core dependencies available"
 fi
-echo ""
+echo "  ${GREEN}✓${RESET} All core dependencies available"
+echo
 
-# ── Banner (after figlet is installed) ──────────────────────
+# ── Banner ──────────────────────────────────────────────────
 clear 2>/dev/null || true
 figlet -f smslant "Termux" 2>/dev/null | sed "s/^/${CYAN}/" | sed "s/$/${RESET}/"
 figlet -f smslant "TUI Store" 2>/dev/null | sed "s/^/${MAGENTA}/" | sed "s/$/${RESET}/"
-echo ""
+echo
 echo "${CYAN}  ╔══════════════════════════════════════════╗${RESET}"
 echo "${CYAN}  ║${RESET}  ${BOLD}Termux TUI Package Store${RESET}                ${CYAN}║${RESET}"
 echo "${CYAN}  ║${RESET}  fzf-powered interactive package browser ${CYAN}║${RESET}"
 echo "${CYAN}  ╚══════════════════════════════════════════╝${RESET}"
-echo ""
+echo
 
 # ── Validate env vars ──────────────────────────────────────
 REPO="${REPO:-Mark44928/Termux-TUI-Package-Store}"
@@ -105,26 +105,25 @@ if [[ ! "$REPO" =~ ^[a-zA-Z0-9_./-]+$ ]] || [[ ! "$BRANCH" =~ ^[a-zA-Z0-9_./-]+$
 fi
 
 # ── Download ────────────────────────────────────────────────
-echo "${BOLD}  ⬇️  Downloading pkgs${RESET}"
-echo "  ─────────────────────"
+echo "${BOLD}  ═══ Downloading pkgs ═══${RESET}"
 URL="https://raw.githubusercontent.com/${REPO}/${BRANCH}/pkgs_core.zsh"
 INSTALL_PATH="$PREFIX/bin/pkgs"
 mkdir -p "$PREFIX/bin" 2>/dev/null
 
 curl -#fSL "$URL" -o "${INSTALL_PATH}.tmp" 2>&1 || {
-  echo ""
+  echo
   echo "${RED}  ✗ Download failed.${RESET}"
-  echo "${YELLOW}  Check your connection:${RESET}"
+  echo "${YELLOW}  Check your connection or URL:${RESET}"
   echo "  ${YELLOW}$URL${RESET}"
   exit 1
 }
 
-# Verify download is a valid zsh script (basic sanity check)
 if ! head -1 "${INSTALL_PATH}.tmp" | grep -q 'zsh'; then
-  echo "${RED}  ✗ Downloaded file does not look like the expected script.${RESET}"
+  echo "${RED}  ✗ Downloaded file is not a valid zsh script.${RESET}"
   rm -f "${INSTALL_PATH}.tmp"
   exit 1
 fi
+
 mv "${INSTALL_PATH}.tmp" "$INSTALL_PATH"
 chmod +x "$INSTALL_PATH" || {
   echo "${RED}  ✗ Failed to set execute permission.${RESET}"
@@ -132,18 +131,16 @@ chmod +x "$INSTALL_PATH" || {
 }
 
 echo "  ${GREEN}✓${RESET} Installed to ${BOLD}$INSTALL_PATH${RESET}"
-echo ""
+echo
 
 # ── Complete ────────────────────────────────────────────────
-echo ""
-echo "  ${BOLD}🎉  INSTALLATION COMPLETE!${RESET}"
-echo ""
-echo "  ${BOLD}Just type:${RESET}"
-echo ""
+echo
+echo "  ${BOLD}╔════════════════════════════════════╗${RESET}"
+echo "  ${BOLD}║      🎉 INSTALLATION COMPLETE!     ║${RESET}"
+echo "  ${BOLD}╚════════════════════════════════════╝${RESET}"
+echo
+echo "  ${BOLD}Run it:${RESET}"
 echo "    ${CYAN}pkgs${RESET}"
-echo ""
-echo "  Search, preview, install & remove packages"
-echo "  with a single keystroke."
-echo ""
-echo "  ${YELLOW}Pro tip:${RESET}  pkgs python   (pre-filter results)"
-echo ""
+echo
+echo "  ${YELLOW}Pro tip:${RESET}  pkgs python   (opens with pre-filtered results)"
+echo
