@@ -75,6 +75,8 @@ Type `pkgs`, fuzzy-search any term, see version/size/deps live in the preview pa
 
 Active maintenance. Issues and PRs welcome.
 
+> ⭐ **If this tool saves you time, a star helps others find it.**
+
 ---
 
 ## 🎯 Perfect For
