@@ -18,10 +18,21 @@
 | `/batch-upgrade` | Interactive fzf multi-select of upgradable packages |
 | `/update` | Update apt cache |
 | `/clean` | Remove orphans + clean apt cache |
-| `/auto-clean` | Set up scheduled cleanup via cronie |
+| `/auto-clean` | Set up scheduled cleanup via cronie (requires `cronie` + `crond`) |
 | `/export <query>` | Export matching packages to a runnable shell script |
 | `/export-all` | Export all installed packages to a script |
 | `/export-versions` | Export package list with version numbers + sizes |
+
+## 📋 Queue System
+
+| Command | Description |
+|---|---|
+| `/queue-add <pkg>` | Add a package to the install queue |
+| `/queue-remove <pkg>` | Remove a package from the queue |
+| `/queue` | View queue, process (y), dry-run (d), or clear (r) |
+| `/queue-clear` | Clear all queued packages |
+
+The queue persists across sessions at `~/.local/share/pkgs/queue`. Add packages with `/queue-add`, then run `/queue` to review and process them all at once.
 
 ## 🔍 Search & Filter
 
@@ -69,10 +80,13 @@
 | `/pkg-replaces <pkg>` | What this package replaces |
 | `/conflicts-with <pkg>` | Show conflicting packages |
 | `/provides <pkg>` | Show virtual packages provided |
+| `/broken` | Find broken packages via dpkg --audit |
+| `/manually-installed` | Show manually installed packages with size |
+| `/auto-installed` | Show auto-installed packages with parent |
 | `/owner <file>` | Which package owns this file (dpkg -S) |
 | `/whatprovides <file>` | Which package provides a binary |
 | `/check` | Verify installed packages integrity |
-| `/check-deps` | Validate all dependencies are satisfied |
+| `/check-deps` | Scan project for missing tool dependencies |
 | `/missing` | Check for missing dependencies |
 | `/footprint <pkg>` | Total install footprint including deps |
 | `/pkg-impact <pkg>` | Pre-install impact analysis (new deps, disk cost) |
@@ -164,11 +178,12 @@
 | Command | Description |
 |---|---|
 | `/version` | Show system version info |
+| `/config` | Edit settings in-app (theme, filter, sort, compact, history) |
 | `/theme` | Switch color scheme (7 themes) |
 | `/theme-preview` | Preview current color scheme |
 | `/keys` | Fzf keybinding reference overlay |
 | `/boot-time` | Benchmark Termux shell startup time |
-| `/schedule` | Set up update reminders |
+| `/schedule` | Set up update reminders (requires `termux-api` + cronie for auto-trigger) |
 | `/shell-hook` | Generate shell integration hook |
 | `/self-update` | Update pkgs from GitHub |
 | `/plan <cmd>` | Dry-run preview (install/remove/upgrade) |

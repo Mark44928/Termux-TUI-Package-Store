@@ -16,7 +16,7 @@ pkgs() {
     fi
 
     # Configuration
-    local _PKGS_VERSION="1.4.0"
+    local _PKGS_VERSION="1.5.0"
 
     for arg in "$@"; do
         case "$arg" in
@@ -152,7 +152,10 @@ pkgs() {
     _pkgs_fzf_pick_pkg() {
         local prompt="$1" height="${2:-50%}"
         _pkgs_get_cached_list > /dev/null 2>&1
-        local fzf_tmp="${TMPDIR:-${PREFIX:-/tmp}}/pkgs_fzf.$$"
+        local fzf_tmp
+        fzf_tmp=$(mktemp "${TMPDIR:-${PREFIX}/tmp}/pkgs_fzf.XXXXXX") || { _PKGS_FZF_PICKED=""; return 1; }
+        chmod 600 "$fzf_tmp" 2>/dev/null
+        _PKGS_TMP_FILES+=("$fzf_tmp")
         fzf < "$_PKGS_CACHE_FILE" --prompt=" $prompt> " --height="$height" --reverse > "$fzf_tmp" 2>/dev/null
         if [[ ! -s "$fzf_tmp" ]]; then
             rm -f "$fzf_tmp" 2>/dev/null
@@ -221,17 +224,17 @@ pkgs() {
     _pkgs_parse_pkg_arg() {
         local cmd="$1" full_query="$2"
         if [[ "$full_query" == "/$cmd" || "$full_query" == "/$cmd " ]]; then
-            printf "${C_MSG_WARN}Usage: /%s <pkg>${C_RESET}\n" "$cmd"
+            printf "${C_MSG_WARN}Usage: /%s <pkg>${C_RESET}\n" "$cmd" >&2
             return 1
         fi
         local pkg="${full_query#* }"
         pkg="$(_pkgs_trim "$pkg")"
         if [[ -z "$pkg" ]]; then
-            printf "${C_MSG_WARN}Usage: /%s <pkg>${C_RESET}\n" "$cmd"
+            printf "${C_MSG_WARN}Usage: /%s <pkg>${C_RESET}\n" "$cmd" >&2
             return 1
         fi
         if ! _pkgs_validate_name "$pkg"; then
-            printf "${C_MSG_REMOVE}Invalid package name: %s${C_RESET}\n" "$pkg"
+            printf "${C_MSG_REMOVE}Invalid package name: %s${C_RESET}\n" "$pkg" >&2
             return 1
         fi
         echo "$pkg"
@@ -247,6 +250,8 @@ pkgs() {
             printf "FILTER=%s\n" "$_PKGS_FILTER"
             printf "SORT=%s\n" "$_PKGS_SORT"
             printf "THEME=%s\n" "$_PKGS_THEME"
+            printf "COMPACT=%s\n" "${_PKGS_COMPACT:-off}"
+            printf "HISTORY_DAYS=%s\n" "$_PKGS_HISTORY_KEEP_DAYS"
         } > "$tmp_config" 2>/dev/null
         mv "$tmp_config" "$_PKGS_CONFIG_FILE" 2>/dev/null
     }
@@ -259,6 +264,8 @@ pkgs() {
                     FILTER) _PKGS_FILTER="$val" ;;
                     SORT) _PKGS_SORT="$val" ;;
                     THEME) _PKGS_THEME="$val" ;;
+                    COMPACT) _PKGS_COMPACT="$val" ;;
+                    HISTORY_DAYS) [[ "$val" =~ ^[0-9]+$ ]] && _PKGS_HISTORY_KEEP_DAYS="$val" ;;
                 esac
             done < "$_PKGS_CONFIG_FILE"
             case "$_PKGS_FILTER" in
@@ -342,6 +349,167 @@ pkgs() {
         _PKGS_CACHE_FILE=""
     }
 
+    _pkgs_spinner() {
+        local pid=$1 msg=$2
+        [[ -n "$pid" ]] || return 1
+        local frames=(⠋ ⠙ ⠹ ⠸ ⠼ ⠴ ⠦ ⠧ ⠏)
+        local i=0
+        while kill -0 "$pid" 2>/dev/null; do
+            printf "\r  ${C_TEAL}%s${C_RESET} %s" "${frames[$((i % ${#frames[@]} + 1))]}" "$msg"
+            sleep 0.1
+            ((i++))
+        done
+        wait "$pid" 2>/dev/null
+        return $?
+    }
+
+    _pkgs_check_network() {
+        local host="${1:-packages.termux.dev}"
+        if ! ping -c1 "$host" &>/dev/null; then
+            printf "\n  ${C_MSG_REMOVE}No network connection (cannot reach %s).${C_RESET}\n" "$host"
+            printf "  ${C_DIM}Check your wifi/mobile data and try again.${C_RESET}\n"
+            return 1
+        fi
+        return 0
+    }
+
+    # Package queue (persistent)
+    _PKGS_QUEUE_FILE="${XDG_DATA_HOME:-$HOME/.local/share}/pkgs/queue"
+
+    _pkgs_queue_load() {
+        local -a q=()
+        if [[ -f "$_PKGS_QUEUE_FILE" ]]; then
+            while IFS= read -r line; do
+                [[ -n "$line" ]] && q+=("$line")
+            done < "$_PKGS_QUEUE_FILE"
+        fi
+        _PKGS_QUEUE=("${q[@]}")
+    }
+
+    _pkgs_queue_save() {
+        mkdir -p "$(dirname "$_PKGS_QUEUE_FILE")" 2>/dev/null
+        local tmp_q
+        tmp_q=$(mktemp "${_PKGS_QUEUE_FILE}.XXXXXX") 2>/dev/null || return 1
+        printf "%s\n" "${_PKGS_QUEUE[@]}" > "$tmp_q" 2>/dev/null
+        mv "$tmp_q" "$_PKGS_QUEUE_FILE" 2>/dev/null
+    }
+
+    _pkgs_config_editor() {
+        clear
+        printf "\n  ${C_WHITE}─── Settings ───${C_RESET}\n\n"
+        local -a settings_items=(
+            "theme|Color theme|${_PKGS_THEME:-dark}"
+            "filter|Package filter|${_PKGS_FILTER}"
+            "sort|Sort mode|${_PKGS_SORT}"
+            "compact|Compact mode|${_PKGS_COMPACT:-off}"
+            "history_days|History retention|${_PKGS_HISTORY_KEEP_DAYS} days"
+        )
+        local idx=1
+        for item in "${settings_items[@]}"; do
+            local key="${item%%|*}"
+            local rest="${item#*|}"
+            local label="${rest%%|*}"
+            local val="${rest#*|}"
+            printf "  ${C_DIM}%d)${C_RESET} ${C_TEAL}%-18s${C_RESET} ${C_WHITE}%s${C_RESET}\n" "$idx" "$label" "$val"
+            ((idx++))
+        done
+        printf "\n  ${C_DIM}Enter number to edit, or Enter to return:${C_RESET} "
+        local choice
+        read -r choice
+        [[ -z "$choice" ]] && return
+        if ! [[ "$choice" =~ ^[0-9]+$ ]] || (( choice < 1 || choice > ${#settings_items[@]} )); then
+            printf "  ${C_MSG_REMOVE}Invalid choice.${C_RESET}\n"
+            sleep 1
+            return
+        fi
+        local selected="${settings_items[$choice]}"
+        local key="${selected%%|*}"
+        case "$key" in
+            theme)
+                printf "\n  ${C_DIM}Available: dark, light, minimal, neon, dracula, monokai, solarized${C_RESET}\n"
+                printf "  ${C_DIM}Current: ${C_WHITE}%s${C_RESET}\n" "${_PKGS_THEME:-dark}"
+                printf "  Enter new theme: "
+                local new_theme
+                read -r new_theme
+                [[ -z "$new_theme" ]] && return
+                case "$new_theme" in
+                    dark|light|minimal|neon|dracula|monokai|solarized)
+                        _pkgs_apply_theme "$new_theme"
+                        _PKGS_THEME="$new_theme"
+                        _pkgs_save_state
+                        printf "\n  ${C_MSG_DONE}Theme changed to: %s${C_RESET}\n" "$new_theme"
+                        ;;
+                    *)
+                        printf "\n  ${C_MSG_REMOVE}Invalid theme: %s${C_RESET}\n" "$new_theme"
+                        ;;
+                esac
+                ;;
+            filter)
+                printf "\n  ${C_DIM}Available: all, installed, available, recent${C_RESET}\n"
+                printf "  ${C_DIM}Current: ${C_WHITE}%s${C_RESET}\n" "$_PKGS_FILTER"
+                printf "  Enter new filter: "
+                local new_filter
+                read -r new_filter
+                [[ -z "$new_filter" ]] && return
+                case "$new_filter" in
+                    all|installed|available|recent)
+                        _PKGS_FILTER="$new_filter"
+                        _pkgs_invalidate_cache
+                        _pkgs_save_state
+                        printf "\n  ${C_MSG_DONE}Filter changed to: %s${C_RESET}\n" "$new_filter"
+                        ;;
+                    *)
+                        printf "\n  ${C_MSG_REMOVE}Invalid filter: %s${C_RESET}\n" "$new_filter"
+                        ;;
+                esac
+                ;;
+            sort)
+                printf "\n  ${C_DIM}Available: name, size${C_RESET}\n"
+                printf "  ${C_DIM}Current: ${C_WHITE}%s${C_RESET}\n" "$_PKGS_SORT"
+                printf "  Enter new sort: "
+                local new_sort
+                read -r new_sort
+                [[ -z "$new_sort" ]] && return
+                case "$new_sort" in
+                    name|size)
+                        _PKGS_SORT="$new_sort"
+                        _pkgs_invalidate_cache
+                        _pkgs_save_state
+                        printf "\n  ${C_MSG_DONE}Sort changed to: %s${C_RESET}\n" "$new_sort"
+                        ;;
+                    *)
+                        printf "\n  ${C_MSG_REMOVE}Invalid sort: %s${C_RESET}\n" "$new_sort"
+                        ;;
+                esac
+                ;;
+            compact)
+                if [[ "${_PKGS_COMPACT:-off}" == "on" ]]; then
+                    _PKGS_COMPACT="off"
+                else
+                    _PKGS_COMPACT="on"
+                fi
+                _pkgs_save_state
+                printf "\n  ${C_MSG_DONE}Compact mode: %s${C_RESET}\n" "$_PKGS_COMPACT"
+                ;;
+            history_days)
+                printf "\n  ${C_DIM}Current: ${C_WHITE}%s${C_RESET} days\n" "$_PKGS_HISTORY_KEEP_DAYS"
+                printf "  Enter new value (1-365): "
+                local new_days
+                read -r new_days
+                [[ -z "$new_days" ]] && return
+                if [[ "$new_days" =~ ^[0-9]+$ ]] && (( new_days >= 1 && new_days <= 365 )); then
+                    _PKGS_HISTORY_KEEP_DAYS="$new_days"
+                    _pkgs_save_state
+                    printf "\n  ${C_MSG_DONE}History retention: %d days${C_RESET}\n" "$new_days"
+                else
+                    printf "\n  ${C_MSG_REMOVE}Invalid value.${C_RESET}\n"
+                fi
+                ;;
+        esac
+        printf "\n  ${C_MSG_INFO}Press Enter to return.${C_RESET}"
+        read -r
+    }
+
     _pkgs_log_history() {
         local action="$1" pkg_name="$2"
         mkdir -p "$_PKGS_HISTORY_DIR" 2>/dev/null
@@ -379,11 +547,14 @@ pkgs() {
         fi
         printf "  ${C_DIM}Status:${C_RESET}       %s\n" "$status_str"
         local desc
-        desc=$(echo "$info" | sed -n '/^Description:/{ s/^Description: //p; :a; n; /^ /{ s/^ //p; ba }; }')
+        desc=$(print -r -- "$info" | sed -n '/^Description:/{ s/^Description: //p; :a; n; /^ /{ s/^ //p; ba }; }')
         printf "  ${C_WHITE}Description:${C_RESET}\n"
-        printf "  ${C_DIM}%s${C_RESET}\n" "$(echo "$desc" | head -6)"
-        printf "\n  ${C_MSG_INFO}Press Enter to return.${C_RESET}"
-        read -r
+        printf "  ${C_DIM}%s${C_RESET}\n" "$(print -r -- "$desc" | head -6)"
+        printf "\n  ${C_MSG_INFO}Press Enter to return, b to go back: ${C_RESET}"
+        read -r _info_choice
+        if [[ "$_info_choice" == "b" ]]; then
+            _PKGS_BACK_ACTION=1
+        fi
     }
 
     _pkgs_help_print_cols() {
@@ -397,7 +568,6 @@ pkgs() {
             done
             return
         fi
-        local sep_w=3
         local sep_w=3 total=$#
         local cw=$(( (tw - sep_w * (nc - 1) - 2 * nc) / nc ))
         for item in "$@"; do
@@ -510,6 +680,9 @@ pkgs() {
             "/search-history <txt>|Search history" "/quick|Popular package sets"
             "/fuzzy-dep|Dependency explorer" "/size-filter <min> <max>|Filter by size"
             "/security|Outdated pkg check" "/duplicate|Duplicate/virtual pkgs"
+            "/config|Edit settings" "/queue|View package queue"
+            "/queue-add <pkg>|Add to queue" "/queue-remove <pkg>|Remove from queue"
+            "/queue-clear|Clear queue"
         )
         printf "\n  ${C_AMBER}Slash Commands${C_RESET}\n"
         _pkgs_help_print_cols "$tw" "$nc" "${cmds[@]}"
@@ -517,9 +690,9 @@ pkgs() {
         local -a cmds2=(
             "/profile|Save/restore profiles" "/check-deps|Scan missing tools"
             "/shell-hook|Shell aliases from pkgs" "/storage-report|Android storage"
-            "/health|System health score" "/auto-clean|Scheduled cleanup"
+            "/health|System health score" "/auto-clean|Scheduled cleanup (cronie)"
             "/footprint <pkg>|Total size+transitive" "/unused|Never invoked packages"
-            "/timeline|Activity map" "/schedule|Update reminders"
+            "/timeline|Activity map" "/schedule|Update reminders (cronie)"
             "/search-providers|Find pkgs for command" "/diff-snapshots|Diff snapshots"
             "/audit|SUID/SGID scan" "/repo-check|Untrusted repo check"
             "/popular|Popular packages list" "/boot-time|Benchmark startup"
@@ -619,7 +792,7 @@ pkgs() {
                 printf "%010d|%s\n" "$size" "$line"
             done <<< "$list_output" | sort -t'|' -k1,1 -rn | cut -d'|' -f2-
         else
-            echo "$list_output" | sort -t'|' -k1,1
+            print -r -- "$list_output" | sort -t'|' -k1,1
         fi
     }
 
@@ -753,14 +926,16 @@ PREVIEW_EOF
         local sort_label=""
         [[ "$_PKGS_SORT" == "size" ]] && sort_label=" [by size]"
         local info_label="${filter_label}${sort_label}"
+        local height_arg=()
+        [[ "$_PKGS_COMPACT" == "on" ]] && height_arg=(--height=60% --reverse)
         FZF_ARGS=(
             --ansi
             --query "$query"
             --layout=reverse
             --border="$BORDER_STYLE"
-            --border-label="  Packages${info_label} "
-            --preview-label="  Details "
-            --prompt="  > "
+            --border-label="  Packages${info_label} "
+            --preview-label="  Details "
+            --prompt="  > "
             --pointer="➜"
             --info=inline
             --multi
@@ -777,6 +952,7 @@ PREVIEW_EOF
             --bind 'ctrl-d:deselect-all'
             --preview "$(_pkgs_preview_command)"
             --bind '?:toggle-preview'
+            "${height_arg[@]}"
         )
         [[ -n "$header" ]] && FZF_ARGS+=(--header="$header")
     }
@@ -789,10 +965,13 @@ PREVIEW_EOF
     }
 
     local query="$*"
+    local -a _PKGS_QUEUE=()
+    local _PKGS_COMPACT="off"
 
     _pkgs_load_state
     _pkgs_apply_theme "$_PKGS_THEME"
     _pkgs_rotate_history
+    _pkgs_queue_load
 
     trap '_pkgs_invalidate_cache; _pkgs_cleanup' EXIT INT TERM HUP QUIT
 
@@ -809,7 +988,10 @@ PREVIEW_EOF
         _pkgs_build_fzf_args "$query" "$status_msg"
 
         _pkgs_get_cached_list > /dev/null 2>&1
-        local fzf_tmp="${TMPDIR:-${PREFIX:-/tmp}}/pkgs_fzf.$$"
+        local fzf_tmp
+        fzf_tmp=$(mktemp "${TMPDIR:-${PREFIX}/tmp}/pkgs_fzf.XXXXXX") || { continue; }
+        chmod 600 "$fzf_tmp" 2>/dev/null
+        _PKGS_TMP_FILES+=("$fzf_tmp")
         fzf < "$_PKGS_CACHE_FILE" "${FZF_ARGS[@]}" > "$fzf_tmp" 2>/dev/null
         local ret=$?
 
@@ -844,33 +1026,33 @@ PREVIEW_EOF
         if [[ "$query" == /42 ]]; then
             printf "\n  \033[38;5;226mThe Answer to the Ultimate Question of Life, the Universe, and Everything.\033[0m\n"
             printf "  \033[38;5;59m(Still no idea what the question was though.)\033[0m\n"
+            printf "\n  ${C_MSG_INFO}Press Enter to return.${C_RESET}"
+            read -r
             continue
         fi
         if [[ "$query" == /coffee ]]; then
-            local _cup="    ( ("
-            _cup+="    ) )"
-            _cup+="  .______."
-            _cup+="  |      |]"
-            _cup+="  \\      /"
-            _cup+="   \`----'\n"
-            printf "\n  \033[38;5;130m%s\033[0m" "$_cup"
-            printf "  \033[38;5;130mCoffee installed. Wait, this isn't a real package manager... or is it?\033[0m\n\n"
+            local _cup=$'    ( (\n    ) )\n  .______.\n  |      |]\n  \\      /\n   \\`----\''
+            printf "\n  \033[38;5;130m%s\033[0m\n" "$_cup"
+            printf "  \033[38;5;130mCoffee installed. Wait, this isn't a real package manager... or is it?\033[0m\n"
+            printf "\n  ${C_MSG_INFO}Press Enter to return.${C_RESET}"
+            read -r
             continue
         fi
         if [[ "$query" == /matrix ]]; then
-            local _m_line=""
-            local _m
             printf "\n"
+            local _m _i _m_line
             for _m in 1 2 3 4 5; do
                 _m_line=""
-                local _i
                 for _i in $(seq 1 $(( (RANDOM % 40) + 20 ))); do
-                    _m_line+="$(printf '%b' "\\$(printf '%03o' $(( RANDOM % 94 + 33 )))")"
+                    printf -v _m_char '%b' "\\$(printf '%03o' $(( RANDOM % 94 + 33 )))"
+                    _m_line+="$_m_char"
                 done
                 printf "  \033[38;5;46m%s\033[0m\n" "$_m_line"
             done
             printf "\n  \033[38;5;46mWake up, Neo...\033[0m\n"
-            printf "  \033[38;5;59m(The apt repository has you.)\033[0m\n\n"
+            printf "  \033[38;5;59m(The apt repository has you.)\033[0m\n"
+            printf "\n  ${C_MSG_INFO}Press Enter to return.${C_RESET}"
+            read -r
             continue
         fi
         if [[ "$query" == /potato ]]; then
@@ -885,12 +1067,16 @@ PREVIEW_EOF
             printf "       /|\\\n"
             printf "      / | \\\n"
             printf "\033[0m"
-            printf "  \033[38;5;136mThis is a potato. It has no packages. It is a potato.\033[0m\n\n"
+            printf "  \033[38;5;136mThis is not a potato. This is a random thingie. Ignore it and go back to installing packages.\033[0m\n"
+            printf "\n  ${C_MSG_INFO}Press Enter to return.${C_RESET}"
+            read -r
             continue
         fi
         if [[ "$query" == /ping ]]; then
             local _pings=("Pong!" "Pang!" "Pung!" "Ping!" "Poing!" "Piiiing!")
-            printf "\n  \033[38;5;117m%s\033[0m\n\n" "${_pings[$((RANDOM % ${#_pings[@]} + 1))]}"
+            printf "\n  \033[38;5;117m%s\033[0m\n" "${_pings[$((RANDOM % ${#_pings[@]} + 1))]}"
+            printf "\n  ${C_MSG_INFO}Press Enter to return.${C_RESET}"
+            read -r
             continue
         fi
         if [[ "$query" == /beer ]]; then
@@ -902,32 +1088,43 @@ PREVIEW_EOF
             printf "    ______||||______\n"
             printf "~~~~~~~~~~\`\"'<\n"
             printf "\033[0m"
-            printf "  \033[38;5;214mHere's a cold one. You've earned it.\033[0m\n\n"
+            printf "  \033[38;5;214mHere's a cold one. You've earned it.\033[0m\n"
+            printf "\n  ${C_MSG_INFO}Press Enter to return.${C_RESET}"
+            read -r
             continue
         fi
         if [[ "$query" == "/rm -rf /" ]]; then
             printf "\n  \033[38;5;196mNice try. This is a package manager, not a thermonuclear device.\033[0m\n"
-            printf "  \033[38;5;59mAlso, even if it were, we'd never.\033[0m\n\n"
+            printf "  \033[38;5;59mAlso, even if it were, we'd never.\033[0m\n"
+            printf "\n  ${C_MSG_INFO}Press Enter to return.${C_RESET}"
+            read -r
             continue
         fi
         if [[ "$query" == /hello || "$query" == /hi ]]; then
             local _greetings=("Hey there!" "Yo!" "Sup!" "Howdy!" "Bonjour!" "Konnichiwa!" "Ahoy!" "Greetings, human.")
-            printf "\n  \033[38;5;123m%s\033[0m\n\n" "${_greetings[$((RANDOM % ${#_greetings[@]} + 1))]}"
+            printf "\n  \033[38;5;123m%s\033[0m\n" "${_greetings[$((RANDOM % ${#_greetings[@]} + 1))]}"
+            printf "\n  ${C_MSG_INFO}Press Enter to return.${C_RESET}"
+            read -r
             continue
         fi
         if [[ "$query" == /uptime ]]; then
-            local _up=$(uptime -p 2>/dev/null || uptime 2>/dev/null | sed 's/.*up/up/')
+            local _up
+            _up=$(uptime -p 2>/dev/null || uptime 2>/dev/null | sed 's/.*up/up/')
             printf "\n  \033[38;5;109m%s\033[0m\n" "$_up"
-            printf "  \033[38;5;59m(But really, have you tried turning it off and on again?)\033[0m\n\n"
+            printf "  \033[38;5;59m(But really, have you tried turning it off and on again?)\033[0m\n"
+            printf "\n  ${C_MSG_INFO}Press Enter to return.${C_RESET}"
+            read -r
             continue
         fi
         if [[ "$query" == /sudo ]]; then
             printf "\n  \033[38;5;196mThis is not the sudo you're looking for.\033[0m\n"
-            printf "  \033[38;5;59m(There is no sudo in Termux. There is no spoon either.)\033[0m\n\n"
+            printf "  \033[38;5;59m(There is no sudo in Termux. There is no spoon either.)\033[0m\n"
+            printf "\n  ${C_MSG_INFO}Press Enter to return.${C_RESET}"
+            read -r
             continue
         fi
 
-        if [[ "$query" == /theme* ]]; then
+        if [[ "$query" == /theme || "$query" == /theme\ * ]]; then
             local theme_arg="${query#/theme }"
             [[ "$theme_arg" == "/theme" ]] && theme_arg=""
             clear
@@ -963,6 +1160,7 @@ PREVIEW_EOF
 
         if [[ "$query" == /upgrade ]]; then
             clear
+            _pkgs_check_network || { query=""; continue; }
             printf "\n${C_MSG_WARN}Upgrade all installed packages? (y/N) ${C_RESET}"
             read -q upgrade_confirm; read -r
             if [[ "$upgrade_confirm" != "y" ]]; then
@@ -972,12 +1170,20 @@ PREVIEW_EOF
                 clear
                 continue
             fi
-            printf "\n${C_MSG_INFO}─── Upgrading all packages... ───${C_RESET}\n"
-            if "${PKG_MGR}" upgrade --; then
+            printf "\n${C_MSG_INFO}─── Upgrading all packages... ───${C_RESET}\n\n"
+            local _up_log
+            _up_log=$(mktemp "${TMPDIR:-${PREFIX}/tmp}/pkgs_up.XXXXXX") 2>/dev/null
+            "${PKG_MGR}" upgrade -- &>"$_up_log" &
+            local _up_pid=$!
+            _pkgs_spinner "$_up_pid" "Upgrading packages..."
+            wait "$_up_pid" 2>/dev/null
+            local _up_rc=$?
+            rm -f "$_up_log" 2>/dev/null
+            if (( _up_rc == 0 )); then
                 _pkgs_log_history "UPGRADE" "all"
-                printf "${C_MSG_DONE}─── Upgrade completed successfully ───${C_RESET}\n"
+                printf "\n${C_MSG_DONE}─── Upgrade completed successfully ───${C_RESET}\n"
             else
-                printf "${C_MSG_REMOVE}─── Upgrade encountered errors ───${C_RESET}\n"
+                printf "\n${C_MSG_REMOVE}─── Upgrade encountered errors ───${C_RESET}\n"
             fi
             _pkgs_invalidate_cache
             printf "\n  ${C_MSG_INFO}Press Enter to return.${C_RESET}"
@@ -1261,8 +1467,17 @@ PREVIEW_EOF
 
         if [[ "$query" == /update ]]; then
             clear
+            _pkgs_check_network || { query=""; continue; }
             printf "\n${C_MSG_INFO}─── Updating package cache... ───${C_RESET}\n\n"
-            if "${PKG_MGR}" update 2>&1; then
+            local _upd_log
+            _upd_log=$(mktemp "${TMPDIR:-${PREFIX}/tmp}/pkgs_upd.XXXXXX") 2>/dev/null
+            "${PKG_MGR}" update &>"$_upd_log" &
+            local _upd_pid=$!
+            _pkgs_spinner "$_upd_pid" "Updating package cache..."
+            wait "$_upd_pid" 2>/dev/null
+            local _upd_rc=$?
+            rm -f "$_upd_log" 2>/dev/null
+            if (( _upd_rc == 0 )); then
                 _pkgs_invalidate_cache
                 printf "\n${C_MSG_DONE}Cache updated successfully.${C_RESET}\n"
             else
@@ -1343,7 +1558,6 @@ PREVIEW_EOF
                 note_pkg="$(_pkgs_trim "$note_pkg")"
                 note_text="$(_pkgs_trim "$note_text")"
                 note_text="${note_text//$'\n'/ }"
-                note_text="${note_text//\|/\\|}"
                 if [[ -z "$note_pkg" || -z "$note_text" ]]; then
                     printf "${C_MSG_WARN}Usage: /note <pkg> <text>${C_RESET}\n"
                     sleep 1
@@ -1459,10 +1673,9 @@ PREVIEW_EOF
             clear
             local -a restore_pkgs=()
             while IFS= read -r rline; do
-                rline="${rline##[[:space:]]}"
-                rline="${rline%%[[:space:]]}"
+                rline="${${rline#"${rline%%[![:space:]]*}"}%"${rline##*[![:space:]]}"}"
                 rline="${rline%%\\}"
-                rline="${rline##[[:space:]]}"
+                rline="${${rline#"${rline%%[![:space:]]*}"}%"${rline##*[![:space:]]}"}"
                 [[ -z "$rline" ]] && continue
                 [[ "$rline" == \#* ]] && continue
                 [[ "$rline" == "install "* || "$rline" == "pkg install "* ]] && continue
@@ -1603,7 +1816,12 @@ PREVIEW_EOF
         if [[ "$query" == /info* ]]; then
             local info_pkg; info_pkg=$(_pkgs_parse_pkg_arg "info" "$query") || { sleep 1; query=""; continue; }
             _pkgs_show_info "$info_pkg"
-            query=""
+            if [[ "${_PKGS_BACK_ACTION:-0}" == "1" ]]; then
+                _PKGS_BACK_ACTION=0
+                query="$info_pkg"
+            else
+                query=""
+            fi
             continue
         fi
 
@@ -1858,10 +2076,12 @@ PREVIEW_EOF
 
         if [[ "$query" == /history ]]; then
             clear
-            printf "\n  ${C_GREEN}Command History (last 7 days)${C_RESET}\n\n"
+            local hist_days="${_PKGS_HISTORY_KEEP_DAYS:-7}"
+            (( hist_days < 7 )) && hist_days=7
+            printf "\n  ${C_GREEN}Command History (last %d days)${C_RESET}\n\n" "$hist_days"
             local hist_found=0
             local hist_day
-            for i in {0..6}; do
+            for i in $(seq 0 $((hist_days - 1))); do
                 hist_day=$(_pkgs_date_ago "$i")
                 [[ -z "$hist_day" ]] && continue
                 local hist_file="${_PKGS_HISTORY_DIR}/${hist_day}.log"
@@ -2246,7 +2466,7 @@ PREVIEW_EOF
             continue
         fi
 
-        if [[ "$query" == /search* && "$query" != /search-file* && "$query" != /search-size* ]]; then
+        if [[ "$query" == /search* && "$query" != /search-file* && "$query" != /search-size* && "$query" != /search-providers* && "$query" != /search-history* ]]; then
             if [[ "$query" == "/search" ]]; then
                 printf "${C_MSG_WARN}Usage: /search <text>${C_RESET}\n"
                 sleep 1
@@ -2315,7 +2535,7 @@ PREVIEW_EOF
             continue
         fi
 
-        if [[ "$query" == /install* || "$query" == /remove* || "$query" == /export* ]]; then
+        if [[ "$query" == /install* || "$query" == /remove* || "$query" == /export || "$query" == /export\ * ]]; then
             local cmd="${query%% *}"
             local search_term="${query#* }"
             cmd="${cmd#/}"
@@ -2357,6 +2577,22 @@ PREVIEW_EOF
                     for _i in {1..${#match_pkgs[@]}}; do
                         printf "    ${C_WHITE}%s${C_RESET}\n" "${match_pkgs[$_i]}"
                     done
+                    printf "\n  ${C_DIM}Estimating download size...${C_RESET}\n"
+                    local _est_total_dl=0 _est_total_inst=0 _est_p
+                    for _est_p in "${match_pkgs[@]}"; do
+                        local _est_info _est_dl _est_ins
+                        _est_info=$(apt-cache show -- "$_est_p" 2>/dev/null)
+                        _est_dl=$(_pkgs_apt_field "$_est_info" Size)
+                        _est_ins=$(_pkgs_apt_field "$_est_info" Installed-Size)
+                        [[ "$_est_dl" =~ ^[0-9]+$ ]] && (( _est_total_dl += _est_dl ))
+                        [[ "$_est_ins" =~ ^[0-9]+$ ]] && (( _est_total_inst += _est_ins ))
+                    done
+                    if (( _est_total_dl > 0 || _est_total_inst > 0 )); then
+                        printf "  ${C_DIM}Download: %s  Install: %s  Total: ~%s${C_RESET}\n" \
+                            "$(_pkgs_format_size $(( _est_total_dl / 1024 )))" \
+                            "$(_pkgs_format_size $(( _est_total_inst )))" \
+                            "$(_pkgs_format_size $(( (_est_total_dl / 1024) + _est_total_inst )))"
+                    fi
                     printf "\n  ${C_MSG_INFO}Proceed with %s? ${C_DIM}(y=dry-run, d=process, e=export, Enter=cancel)${C_RESET} " "${cmd}"
                     local batch_choice
                     read -q batch_choice; read -r
@@ -2802,9 +3038,11 @@ PREVIEW_EOF
             local pyc_size=0
             local pyc_count=0
             if [[ -d "$HOME" ]]; then
-                pyc_count=$(find "$HOME" -maxdepth 6 -name "*.pyc" -type f 2>/dev/null | wc -l | tr -d ' ')
+                local pyc_stats
+                pyc_stats=$(find "$HOME" -maxdepth 6 -name "*.pyc" -type f -exec du -sk {} + 2>/dev/null | awk '{s+=$1;c++}END{print c+0" "s+0}')
+                pyc_count=${pyc_stats%% *}
+                pyc_size=${pyc_stats##* }
                 if (( pyc_count > 0 )); then
-                    pyc_size=$(find "$HOME" -maxdepth 6 -name "*.pyc" -type f -exec du -sk {} + 2>/dev/null | awk '{s+=$1}END{print s+0}')
                     printf "  ${C_TEAL}[F]${C_RESET} .pyc files:             %s (%d files)\n" "$(_pkgs_format_size "$pyc_size")" "$pyc_count"
                     nuke_items+=("pyc:$pyc_size")
                 fi
@@ -2812,9 +3050,11 @@ PREVIEW_EOF
             local o_size=0
             local o_count=0
             if [[ -d "$HOME" ]]; then
-                o_count=$(find "$HOME" -maxdepth 6 -name "*.o" -type f 2>/dev/null | wc -l | tr -d ' ')
+                local o_stats
+                o_stats=$(find "$HOME" -maxdepth 6 -name "*.o" -type f -exec du -sk {} + 2>/dev/null | awk '{s+=$1;c++}END{print c+0" "s+0}')
+                o_count=${o_stats%% *}
+                o_size=${o_stats##* }
                 if (( o_count > 0 )); then
-                    o_size=$(find "$HOME" -maxdepth 6 -name "*.o" -type f -exec du -sk {} + 2>/dev/null | awk '{s+=$1}END{print s+0}')
                     printf "  ${C_TEAL}[G]${C_RESET} .o files:               %s (%d files)\n" "$(_pkgs_format_size "$o_size")" "$o_count"
                     nuke_items+=("obj:$o_size")
                 fi
@@ -2842,7 +3082,7 @@ PREVIEW_EOF
                                 printf "  ${C_MSG_DONE}✓ apt cache cleaned${C_RESET}\n"
                                 ;;
                             tmp)
-                                rm -rf "${PREFIX}/tmp"/* 2>/dev/null
+                                [[ -n "$PREFIX" ]] && rm -rf "${PREFIX}/tmp"/* 2>/dev/null
                                 printf "  ${C_MSG_DONE}✓ tmp cleaned${C_RESET}\n"
                                 ;;
                             cache)
@@ -2893,11 +3133,12 @@ PREVIEW_EOF
                     [[ "$action" == "UPGRADE" ]] && recent_upgraded+=("$pkg")
                 done < "$_PKGS_HISTORY_FILE"
             fi
-            for hist_file in $(find "$_PKGS_HISTORY_DIR" -name "*.log" -mtime -7 2>/dev/null | sort -r | head -7); do
+            while IFS= read -r hist_file; do
+                [[ -n "$hist_file" ]] || continue
                 while IFS=' ' read -r ts action pkg; do
                     [[ "$action" == "UPGRADE" ]] && recent_upgraded+=("$pkg")
                 done < "$hist_file"
-            done
+            done < <(find "$_PKGS_HISTORY_DIR" -name "*.log" -mtime -7 2>/dev/null | sort -r | head -7)
             local -A seen_pkgs
             local -a unique_pkgs=()
             for p in "${recent_upgraded[@]}"; do
@@ -3061,14 +3302,15 @@ PREVIEW_EOF
             if [[ -n "$ph_pkg" ]]; then
                 printf "\n  ${C_WHITE}History for %s:${C_RESET}\n\n" "$ph_pkg"
                 local found=0
-                for hist_file in $(find "$_PKGS_HISTORY_DIR" -name "*.log" 2>/dev/null | sort -r); do
+                while IFS= read -r hist_file; do
+                    [[ -n "$hist_file" ]] || continue
                     while IFS=' ' read -r ts action pkg; do
                         if [[ "$pkg" == "$ph_pkg" ]]; then
                             printf "  ${C_DIM}%s${C_RESET}  %s%s%s\n" "$ts" "$C_MSG_DONE" "$action" "$C_RESET"
                             ((found++))
                         fi
                     done < "$hist_file"
-                done
+                done < <(find "$_PKGS_HISTORY_DIR" -name "*.log" 2>/dev/null | sort -r)
                 if (( found == 0 )); then
                     printf "  ${C_DIM}No history entries found for %s.${C_RESET}\n" "$ph_pkg"
                 fi
@@ -3514,7 +3756,7 @@ PREVIEW_EOF
                 fi
                 local bar=""
                 for (( j=0; j<bar_len; j++ )); do bar="${bar}#"; done
-                printf "  ${C_DIM}%-10s${C_RESET} ${C_GREEN}%-40s${C_RESET} %d\n" "${labels[$((i-1))]}" "$bar" "$count"
+                printf "  ${C_DIM}%-10s${C_RESET} ${C_GREEN}%-40s${C_RESET} %d\n" "${labels[$i]}" "$bar" "$count"
             done
             printf "\n  ${C_MSG_INFO}Press Enter to return.${C_RESET}"
             read -r
@@ -3555,8 +3797,13 @@ PREVIEW_EOF
                 printf "  ${C_GREEN}%s${C_RESET}\n" "$dt_pkg"
                 _pkgs_tree_draw "$dt_pkg" "  " 0
             fi
-            printf "\n  ${C_MSG_INFO}Press Enter to return.${C_RESET}"
-            read -r
+            printf "\n  ${C_MSG_INFO}Press Enter to return, b to go back: ${C_RESET}"
+            read -r _dt_choice
+            if [[ "$_dt_choice" == "b" ]]; then
+                query="$dt_pkg"
+            else
+                query=""
+            fi
             continue
         fi
 
@@ -3661,9 +3908,11 @@ PREVIEW_EOF
             if [[ -n "$vr_pkg" ]]; then
                 printf "\n  ${C_MSG_INFO}Verifying %s...${C_RESET}\n\n" "$vr_pkg"
                 local vr_ok=0 vr_fail=0
+                local vr_verify_out
+                vr_verify_out=$(dpkg --verify "$vr_pkg" 2>/dev/null)
                 while IFS= read -r f; do
                     [[ -z "$f" ]] && continue
-                    if dpkg --verify "$vr_pkg" 2>/dev/null | grep -qFx -- "$f"; then
+                    if echo "$vr_verify_out" | grep -q -- "$f"; then
                         printf "  ${C_RED}✗ %s${C_RESET}\n" "$f"
                         ((vr_fail++))
                     else
@@ -4128,7 +4377,7 @@ PREVIEW_EOF
                         printf "\n  ${C_MSG_WARN}Symlink target must be in \$HOME, \$PREFIX, or \$TMPDIR.${C_RESET}\n"
                     else
                         printf "\n  ${C_MSG_INFO}Installing from: %s${C_RESET}\n\n" "$si_file"
-                        dpkg -i -- "$si_file" 2>&1 | sed 's/^/  /'
+                        dpkg -i -- "$real_si" 2>&1 | sed 's/^/  /'
                         local si_status=${pipestatus[1]}
                         if (( si_status == 0 )); then
                             printf "\n  ${C_MSG_DONE}Installation successful.${C_RESET}\n"
@@ -4306,6 +4555,8 @@ PREVIEW_EOF
                 [[ "$pname" == "save" ]] && pname=""
                 if [[ -z "$pname" ]]; then
                     printf "  ${C_MSG_WARN}Usage: /profile save <name>${C_RESET}\n"
+                elif ! _pkgs_validate_name "$pname"; then
+                    printf "  ${C_MSG_REMOVE}Invalid profile name: %s${C_RESET}\n" "$pname"
                 else
                     dpkg-query -W -f='${Package}\n' 2>/dev/null | sort > "$_PKGS_PROFILES_DIR/${pname}.pkgslist"
                     local pcount; pcount=$(wc -l < "$_PKGS_PROFILES_DIR/${pname}.pkgslist" | tr -d ' ')
@@ -4314,6 +4565,10 @@ PREVIEW_EOF
             elif [[ "$prof_action" == restore* ]]; then
                 local pname="${prof_action#restore }"
                 [[ "$pname" == "restore" ]] && pname=""
+                if [[ -n "$pname" ]] && ! _pkgs_validate_name "$pname"; then
+                    printf "  ${C_MSG_REMOVE}Invalid profile name: %s${C_RESET}\n" "$pname"
+                    pname=""
+                fi
                 if [[ -z "$pname" ]]; then
                     local prof_list
                     prof_list=$(ls -1 "$_PKGS_PROFILES_DIR"/*.pkgslist(N) 2>/dev/null | while read -r f; do echo "${f:t:.pkgslist}"; done)
@@ -4345,6 +4600,8 @@ PREVIEW_EOF
                 [[ "$pname" == "delete" ]] && pname=""
                 if [[ -z "$pname" ]]; then
                     printf "  ${C_MSG_WARN}Usage: /profile delete <name>${C_RESET}\n"
+                elif ! _pkgs_validate_name "$pname"; then
+                    printf "  ${C_MSG_REMOVE}Invalid profile name: %s${C_RESET}\n" "$pname"
                 elif [[ -f "$_PKGS_PROFILES_DIR/${pname}.pkgslist" ]]; then
                     rm -f "$_PKGS_PROFILES_DIR/${pname}.pkgslist"
                     printf "  ${C_MSG_DONE}Profile '%s' deleted.${C_RESET}\n" "$pname"
@@ -4522,7 +4779,9 @@ PREVIEW_EOF
             fi
             # Check outdated
             local outdated_count
-            outdated_count=$(_pkgs_bulk_apt_policy "$(dpkg-query -W -f='${Package}\n' 2>/dev/null)" 2>/dev/null | wc -l | tr -d ' ')
+            local _hp_all_pkgs
+            _hp_all_pkgs=(${(@f)"$(dpkg-query -W -f='${Package}\n' 2>/dev/null)"})
+            outdated_count=$(_pkgs_bulk_apt_policy "${_hp_all_pkgs[@]}" 2>/dev/null | wc -l | tr -d ' ')
             if (( outdated_count > 10 )); then
                 issues+=("$outdated_count outdated packages (-10)")
                 ((health_score -= 10))
@@ -4678,14 +4937,13 @@ PREVIEW_EOF
             printf "\n  ${C_WHITE}Checking for unused packages...${C_RESET}\n\n"
             # Get commands from history
             local -A used_cmds=()
-            local hist_file="${HISTFILE:-$HOME/.zsh_history}"
-            if [[ -f "$hist_file" ]]; then
+            local hist_cmds
+            hist_cmds=$(fc -l1 2>/dev/null | awk '{print $2}' | awk '{print $1}' | sed 's|.*/||' | sort -u)
+            if [[ -n "$hist_cmds" ]]; then
                 while IFS= read -r cmd; do
                     [[ -z "$cmd" ]] && continue
-                    cmd="${cmd%% *}"  # first word only
-                    cmd="${cmd##*/}"  # strip path
                     [[ -n "$cmd" ]] && used_cmds["$cmd"]=1
-                done < <(command -v strings &>/dev/null && strings "$hist_file" 2>/dev/null | awk '{print $1}' | sort -u || cat "$hist_file" 2>/dev/null | tr -c '[:print:]' '\n' | awk '{print $1}' | sort -u)
+                done <<< "$hist_cmds"
             fi
             # Check manually installed packages
             local unused_count=0
@@ -4751,6 +5009,7 @@ PREVIEW_EOF
         if [[ "$query" == /schedule ]]; then
             clear
             printf "\n  ${C_WHITE}Update Reminder Setup${C_RESET}\n\n"
+            printf "  ${C_DIM}Requires cronie to auto-trigger reminders.${C_RESET}\n"
             if ! command -v termux-notification >/dev/null 2>&1; then
                 printf "  ${C_MSG_WARN}termux-api package required for notifications.${C_RESET}\n"
                 printf "  ${C_DIM}Install with: pkg install termux-api${C_RESET}\n"
@@ -5213,7 +5472,7 @@ PREVIEW_EOF
         # ─── /keys ───
         if [[ "$query" == /keys ]]; then
             clear
-            printf "\n  ${C_WHITE}Fzf Keybing Reference${C_RESET}\n\n"
+            printf "\n  ${C_WHITE}Fzf Keybinding Reference${C_RESET}\n\n"
             printf "  ${C_TEAL}General:${C_RESET}\n"
             printf "    ${C_DIM}Enter${C_RESET}       Confirm / select highlighted item\n"
             printf "    ${C_DIM}Esc${C_RESET}         Cancel / close fzf\n"
@@ -5411,6 +5670,13 @@ PREVIEW_EOF
         # ─── /batch-upgrade ───
         if [[ "$query" == /batch-upgrade ]]; then
             clear
+            if ! _pkgs_check_network; then
+                printf "\n  ${C_MSG_INFO}Press Enter to return.${C_RESET}"
+                read -r
+                clear
+                query=""
+                continue
+            fi
             printf "\n  ${C_WHITE}Batch Upgrade Picker${C_RESET}\n\n"
             printf "  ${C_DIM}Fetching upgradable packages...${C_RESET}\n"
             local upg_list
@@ -5426,7 +5692,10 @@ PREVIEW_EOF
             local upg_count
             upg_count=$(echo "$upg_list" | wc -l)
             printf "  ${C_DIM}Found %d upgradable packages. Launching selector...${C_RESET}\n\n" "$upg_count"
-            local fzf_tmp="${TMPDIR:-${PREFIX:-/tmp}}/pkgs_fzf.$$"
+            local fzf_tmp
+            fzf_tmp=$(mktemp "${TMPDIR:-${PREFIX}/tmp}/pkgs_fzf.XXXXXX") 2>/dev/null
+            chmod 600 "$fzf_tmp" 2>/dev/null
+            _PKGS_TMP_FILES+=("$fzf_tmp")
             echo "$upg_list" \
                 | fzf --prompt=" Upgrade> " --multi --height=60% --reverse \
                     --bind="ctrl-a:select-all,ctrl-d:deselect-all" \
@@ -6039,6 +6308,128 @@ PREVIEW_EOF
             continue
         fi
 
+        if [[ "$query" == /config ]]; then
+            _pkgs_config_editor
+            query=""
+            continue
+        fi
+
+        # ─── /queue ───
+        if [[ "$query" == /queue ]]; then
+            clear
+            if (( ${#_PKGS_QUEUE[@]} == 0 )); then
+                printf "\n  ${C_DIM}Queue is empty.${C_RESET}\n"
+                printf "  ${C_DIM}Use /queue-add <pkg> to add packages.${C_RESET}\n"
+            else
+                printf "\n  ${C_WHITE}Package Queue (${C_TEAL}%d${C_WHITE})${C_RESET}\n\n" "${#_PKGS_QUEUE[@]}"
+                local _qi
+                for _qi in "${_PKGS_QUEUE[@]}"; do
+                    local _qstatus="${C_DIM}○${C_RESET}"
+                    dpkg -s -- "$_qi" 2>/dev/null | grep -q '^Status: install ok installed' && _qstatus="${C_GREEN}✓${C_RESET}"
+                    printf "  %s ${C_WHITE}%s${C_RESET}\n" "$_qstatus" "$_qi"
+                done
+                printf "\n  ${C_MSG_INFO}y=process  r=remove all  d=dry-run  Enter=cancel${C_RESET} "
+                local _qaction
+                read -q _qaction; read -r
+                if [[ "$_qaction" == "y" ]]; then
+                    local _qok=0 _qfail=0
+                    local _qp
+                    for _qp in "${_PKGS_QUEUE[@]}"; do
+                        if dpkg -s -- "$_qp" 2>/dev/null | grep -q '^Status: install ok installed'; then
+                            continue
+                        fi
+                        printf "  ${C_MSG_INFO}Installing %s...${C_RESET}" "$_qp"
+                        if "${PKG_MGR}" install -- "$_qp" 2>/dev/null; then
+                            _pkgs_log_history "INSTALL" "$_qp"
+                            printf "\r${C_MSG_DONE}  ✓ %s${C_RESET}\n" "$_qp"
+                            ((_qok++))
+                        else
+                            printf "\r${C_MSG_REMOVE}  ✗ %s failed${C_RESET}\n" "$_qp"
+                            ((_qfail++))
+                        fi
+                    done
+                    _pkgs_invalidate_cache
+                    _PKGS_QUEUE=()
+                    _pkgs_queue_save
+                    printf "\n  ${C_MSG_DONE}Done: %d ok, %d failed${C_RESET}\n" "$_qok" "$_qfail"
+                elif [[ "$_qaction" == "d" ]]; then
+                    printf "\n  ${C_DIM}Dry run:${C_RESET}\n"
+                    local _qp
+                    for _qp in "${_PKGS_QUEUE[@]}"; do
+                        local _installed_status="not installed"
+                        dpkg -s -- "$_qp" 2>/dev/null | grep -q '^Status: install ok installed' && _installed_status="installed"
+                        printf "  ${C_DIM}+ %s (%s)${C_RESET}\n" "$_qp" "$_installed_status"
+                    done
+                elif [[ "$_qaction" == "r" ]]; then
+                    _PKGS_QUEUE=()
+                    _pkgs_queue_save
+                    printf "\n  ${C_MSG_DONE}Queue cleared.${C_RESET}\n"
+                fi
+            fi
+            printf "\n  ${C_MSG_INFO}Press Enter to return.${C_RESET}"
+            read -r
+            clear
+            query=""
+            continue
+        fi
+
+        if [[ "$query" == /queue-add* ]]; then
+            local _qa_pkg="${query#* }"
+            _qa_pkg="$(_pkgs_trim "$_qa_pkg")"
+            if [[ -z "$_qa_pkg" ]]; then
+                printf "${C_MSG_WARN}Usage: /queue-add <pkg>${C_RESET}\n"
+                sleep 1
+                query=""
+                continue
+            fi
+            _pkgs_validate_name "$_qa_pkg" || { sleep 1; query=""; continue; }
+            _PKGS_QUEUE+=("$_qa_pkg")
+            _pkgs_queue_save
+            printf "${C_MSG_DONE}Added %s to queue (${C_WHITE}%d${C_MSG_DONE} total)${C_RESET}\n" "$_qa_pkg" "${#_PKGS_QUEUE[@]}"
+            sleep 1
+            query=""
+            continue
+        fi
+
+        if [[ "$query" == /queue-remove* ]]; then
+            local _qr_pkg="${query#* }"
+            _qr_pkg="$(_pkgs_trim "$_qr_pkg")"
+            if [[ -z "$_qr_pkg" ]]; then
+                printf "${C_MSG_WARN}Usage: /queue-remove <pkg>${C_RESET}\n"
+                sleep 1
+                query=""
+                continue
+            fi
+            local -a _new_queue=()
+            local _found=0
+            for _qitem in "${_PKGS_QUEUE[@]}"; do
+                if [[ "$_qitem" == "$_qr_pkg" && $_found -eq 0 ]]; then
+                    _found=1
+                    continue
+                fi
+                _new_queue+=("$_qitem")
+            done
+            if (( _found )); then
+                _PKGS_QUEUE=("${_new_queue[@]}")
+                _pkgs_queue_save
+                printf "${C_MSG_DONE}Removed %s from queue.${C_RESET}\n" "$_qr_pkg"
+            else
+                printf "${C_MSG_REMOVE}%s not in queue.${C_RESET}\n" "$_qr_pkg"
+            fi
+            sleep 1
+            query=""
+            continue
+        fi
+
+        if [[ "$query" == /queue-clear ]]; then
+            _PKGS_QUEUE=()
+            _pkgs_queue_save
+            printf "${C_MSG_DONE}Queue cleared.${C_RESET}\n"
+            sleep 1
+            query=""
+            continue
+        fi
+
         # ─── /quick ───
         if [[ "$query" == /quick ]]; then
             clear
@@ -6170,8 +6561,8 @@ PREVIEW_EOF
         # ─── /security ───
         if [[ "$query" == /security ]]; then
             clear
-            printf "\n  ${C_WHITE}Security Check:${C_RESET}\n\n"
-            printf "  ${C_DIM}Checking for packages with available security updates...${C_RESET}\n\n"
+            printf "\n  ${C_WHITE}Outdated Packages:${C_RESET}\n\n"
+            printf "  ${C_DIM}Checking for packages with available updates...${C_RESET}\n\n"
             local sec_count=0
             # Bulk: single apt-cache policy call for all installed packages
             local -a all_pkgs=()
@@ -6244,26 +6635,30 @@ PREVIEW_EOF
                 continue
             fi
             printf "${C_MSG_INFO}  [%d/${total}] install %s...${C_RESET}" "$((ok+fail+1))" "$pkg_name"
-            if "${PKG_MGR}" install -- "$pkg_name" 2>/dev/null; then
+            local _inst_err
+            _inst_err=$("${PKG_MGR}" install -- "$pkg_name" 2>&1) && {
                 _pkgs_log_history "INSTALL" "$pkg_name"
                 printf "\r${C_MSG_DONE}  [%d/${total}] ✓ %s${C_RESET}\n" "$((ok+fail+1))" "$pkg_name"
                 ((ok++))
-            else
+            } || {
                 printf "\r${C_MSG_REMOVE}  [%d/${total}] ✗ %s failed${C_RESET}\n" "$((ok+fail+1))" "$pkg_name"
                 ((fail++))
-            fi
+                [[ -n "$_inst_err" ]] && printf "  ${C_DIM}%s${C_RESET}\n" "$(print -r -- "$_inst_err" | tail -2)"
+            }
         done
 
         for pkg_name in "${to_remove[@]}"; do
             printf "${C_MSG_INFO}  [%d/${total}] remove %s...${C_RESET}" "$((ok+fail+1))" "$pkg_name"
-            if "${PKG_MGR}" remove -- "$pkg_name" 2>/dev/null; then
+            local _rem_err
+            _rem_err=$("${PKG_MGR}" remove -- "$pkg_name" 2>&1) && {
                 _pkgs_log_history "REMOVE" "$pkg_name"
                 printf "\r${C_MSG_DONE}  [%d/${total}] ✓ %s${C_RESET}\n" "$((ok+fail+1))" "$pkg_name"
                 ((ok++))
-            else
+            } || {
                 printf "\r${C_MSG_REMOVE}  [%d/${total}] ✗ %s failed${C_RESET}\n" "$((ok+fail+1))" "$pkg_name"
                 ((fail++))
-            fi
+                [[ -n "$_rem_err" ]] && printf "  ${C_DIM}%s${C_RESET}\n" "$(print -r -- "$_rem_err" | tail -2)"
+            }
         done
 
         if (( ${#to_remove[@]} > 0 )); then

@@ -8,6 +8,40 @@
 
 ---
 
+## [1.5.0] - 2026-07-24
+
+### Added
+- `/config` — In-TUI settings editor (theme, filter, sort, compact mode, history retention)
+- `/queue` — View and process persistent package queue
+- `/queue-add <pkg>` — Add packages to install queue
+- `/queue-remove <pkg>` — Remove packages from queue
+- `/queue-clear` — Clear all queued packages
+- Animated spinners during `/upgrade` and `/update` operations
+- Package count display in fzf border label `[installed]`/`[available]`/`[by size]`
+- Back navigation (`b` key) in `/info` and `/deptree` screens
+- Download/install size estimate before batch install confirmation
+- Network connectivity check before `/update` and `/upgrade`
+
+### Changed
+- Total slash commands: 135 → 140
+- Network check uses `packages.termux.dev` (Termux mirror) instead of `archive.ubuntu.com`
+- All temp files now use `$TMPDIR` instead of hardcoded `/tmp`
+- Queue persistence stored at `~/.local/share/pkgs/queue`
+
+### Fixed
+- `/upgrade` and `/update` spinner was broken — missing `&` to background the process
+- `$ret` variable referenced before definition in fzf main loop (mktemp failure path)
+- `_pkgs_check_network` used `ping -W` flag which is not supported in Termux toybox ping
+- Temp files in spinners used hardcoded `/tmp` instead of `$TMPDIR`
+- Queue save now uses atomic temp-file + mv pattern
+- `_pkgs_spinner` unquoted `$pid` — added guard and proper quoting
+- `/history` hardcoded 7-day retention — now uses `_PKGS_HISTORY_KEEP_DAYS`
+- `/compact` not wired to fzf — now toggles `height_arg` in `FZF_ARGS`
+- `/unused` parsed raw HISTFILE — now uses `fc -l1` for Zsh compatibility
+- `/batch-upgrade` missing network check — now calls `_pkgs_check_network`
+- `/keys` help text typo "Keybing" — fixed to "Keybinding"
+- `/schedule` and `/auto-clean` help text now note cronie dependency
+
 ## [1.4.0] - 2026-07-20
 
 ### Added

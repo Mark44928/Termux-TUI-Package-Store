@@ -36,19 +36,23 @@ _is_alive() {
 }
 
 cleanup() {
-  rm -f "${INSTALL_PATH:-}.tmp" 2>/dev/null
-  rm -f "${LOCKFILE:-}" 2>/dev/null
+  rm -rf "${INSTALL_PATH:-}.tmp" 2>/dev/null
+  rm -rf "${LOCKFILE:-}" 2>/dev/null
 }
 trap cleanup EXIT INT TERM HUP QUIT PIPE
 
 # ── Lock ────────────────────────────────────────────────────
 LOCKFILE="${TMPDIR:-/tmp}/pkgs-install.lock"
-if [ -f "$LOCKFILE" ] && _is_alive "$LOCKFILE"; then
-  echo "${RED}  ✖ Another installation is already running.${RESET}"
-  exit 1
-fi
 mkdir -p "$(dirname "$LOCKFILE")" 2>/dev/null || true
-printf '%s\n' "$$" > "$LOCKFILE"
+if ! mkdir "$LOCKFILE" 2>/dev/null; then
+  if _is_alive "$LOCKFILE" 2>/dev/null; then
+    echo "${RED}  ✖ Another installation is already running.${RESET}"
+    exit 1
+  fi
+  rm -rf "$LOCKFILE" 2>/dev/null
+  mkdir "$LOCKFILE" 2>/dev/null || { echo "${RED}  ✖ Could not acquire lock.${RESET}"; exit 1; }
+fi
+printf '%s\n' "$$" > "$LOCKFILE/proc"
 
 # ── Spinner ─────────────────────────────────────────────────
 # run_with_spinner <title> <cmd...>
@@ -256,9 +260,15 @@ if ! head -1 "${INSTALL_PATH}.tmp" | grep -q '^#!/.*zsh'; then
   rm -f "${INSTALL_PATH}.tmp"
   exit 1
 fi
+dl_size=$(wc -c < "${INSTALL_PATH}.tmp" 2>/dev/null || echo 0)
+if (( dl_size < 1000 )); then
+  err "Downloaded file too small (${dl_size} bytes). Possible network issue."
+  rm -f "${INSTALL_PATH}.tmp"
+  exit 1
+fi
 
-mv "${INSTALL_PATH}.tmp" "$INSTALL_PATH"
-chmod +x "$INSTALL_PATH" || {
+chmod +x "${INSTALL_PATH}.tmp" && mv "${INSTALL_PATH}.tmp" "$INSTALL_PATH" || {
+  rm -f "${INSTALL_PATH}.tmp" 2>/dev/null
   err "Failed to set execute permission."
   exit 1
 }

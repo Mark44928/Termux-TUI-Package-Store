@@ -14,7 +14,7 @@
 
 # 📦 Termux TUI Package Store
 
-**v1.4.0** — *Interactive fzf-powered terminal UI for browsing, previewing, installing, and removing Termux packages*
+**v1.5.0** — *Interactive fzf-powered terminal UI for browsing, previewing, installing, and removing Termux packages*
 
 **⚡ One keystroke · Instant preview · Persistent session · 140+ slash commands**
 
@@ -149,6 +149,14 @@ pkgs python                   Open pre-filtered for "python"
 /activity-log 30              Package activity for the last month
 ```
 
+### 🆕 New in v1.5.0
+```
+/config                       Edit settings (theme, filter, sort) in-app
+/queue-add python3            Add packages to a persistent queue
+/queue                        View and process queued packages
+/upgrade                      Animated spinner during long operations
+```
+
 > 📖 **Full reference:** All commands documented in [`COMMANDS.md`](COMMANDS.md) — organized by category with descriptions.
 
 ---
@@ -174,6 +182,14 @@ pkgs                    # Open the store
 /why python              # Manual or auto-installed?
 /rdeps python            # What other installed packages need it?
 /dep-graph python        # See the full dependency tree
+```
+
+### "I want to install a bunch of packages later"
+```
+/queue-add python3       # Add packages one by one
+/queue-add git
+/queue-add vim
+/queue                   # View queue, then y to process all at once
 ```
 
 ---
@@ -303,6 +319,7 @@ Type any `/command` directly in the search box. See the full [command reference]
 | `Ctrl-A` | Select all visible packages |
 | `Ctrl-D` | Deselect all packages |
 | `?` | Toggle the preview pane |
+| `b` | Go back to package list (from `/info` or `/deptree`) |
 | `Esc` or `Ctrl+C` | Exit the store |
 | _Typing_ | Search/filter packages in real time |
 
@@ -334,6 +351,8 @@ Type any `/command` directly in the search box. See the full [command reference]
 > **Note:** `$PREFIX` is Termux's installation prefix, typically `/data/data/com.termux/files/usr`.
 
 The entire script lives in a single file at `$PREFIX/bin/pkgs`. Edit it directly to customize behavior.
+
+You can also use `/config` inside the TUI to edit settings (theme, filter, sort, compact mode, history retention) without touching the file.
 
 ### 📐 Preview Window
 
@@ -518,7 +537,7 @@ Every star, issue, and PR makes this project better. **Thank you!** 🙌
 ---
 
 **Made with ❤️ for the Termux community**  
-v1.4.0 · MIT Licensed · PRs Welcome
+v1.5.0 · MIT Licensed · PRs Welcome
 
 <!--
   Congrats, you read the source! You're clearly a person of culture.
