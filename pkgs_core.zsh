@@ -933,9 +933,9 @@ PREVIEW_EOF
             --query "$query"
             --layout=reverse
             --border="$BORDER_STYLE"
-            --border-label="  Packages${info_label} "
-            --preview-label="  Details "
-            --prompt="  > "
+            --border-label=" 󰆧 Packages${info_label} "
+            --preview-label=" 󰈙 Details "
+            --prompt="Search here... 󰍉 > "
             --pointer="➜"
             --info=inline
             --multi
